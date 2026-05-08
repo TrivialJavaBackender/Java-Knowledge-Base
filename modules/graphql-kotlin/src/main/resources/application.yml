@@ -1,0 +1,17 @@
+graphql:
+  packages:
+    - "exercises"
+  endpoint: "graphql"
+  graphiql:
+    enabled: true
+  subscriptions:
+    endpoint: "subscriptions"
+
+spring:
+  main:
+    web-application-type: reactive
+
+logging:
+  level:
+    root: INFO
+    com.expediagroup.graphql: INFO

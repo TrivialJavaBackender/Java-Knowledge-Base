@@ -1,0 +1,290 @@
+# Flow Advanced — StateFlow, SharedFlow, sharing
+
+> Горячие Flow, которые держат значение или broadcast'ят события на нескольких подписчиков.
+> `StateFlow` ≈ `BehaviorSubject` (RxJava); `SharedFlow` ≈ `Subject` с настраиваемым replay.
+
+---
+
+## 1. Hot vs Cold — повторение
+
+| | Cold Flow (`flow { }`) | Hot Flow (`StateFlow`/`SharedFlow`) |
+|---|---|---|
+| Запуск тела | при каждой `collect` | один раз, независимо |
+| Подписчики | каждый получает свой запуск | один источник, broadcast |
+| Текущее значение | нет | `StateFlow` всегда имеет |
+| Backpressure | через suspend на emit | настраивается (buffer, overflow) |
+| Завершение | tail элемент → конец | **никогда** не завершается сам |
+
+---
+
+## 2. `StateFlow<T>` — текущее состояние
+
+```kotlin
+class CounterViewModel {
+    private val _state = MutableStateFlow(0)
+    val state: StateFlow<Int> = _state.asStateFlow()
+
+    fun inc() { _state.value++ }
+}
+```
+
+Свойства:
+- **Всегда имеет значение** (initial value обязателен).
+- **`distinctUntilChanged` встроен** — если новое значение `equals` старому, не emit'ится.
+- **`replay = 1`** — новый подписчик сразу получает текущее значение.
+- Concurrent-safe для `value` (атомарное чтение/запись).
+
+### Когда использовать
+- Состояние UI (`isLoading`, `currentUser`).
+- Конфигурация, которая меняется во времени.
+- Где модель Subject/BehaviorSubject из Rx.
+
+### Атомарное обновление
+
+```kotlin
+// ❌ Не атомарно
+_state.value = _state.value + 1
+
+// ✅ Атомарно через update
+_state.update { it + 1 }
+```
+
+`update { }` — это loop с CAS на `compareAndSet`. Под высокой конкуренцией — правильный способ.
+
+---
+
+## 3. `SharedFlow<T>` — события
+
+```kotlin
+class EventBus {
+    private val _events = MutableSharedFlow<Event>(
+        replay = 0,
+        extraBufferCapacity = 64,
+        onBufferOverflow = BufferOverflow.SUSPEND,
+    )
+    val events: SharedFlow<Event> = _events.asSharedFlow()
+
+    suspend fun emit(e: Event) = _events.emit(e)
+    fun tryEmit(e: Event): Boolean = _events.tryEmit(e)
+}
+```
+
+Параметры:
+
+| Параметр | Что |
+|----------|-----|
+| `replay` | сколько последних значений отдать новому подписчику |
+| `extraBufferCapacity` | размер буфера сверх replay |
+| `onBufferOverflow` | `SUSPEND` (default), `DROP_OLDEST`, `DROP_LATEST` |
+
+### `replay = 1` vs `StateFlow`
+
+| | `StateFlow` | `MutableSharedFlow(replay=1)` |
+|---|---|---|
+| Initial value | обязательный | нет (буфер пустой до первого emit) |
+| `value` | можно читать | нет |
+| `distinctUntilChanged` | встроен | нет |
+| Подписчик до emit | получит initial | получит nothing |
+
+`StateFlow` — это специализация `SharedFlow` с `replay=1` и встроенным conflate-семантикой.
+
+### `tryEmit` vs `emit`
+
+- `emit` — suspend, ждёт пока место освободится в буфере (если `SUSPEND`).
+- `tryEmit` — non-suspend, возвращает `Boolean`. Используй в callback API, где нет корутины. Если буфер переполнен с `SUSPEND` — вернёт `false`.
+
+---
+
+## 4. `BufferOverflow` стратегии
+
+```kotlin
+MutableSharedFlow<T>(extraBufferCapacity = 4, onBufferOverflow = ...)
+```
+
+| Стратегия | Когда буфер полный |
+|-----------|--------------------|
+| `SUSPEND` | `emit` ждёт; `tryEmit` возвращает false |
+| `DROP_OLDEST` | удаляет старейший в буфере, добавляет новый |
+| `DROP_LATEST` | игнорирует новый |
+
+`DROP_OLDEST` идеален для real-time данных (последнее измерение датчика). `DROP_LATEST` — для idempotent событий (всё равно подхватим следующее).
+
+---
+
+## 5. `shareIn` и `stateIn` — превратить Cold в Hot
+
+Часто хочешь взять холодный Flow (например, от API) и **разделить** между несколькими подписчиками, не запуская исходный Flow несколько раз:
+
+```kotlin
+val ticker: Flow<Int> = flow {
+    var i = 0
+    while (true) { delay(1000); emit(i++) }
+}
+
+val sharedTicker: SharedFlow<Int> = ticker.shareIn(
+    scope = serviceScope,
+    started = SharingStarted.WhileSubscribed(5_000),
+    replay = 0,
+)
+```
+
+```kotlin
+val state: StateFlow<UiState> = repository.dataFlow
+    .map { toUi(it) }
+    .stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5_000),
+        initialValue = UiState.Loading,
+    )
+```
+
+### `SharingStarted` стратегии
+
+| Стратегия | Когда запускать upstream |
+|-----------|--------------------------|
+| `Eagerly` | сразу при `shareIn`/`stateIn`, никогда не останавливать |
+| `Lazily` | при появлении первого подписчика, никогда не останавливать |
+| `WhileSubscribed(stopTimeout, replayExpiration)` | при появлении подписчика; останавливать через `stopTimeout` после ухода последнего |
+
+`WhileSubscribed(5000)` — канонический выбор для UI: 5 сек grace period покрывает rotation/перенос между фрагментами.
+
+---
+
+## 6. `combine` / `zip` для нескольких StateFlow
+
+```kotlin
+val composed: Flow<UiState> = combine(
+    profileFlow,
+    notificationsFlow,
+    networkFlow,
+) { profile, notif, online ->
+    UiState(profile, notif, online)
+}.stateIn(scope, WhileSubscribed(5_000), UiState.empty)
+```
+
+`combine` пересчитывает при изменении любого из источников. `zip` ждёт обоих и идёт парами (редко нужно для StateFlow).
+
+---
+
+## 7. Conflate / debounce / sample / throttle
+
+| Оператор | Поведение |
+|----------|-----------|
+| `conflate()` | если consumer медленный, выдаёт только последнее (старые буферизованные пропускает) |
+| `debounce(t)` | излучает значение, только если за `t` не пришло новое |
+| `sample(t)` | излучает последнее каждые `t` |
+| `throttleFirst` (нет в stdlib, в FlowExt) | первое в окне |
+
+```kotlin
+// Поиск-as-you-type
+queryFlow
+    .debounce(300)
+    .distinctUntilChanged()
+    .flatMapLatest { q -> api.search(q) }
+```
+
+```kotlin
+// Telemetry: последние данные раз в секунду
+sensorFlow.sample(1000).collect { upload(it) }
+```
+
+---
+
+## 8. Жизненный цикл и `WhileSubscribed`
+
+`WhileSubscribed(stopTimeoutMillis, replayExpirationMillis)`:
+
+- **stopTimeoutMillis** — задержка после ухода последнего подписчика, прежде чем остановить upstream. Если за это время появится новый — продолжит без перезапуска.
+- **replayExpirationMillis** — после остановки сколько ждать перед сбросом replay-буфера. `Long.MAX_VALUE` (default) — никогда не сбрасывать.
+
+Канонические комбинации:
+- UI: `WhileSubscribed(5000)` — переживём смену конфигурации.
+- Heavy stream (camera/sensor): `WhileSubscribed(0)` — останавливать сразу.
+- Critical service: `Eagerly`.
+
+---
+
+## 9. Тестирование hot flows
+
+`StateFlow`/`SharedFlow` тестируются через сбор в `TestScope`:
+
+```kotlin
+@Test
+fun `counter increments`() = runTest {
+    val vm = CounterViewModel()
+    val emitted = mutableListOf<Int>()
+    val job = launch { vm.state.toList(emitted) }     // никогда не завершится сам
+
+    vm.inc()
+    vm.inc()
+    runCurrent()
+
+    assertEquals(listOf(0, 1, 2), emitted)
+    job.cancel()
+}
+```
+
+Альтернатива через [`Turbine`](https://github.com/cashapp/turbine) — внешняя библиотека, но идиоматичнее.
+
+---
+
+## 10. Анти-паттерны
+
+### 10.1 `MutableStateFlow.value =` под высоким contention
+
+```kotlin
+// ❌ races possible
+counter.value = counter.value + 1
+
+// ✅
+counter.update { it + 1 }
+```
+
+### 10.2 `replay > 0` для одноразовых событий
+
+```kotlin
+val navEvents = MutableSharedFlow<NavEvent>(replay = 1)  // ❌
+```
+
+При повороте экрана подписчик получит старый event и снова сделает navigate. Используй `replay = 0` или **single-event** паттерны (`Channel<NavEvent>(BUFFERED).receiveAsFlow()`).
+
+### 10.3 `StateFlow` для непрерывного потока без conflate-семантики
+
+`StateFlow` всегда conflated и `distinctUntilChanged`. Если нужны все промежуточные значения — `SharedFlow(replay=N, extraBufferCapacity=N)`.
+
+### 10.4 Не передавать scope в `shareIn`
+
+```kotlin
+flow.shareIn(GlobalScope, ...)   // ❌ утечёт навсегда
+```
+
+Используй scope с осмысленным lifecycle.
+
+---
+
+## Шпаргалка
+
+```kotlin
+// Состояние
+val state: StateFlow<UiState> = repo.dataFlow
+    .map(::toUi)
+    .stateIn(scope, SharingStarted.WhileSubscribed(5_000), UiState.Loading)
+
+// События
+private val _events = MutableSharedFlow<Event>(extraBufferCapacity = 64)
+val events: SharedFlow<Event> = _events.asSharedFlow()
+
+// Атомарное обновление
+_state.update { it.copy(loading = true) }
+
+// Шарить cold flow
+val shared = coldFlow.shareIn(scope, WhileSubscribed(5_000), replay = 0)
+```
+
+---
+
+## Источники
+
+- [kotlinlang.org/docs/flow.html#flow-completion](https://kotlinlang.org/docs/flow.html)
+- [kotlinlang.org/api/kotlinx.coroutines/kotlinx-coroutines-core/kotlinx.coroutines.flow/-state-flow/](https://kotlinlang.org/api/kotlinx.coroutines/kotlinx-coroutines-core/kotlinx.coroutines.flow/-state-flow/)
+- Roman Elizarov, "Shared flows, broadcast channels" — Medium
