@@ -1,0 +1,134 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model Module {
+  id    Int    @id @default(autoincrement())
+  slug  String @unique
+  title String
+  order Int
+
+  theory     TheoryDoc[]
+  exercises  Exercise[]
+  sections   InterviewSection[]
+  qas        InterviewQA[]
+  flashcards Flashcard[]
+}
+
+model TheoryDoc {
+  id          Int      @id @default(autoincrement())
+  moduleId    Int
+  slug        String
+  title       String
+  filePath    String
+  contentHash String
+  body        String
+  order       Int      @default(999)
+  isRead      Boolean  @default(false)
+  readAt      DateTime?
+
+  module Module @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+
+  @@unique([moduleId, slug])
+}
+
+model Exercise {
+  id          Int      @id @default(autoincrement())
+  moduleId    Int
+  slug        String
+  number      Int
+  title       String
+  filePath    String
+  contentHash String
+  body        String
+  language    String   @default("kotlin")
+  isRead      Boolean  @default(false)
+  readAt      DateTime?
+
+  module Module @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+
+  @@unique([moduleId, slug])
+}
+
+model InterviewSection {
+  id       Int    @id @default(autoincrement())
+  moduleId Int
+  number   Int
+  title    String
+  order    Int
+
+  module Module        @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  qas    InterviewQA[]
+
+  @@unique([moduleId, number])
+}
+
+model InterviewQA {
+  id          Int      @id @default(autoincrement())
+  sectionId   Int
+  moduleId    Int
+  qNumber     Int
+  question    String
+  answer      String
+  sourceRef   String?
+  contentHash String
+  isKnown     Boolean  @default(false)
+  knownAt     DateTime?
+
+  section   InterviewSection @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  module    Module           @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  flashcard Flashcard?
+
+  @@unique([moduleId, qNumber])
+}
+
+model Flashcard {
+  id        Int      @id @default(autoincrement())
+  source    String   // 'AUTO' | 'MANUAL'
+  qaId      Int?     @unique
+  front     String
+  back      String
+  tags      String   @default("")
+  moduleId  Int?
+  archived  Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  qa      InterviewQA?  @relation(fields: [qaId], references: [id], onDelete: SetNull)
+  module  Module?       @relation(fields: [moduleId], references: [id], onDelete: SetNull)
+  leitner LeitnerState?
+  reviews ReviewLog[]
+}
+
+model LeitnerState {
+  id              Int       @id @default(autoincrement())
+  flashcardId     Int       @unique
+  box             Int       @default(1)
+  nextDueAt       DateTime
+  lastReviewedAt  DateTime?
+  lapses          Int       @default(0)
+  streak          Int       @default(0)
+
+  flashcard Flashcard @relation(fields: [flashcardId], references: [id], onDelete: Cascade)
+
+  @@index([nextDueAt])
+}
+
+model ReviewLog {
+  id          Int      @id @default(autoincrement())
+  flashcardId Int
+  reviewedAt  DateTime @default(now())
+  prevBox     Int
+  newBox      Int
+  knewIt      Boolean
+
+  flashcard Flashcard @relation(fields: [flashcardId], references: [id], onDelete: Cascade)
+
+  @@index([flashcardId])
+  @@index([reviewedAt])
+}

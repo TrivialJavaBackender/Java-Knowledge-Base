@@ -1,0 +1,119 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* light defaults */
+  --bg: #ffffff;
+  --bg-soft: #f6f8fa;
+  --bg-card: #ffffff;
+  --fg: #1f2328;
+  --fg-muted: #57606a;
+  --fg-subtle: #8c959f;
+  --border: #d0d7de;
+  --accent: #0969da;
+  --accent-soft: #ddf4ff;
+  --ok: #1a7f37;
+  --warn: #9a6700;
+  --code-bg: #0d1117;
+  color-scheme: light;
+}
+
+html.dark {
+  --bg: #0b0d10;
+  --bg-soft: #11151a;
+  --bg-card: #161b22;
+  --fg: #d6dde7;
+  --fg-muted: #9aa3b0;
+  --fg-subtle: #6b7280;
+  --border: #222831;
+  --accent: #7aa7ff;
+  --accent-soft: #3a4a6b;
+  --ok: #56d364;
+  --warn: #e3b341;
+  --code-bg: #0d1117;
+  color-scheme: dark;
+}
+
+html, body {
+  background: var(--bg);
+  color: var(--fg);
+  min-height: 100vh;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+}
+
+/* Prose tokens — switch on .dark */
+.prose {
+  --tw-prose-body: var(--fg);
+  --tw-prose-headings: var(--fg);
+  --tw-prose-links: var(--accent);
+  --tw-prose-bold: var(--fg);
+  --tw-prose-code: var(--fg);
+  --tw-prose-quotes: var(--fg-muted);
+  --tw-prose-th-borders: var(--border);
+  --tw-prose-td-borders: var(--border);
+  --tw-prose-hr: var(--border);
+  max-width: none;
+}
+
+.prose pre {
+  background: var(--code-bg) !important;
+  border: 1px solid var(--border);
+  padding: 0.9rem 1rem;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  line-height: 1.55;
+  overflow-x: auto;
+  color: #c9d1d9;
+}
+
+.prose :not(pre) > code {
+  background: var(--accent-soft);
+  color: var(--accent);
+  padding: 0.1rem 0.35rem;
+  border-radius: 4px;
+  font-size: 0.875em;
+}
+html.dark .prose :not(pre) > code {
+  color: #b8c8e6;
+}
+
+.prose :not(pre) > code::before,
+.prose :not(pre) > code::after {
+  content: '';
+}
+
+.prose table {
+  font-size: 0.9rem;
+}
+.prose th, .prose td {
+  padding: 0.5rem 0.75rem;
+}
+
+.prose blockquote {
+  border-left-color: var(--accent);
+  font-style: normal;
+  color: var(--fg-muted);
+}
+
+/* Shiki tokens */
+.shiki, .shiki span {
+  background: transparent !important;
+}
+
+.progress-bar {
+  height: 6px;
+  background: var(--bg-soft);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  overflow: hidden;
+}
+.progress-bar > span {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, color-mix(in oklab, var(--accent) 60%, transparent), var(--accent));
+  transition: width 200ms ease;
+}
