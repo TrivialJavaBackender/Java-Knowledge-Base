@@ -2,6 +2,8 @@
 
 Проблемы, на которые попадают практически все, кто впервые работает с production кэшем.
 
+> Многие из этих проблем впервые формально описаны в [«Scaling Memcached at Facebook»](https://www.usenix.org/system/files/conference/nsdi13/nsdi13-final170_update.pdf) (NSDI '13): stampede, lease-based mitigation, regional pools. Если хотите глубже — это лучшая отправная точка после данного списка.
+
 ## 1. Cache Stampede / Thundering Herd
 
 **Симптом:** в момент expiry горячего ключа сотни/тысячи параллельных запросов одновременно идут в БД → пик нагрузки, БД может упасть.
@@ -12,6 +14,8 @@ T0:    1000 RPS читают user:42 из кэша (hit)
 T+10s: TTL expire
 T+10s+1ms: 1000 параллельных промахов → 1000 параллельных SELECT'ов в БД
 ```
+
+**Famous incident:** Facebook outage 23.09.2010 — массовая cache invalidation запустила петлю «промах → запрос в БД → kewriter cache → invalidation → промах» с экспоненциальным усилением, положив сайт на 2.5 часа. Постмортем: [More details on today's outage (FB engineering, 2010)](https://engineering.fb.com/2010/09/23/web/more-details-on-todays-outage/). Урок: кэш и БД образуют контур обратной связи; thundering herd может убить даже мега-инфру.
 
 **Защиты:**
 
@@ -43,6 +47,8 @@ else:  спать 100ms, повторить read
 ### D. Probabilistic early expiration (XFetch)
 
 Каждый запрос с вероятностью `e^((now-expiry)/duration × β)` решает refresh-нуть ключ заранее. Чем ближе TTL, тем выше вероятность. Распределяет нагрузку гладко.
+
+Оригинальная статья: Vattani, Chierichetti, Lowenstein, [«Optimal Probabilistic Cache Stampede Prevention»](https://www.vldb.org/pvldb/vol8/p886-vattani.pdf), VLDB '15.
 
 ### E. Stale-while-revalidate
 
@@ -81,6 +87,24 @@ Bloom filter содержит все существующие ключи. Есл
 
 Bloom строится при старте/периодически из БД. Для миллионов ключей — несколько MB.
 
+**Размер vs ошибка** (точные числа из стандартной формулы Bloom):
+
+| Элементов | False positive 1% | False positive 0.1% |
+|-----------|-------------------|---------------------|
+| 1M | 1.2 МБ, 7 hash | 1.8 МБ, 10 hash |
+| 10M | 12 МБ, 7 hash | 18 МБ, 10 hash |
+| 100M | 120 МБ, 7 hash | 180 МБ, 10 hash |
+
+Готовая реализация на JVM — `com.google.common.hash.BloomFilter`:
+```kotlin
+val bloom = BloomFilter.create(Funnels.stringFunnel(StandardCharsets.UTF_8),
+                               1_000_000, 0.01)
+existingIds.forEach { bloom.put(it) }
+// later
+if (!bloom.mightContain(id)) return null   // точно нет
+```
+Документация: [Guava: BloomFilter](https://github.com/google/guava/wiki/HashingExplained#bloomfilter). В Redis есть встроенные [`BF.ADD`/`BF.EXISTS`](https://redis.io/commands/bf.add/) (модуль RedisBloom) для распределённого варианта.
+
 ### C. Rate limiting
 
 API gateway лимитирует requests/s по IP/токену. Не специфично для cache, но снижает урон от любого abuse.
@@ -115,7 +139,18 @@ API gateway лимитирует requests/s по IP/токену. Не спец�
 ### A. TTL jitter
 
 ```kotlin
-val ttl = baseTtl + Random.nextLong(0, baseTtl / 10)  // ±10%
+import java.time.Duration
+import java.util.concurrent.ThreadLocalRandom
+
+fun ttlWithJitter(base: Duration, spreadPercent: Int = 10): Duration {
+    val baseMs = base.toMillis()
+    val jitterMs = ThreadLocalRandom.current().nextLong(-baseMs * spreadPercent / 100,
+                                                          baseMs * spreadPercent / 100 + 1)
+    return Duration.ofMillis(baseMs + jitterMs)
+}
+
+cache.put(key, value, ttlWithJitter(Duration.ofMinutes(10)))
+// → реальный TTL = 9–11 минут случайно
 ```
 
 Equispaced expiry → expiry распределён равномерно по времени. Никогда не задавай **одинаковый** TTL для bulk-операций.
@@ -147,6 +182,8 @@ Equispaced expiry → expiry распределён равномерно по в
 ### C. Detect & alert
 
 Метрики per-key (Redis 6.2+ `MEMORY USAGE`, мониторинг `MONITOR` сэмплированно). На алерт — запустить план A/B.
+
+**Real-world hot-key:** Twitter celebrity tweet (Lady Gaga, Elon Musk) — fan-out по списку followers'ов взрывает write-нагрузку. Manhattan специально шардит «горячие» аккаунты иначе и материализует их timeline-fragments отдельно ([Manhattan blog](https://blog.twitter.com/engineering/en_us/a/2014/manhattan-our-real-time-multi-tenant-distributed-database-for-twitter-scale)). Discord — горячий канал с миллионом онлайнов: presence-state шардят по region, fan-out агрегируют в gateway-сервисах ([Discord engineering](https://discord.com/blog/category/engineering)).
 
 ---
 
@@ -205,6 +242,31 @@ Stale в худшем случае: 60+60+60 = 3 минуты. Каждый ур
 
 **Решение:** включай `recordStats()` (Caffeine), `INFO stats` (Redis), экспортируй в Prometheus. Алерт при hit-ratio < 50%.
 
+**Минимальный Prometheus alert (Caffeine + Micrometer):**
+```yaml
+groups:
+  - name: cache-health
+    rules:
+      - alert: CaffeineLowHitRatio
+        expr: |
+          (
+            sum(rate(cache_gets_total{cache="users",result="hit"}[5m])) by (cache)
+            /
+            sum(rate(cache_gets_total{cache="users"}[5m])) by (cache)
+          ) < 0.5
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Cache {{ $labels.cache }} hit-ratio < 50% за 10 мин"
+          runbook: "Проверь TTL, размер кэша, паттерн запросов"
+
+      - alert: CaffeineHighEvictionRate
+        expr: rate(cache_evictions_total{cache="users"}[5m]) > 100
+        for: 10m
+```
+Best practices от Prometheus: [Prometheus alerting](https://prometheus.io/docs/practices/alerting/).
+
 ---
 
 ## 12. TTL = "до конца дня" / "до полночи"
@@ -232,3 +294,20 @@ Stale в худшем случае: 60+60+60 = 3 минуты. Каждый ур
 - Eviction → [EVICTION_POLICIES.md](EVICTION_POLICIES.md)
 - Consistency → [CONSISTENCY.md](CONSISTENCY.md)
 - HTTP/CDN → [HTTP_CDN_CACHE.md](HTTP_CDN_CACHE.md)
+
+## Источники
+
+**Papers:**
+- Nishtala et al., [«Scaling Memcached at Facebook»](https://www.usenix.org/system/files/conference/nsdi13/nsdi13-final170_update.pdf), NSDI '13 — стандарт описания stampede / lease / regional pools.
+- Vattani et al., [«Optimal Probabilistic Cache Stampede Prevention»](https://www.vldb.org/pvldb/vol8/p886-vattani.pdf), VLDB '15 — XFetch.
+
+**Engineering posts:**
+- [Facebook 2010 outage postmortem](https://engineering.fb.com/2010/09/23/web/more-details-on-todays-outage/) — каноничный пример cache-induced outage.
+- [Antirez: Avoiding cache stampedes via probabilistic early expiration](http://antirez.com/news/121)
+- [GitHub: Asynchronous deletion of large keys (`UNLINK`)](https://github.blog/engineering/) — про big keys в production.
+- [Cloudflare: tales of caching gone wrong](https://blog.cloudflare.com/cache-control-best-practices/)
+
+**Docs:**
+- [Guava: BloomFilter](https://github.com/google/guava/wiki/HashingExplained#bloomfilter)
+- [RedisBloom module](https://redis.io/docs/data-types/probabilistic/bloom-filter/)
+- [Prometheus alerting best practices](https://prometheus.io/docs/practices/alerting/)

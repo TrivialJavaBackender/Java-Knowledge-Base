@@ -44,6 +44,27 @@ T2: cache.put(k, v_old)               // T2 кладёт стейл!
 ```
 **Решение:** **Delayed Double-Delete** — повторная инвалидация через 1–2 секунды (после возможной задержки T2).
 
+```mermaid
+sequenceDiagram
+    autonumber
+    participant T1 as T1 (writer)
+    participant T2 as T2 (reader)
+    participant DB as DB
+    participant C as Cache
+    T2->>C: GET k → MISS
+    T2->>DB: SELECT k → v_old
+    Note right of T2: T2 загрузил старое<br/>но ещё не положил в кэш
+    T1->>DB: UPDATE k → v_new
+    T1->>C: DEL k (кэш и так пуст)
+    T2->>C: PUT k=v_old
+    Note over T1,C: ⚠️ В кэше застрял v_old<br/>пока не истечёт TTL
+    Note over T1: Через 1-2 сек T1 делает повторный DEL
+    T1->>C: DEL k (delayed double-delete)
+    Note over T1,C: Стейл вычищен;<br/>следующий read загрузит v_new
+```
+
+`Delayed Double-Delete` реализуется через `ScheduledExecutor` или Kafka delayed message. Альтернатива — versioned keys (см. ниже), которые исключают эту race condition by design.
+
 ### 4. Invalidate Cache → write DB
 ```
 T1: cache.invalidate(k)
@@ -81,6 +102,25 @@ Debezium / Maxwell / native binlog reader → читает WAL/binlog БД → �
 
 **Плюсы:** **никакого кода в `db.update()`** — кэш инвалидируется автоматически на любую запись (даже из других сервисов, миграций, ad-hoc UPDATE).
 **Минусы:** инфра (Kafka Connect, etc.); replication lag (≤ секунды).
+
+**Минимальный Debezium pipeline:** Postgres → Kafka Connect (Debezium) → Kafka topic `users.public.users` → consumer-сервис → `cache.invalidate(...)`. Конфиг коннектора:
+
+```json
+{
+  "name": "users-connector",
+  "config": {
+    "connector.class": "io.debezium.connector.postgresql.PostgresConnector",
+    "database.hostname": "pg-master",
+    "database.dbname": "app",
+    "database.server.name": "users",
+    "table.include.list": "public.users",
+    "plugin.name": "pgoutput",
+    "publication.autocreate.mode": "filtered"
+  }
+}
+```
+
+Каждый UPDATE/INSERT/DELETE в `public.users` ⇒ событие в Kafka ⇒ ваш consumer вызывает `cache.invalidate("user:" + event.id)`. Сервисы, выполняющие `UPDATE`, не знают про кэш — это огромный плюс. Tutorial: [Debezium tutorial: Postgres](https://debezium.io/documentation/reference/stable/tutorial.html).
 
 ### Versioned keys
 Вместо удаления — увеличить версию.
@@ -154,9 +194,32 @@ fun update(user: User) {
 
 Часто это лучшее решение для read-heavy сервисов с миллионами RPS.
 
+## Real-world кейсы
+
+- **Stripe — idempotency keys.** Каждый POST к API сохраняется по уникальному ключу клиента; Redis-кэш записывает `idempotency_key → response`. Это фактически write-through кэш на критичный endpoint. Консистентность гарантируется не invalidation, а атомарной записью + TTL ([Stripe blog: Designing robust and predictable APIs with idempotency](https://stripe.com/blog/idempotency)).
+- **GitHub repository cache.** Каждое изменение конфига репозитория (collaborators, branches) триггерит fan-out invalidation в десятки edge-кэшей через Sidekiq job ([Inside GitHub: Live updates with Hydro](https://github.blog/engineering/architecture-optimization/eight-million-events-per-second-with-msgpack/) — про event ingestion).
+- **Linkedin — Espresso + Databus.** Внутренний CDC-pipeline (предшественник Debezium идеи) — реплицирует mutation log в Kafka, который потом инвалидирует кэши, обновляет search index, etc. ([LinkedIn engineering: Databus](https://engineering.linkedin.com/data-replication/open-sourcing-databus-linkedins-low-latency-change-data-capture-system)).
+- **Shopify** использует флаг-based invalidation для каталогов: «версия каталога» хранится в Redis, все ключи генерируются с этим суффиксом. На обновление каталога просто INCR версии — старые ключи мгновенно перестают находиться (eventually evict-нутся).
+
 ## См. также
 
 - Cache patterns → [CACHE_PATTERNS.md](CACHE_PATTERNS.md)
 - Anti-patterns (stampede, breakdown) → [ANTI_PATTERNS.md](ANTI_PATTERNS.md)
 - CAP и распределённые системы → [`system-design/theory/distributed_systems.md`](../../system-design/theory/distributed_systems.md)
 - Outbox / Saga → [`system-design/theory/microservice_patterns.md`](../../system-design/theory/microservice_patterns.md)
+
+## Источники
+
+**Official docs:**
+- [Debezium tutorial](https://debezium.io/documentation/reference/stable/tutorial.html)
+- [Confluent: Change data capture (CDC) explained](https://www.confluent.io/learn/change-data-capture/)
+
+**Engineering blogs:**
+- [Stripe: Designing robust and predictable APIs with idempotency](https://stripe.com/blog/idempotency)
+- [LinkedIn Databus: open-sourcing low-latency CDC](https://engineering.linkedin.com/data-replication/open-sourcing-databus-linkedins-low-latency-change-data-capture-system)
+- [GitHub: 8 million events per second with Msgpack](https://github.blog/engineering/architecture-optimization/eight-million-events-per-second-with-msgpack/)
+- [Murat Demirbas blog (cache invalidation papers)](https://muratbuffalo.blogspot.com/)
+
+**Books:**
+- *Designing Data-Intensive Applications* (Kleppmann), Ch. 5 (Replication, including read-your-writes consistency) и Ch. 11 (Stream Processing, CDC).
+- *Database Internals* (Alex Petrov), Ch. 13 — replication and consistency models.

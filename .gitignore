@@ -37,3 +37,11 @@ build/
 
 ### Mac OS ###
 .DS_Store
+
+### Web app ###
+web/node_modules/
+web/.next/
+web/out/
+web/prisma/dev.db
+web/prisma/dev.db-journal
+web/next-env.d.ts

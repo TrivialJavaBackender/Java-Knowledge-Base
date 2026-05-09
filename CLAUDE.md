@@ -240,6 +240,68 @@ mvn exec:java -Dexec.mainClass="exercises.Ex01_CacheAsideBasicKt"
 
 ---
 
+## Формат INTERVIEW_QUESTIONS.md
+
+Web app парсит Q&A из `modules/<slug>/INTERVIEW_QUESTIONS.md`. Поддерживаются три формата (выбирается через `qaFormat` в `web/content.config.ts`):
+
+**`qa-bold`** (concurrency, kotlin-coroutines, graphql-kotlin, system-design, infrastructure):
+```markdown
+## 1. Название секции          ← или просто "## Название (Q1–Q6)" — номер опционален
+
+### Q1: Текст вопроса?
+**A:** Текст ответа. Может быть многострочным.
+> JCP §15.3                     ← опциональная ссылка-источник
+```
+
+**`q-asterisk`** (spring-frameworks):
+```markdown
+## Название секции
+
+**Q1. Текст вопроса?**
+
+Ответ-проза, может быть многоабзацный.
+```
+
+**`heading-as-q`** (caching-deep-dive):
+```markdown
+## 1. Текст вопроса?
+Ответ — всё что между этим заголовком и следующим `## N.` (или `---`).
+```
+
+**Правила:**
+- `### Q1`, `### Q2` — номера должны быть уникальны в пределах модуля (это natural key для сохранения Leitner-стейта).
+- Не перенумеровывай Q при правках — иначе web сгенерирует новые карточки и потеряет интервалы для старых.
+- Источник `> ...` забирается только в `qa-bold`. Один на ответ, последняя строка.
+
+## Формат теории и упражнений
+
+- Theory: `modules/<slug>/theory/<NAME>.md`. Первый `# Заголовок` идёт в title, остальной body — в body.
+- Внутри теории можно ссылаться на другие .md или упражнения: `[…](OTHER.md)`, `[…](src/main/kotlin/exercises/Ex01_X.kt)`. Web переписывает их в site-маршруты автоматически.
+- Порядок теории на сайте берётся из `ROADMAP.md` модуля по первому упоминанию `theory/<NAME>.md`. Файлы не упомянутые в roadmap идут в конец по алфавиту.
+- Exercises: `modules/<slug>/src/main/{kotlin,java}/exercises/Ex<NN>_<Name>.{kt,java}`. Регулярка строгая — отступы от шаблона ломают парсер.
+
+## Web app (`web/`)
+
+Single-user Next.js приложение для прогресс-трекинга, чтения теории и Anki-style повторения карточек. Локально на `localhost:3000`.
+
+```bash
+cd web
+pnpm dev                                     # запуск
+node_modules/.bin/tsx scripts/sync.ts        # пере-импорт после правки modules/
+```
+
+**Когда нужно делать sync:**
+- После добавления/правки/удаления .md в `modules/<slug>/theory/`.
+- После правки `INTERVIEW_QUESTIONS.md` (новые Q → новые карточки автоматически).
+- После добавления упражнений `Ex<NN>_*.kt`.
+- Idempotent — без изменений делает 0 записей. Прогресс/Leitner сохраняется через стабильные natural keys.
+
+**Авто-карточки:** генерируются 1:1 из Q&A в `INTERVIEW_QUESTIONS.md`. При правке текста Q обновляется фронт/бэк карточки, бокс/streak сохраняются. При удалении Q карточка архивируется (не удаляется).
+
+**Manual-карточки:** создаются через `/flashcards/new`. Не зависят от modules/, редактируются прямо в UI.
+
+---
+
 ## Создать новый модуль
 
 Используй команду `/new-module` (slash command).

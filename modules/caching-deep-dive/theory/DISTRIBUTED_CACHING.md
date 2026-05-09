@@ -2,6 +2,8 @@
 
 Когда in-process кэша мало (или нужно делиться между инстансами), кэш выносится в отдельный сервис.
 
+> Большой production-кейс: **Memcached at Facebook**. К 2013 году у FB было >800 серверов Memcached на сотнях ТБ кэша, обслуживающих миллиарды запросов в секунду. Их статья [«Scaling Memcached at Facebook»](https://www.usenix.org/system/files/conference/nsdi13/nsdi13-final170_update.pdf) (NSDI '13) — учебник по distributed caching: lease-based stale prevention, regional pools, gutter (mini-pool на случай smоки master), thundering herd mitigation. Если тема серьёзно интересна — это must-read.
+
 ## Топологии
 
 ### 1. Centralized (Redis / Memcached)
@@ -53,6 +55,18 @@ Read: L1 → L2 → DB. Write: invalidate L1 + write L2.
 
 ---
 
+## Когда какую топологию выбрать
+
+| Сценарий | Топология | Почему |
+|----------|-----------|--------|
+| Read-heavy, dataset > RAM узла, нужен shared state между N инстансами | **Centralized (Redis Cluster)** | Один источник истины, шардинг встроенный |
+| Read-very-heavy (>10× write), малый dataset (<RAM), latency критична | **Near-cache (Caffeine L1 + Redis L2)** | 90% запросов — локальные ns; 10% — LAN |
+| Малый shared dataset (конфигурация, feature flags) | **Replicated (Hazelcast/Ignite)** | Чтения локальные, записи редкие |
+| Микросервис без зависимостей от соседей, эфемерные данные | **Sidecar (per-pod Redis)** | Изоляция; нет cross-pod state |
+| Шардирование данных приложением (Memcached в стиле FB) | **Centralized + client-side consistent hashing** | Простой Memcached/Redis-узлы без cluster mode |
+
+---
+
 ## Sharding
 
 ### Server-side sharding (Redis Cluster)
@@ -79,11 +93,19 @@ Read: L1 → L2 → DB. Write: invalidate L1 + write L2.
 
 См. Ex10 для реализации.
 
+Оригинальная статья: Karger, Lehman, Leighton, Levine, Lewin & Panigrahy, [«Consistent Hashing and Random Trees»](https://www.cs.princeton.edu/courses/archive/fall09/cos518/papers/chash.pdf), STOC '97.
+
 ### Rendezvous hashing (HRW)
 
 Альтернатива consistent hashing. Для каждого ключа считается `score = hash(key, node)` для всех узлов; выигрывает максимальный. Преимущество: нет vnode-сложности, и при удалении узла перераспределение идеально равномерное.
 
-Используется в CDN edge selection, некоторых gossip-протоколах.
+Используется в CDN edge selection, некоторых gossip-протоколах. См. [Wikipedia: Rendezvous hashing](https://en.wikipedia.org/wiki/Rendezvous_hashing).
+
+### Jump Consistent Hash (Google, 2014)
+
+Минималистичная альтернатива на ~10 строк кода: возвращает `bucket(key, num_buckets)` без хранения ring'а в памяти. При увеличении числа узлов ровно `1/N` ключей переезжают на новый узел. Подходит, когда узлы нумеруются 0..N-1 и не удаляются произвольно.
+
+Статья: Lamping & Veach, [«A Fast, Minimal Memory, Consistent Hash Algorithm»](https://arxiv.org/abs/1406.2294), 2014.
 
 ---
 
@@ -99,6 +121,27 @@ L1 у инстансов разный; при `db.update()` нужно инва�
 5. **Hazelcast/Apache Ignite встроенно** — у них есть near-cache с автоматической invalidation через cluster bus.
 
 Для Redis-based стэка (наиболее частый) — обычно **pub/sub + TTL fallback**.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant App1 as App-1 (L1: Caffeine)
+    participant DB as DB (master)
+    participant Redis as Redis (L2 + pub/sub)
+    participant App2 as App-2 (L1: Caffeine)
+    participant App3 as App-3 (L1: Caffeine)
+    Note over App1,App3: Все три приложения держат локальный L1
+    App1->>DB: UPDATE user 42
+    App1->>Redis: DEL user:42
+    App1->>Redis: PUBLISH invalidate user:42
+    Redis-->>App1: ack (получит и сам)
+    Redis-->>App2: invalidate user:42
+    Redis-->>App3: invalidate user:42
+    App1->>App1: L1.invalidate("user:42")
+    App2->>App2: L1.invalidate("user:42")
+    App3->>App3: L1.invalidate("user:42")
+    Note over App1,App3: Окно для стейла = время доставки pub/sub<br/>(LAN ≈ единицы мс).<br/>TTL на L1 — fallback, если событие потерялось.
+```
 
 ---
 
@@ -146,6 +189,15 @@ Memcached проще, быстрее на чистом get/set с большим
 
 ---
 
+## Real-world кейсы
+
+- **Memcached at Facebook (NSDI '13)** — [paper](https://www.usenix.org/system/files/conference/nsdi13/nsdi13-final170_update.pdf). Lease-based stale prevention (выдают lease при miss, чтобы только один client грузил из БД), regional pools, gutter-pool на случай отказа основного узла. Канон distributed caching.
+- **Netflix EVCache** ([blog](https://netflixtechblog.com/caching-for-a-global-netflix-7bcc6b9a1db8)) — multi-region Memcached с custom client'ом (`spymemcached`). Каждая копия данных в N AZ для зональной доступности; reads — в локальную AZ, writes — fan-out во все.
+- **Discord session fan-out** — переписали Python+Redis на Rust+CRDB, но pattern «локальный shard + global broadcast» остался ([blog: How Discord scaled Elixir to 5M sessions](https://discord.com/blog/how-discord-scaled-elixir-to-5-000-000-concurrent-users)).
+- **Twitter timelines** — [Manhattan blog](https://blog.twitter.com/engineering/en_us/a/2014/manhattan-our-real-time-multi-tenant-distributed-database-for-twitter-scale): timeline cache fan-out для celebrity tweet'ов с миллионами follower'ов — частный случай hot-key проблемы (см. [ANTI_PATTERNS.md](ANTI_PATTERNS.md) §5).
+
+---
+
 ## Подводные камни
 
 1. **Кэш стал primary store.** Если БД отключаешь и оставляешь Redis — запиши, что персистенс работает (AOF), и backup'ы есть. Иначе сюрприз при restart.
@@ -158,3 +210,24 @@ Memcached проще, быстрее на чистом get/set с большим
 - Реализации: [REDIS.md](REDIS.md), [CAFFEINE.md](CAFFEINE.md)
 - Консистентность → [CONSISTENCY.md](CONSISTENCY.md)
 - Distributed systems / CAP → [`system-design/theory/distributed_systems.md`](../../system-design/theory/distributed_systems.md)
+
+## Источники
+
+**Papers:**
+- Karger et al., [«Consistent Hashing and Random Trees»](https://www.cs.princeton.edu/courses/archive/fall09/cos518/papers/chash.pdf), STOC '97 — оригинальный consistent hashing.
+- Lamping & Veach, [«A Fast, Minimal Memory, Consistent Hash Algorithm»](https://arxiv.org/abs/1406.2294), 2014 — Jump Hash от Google.
+- Nishtala et al., [«Scaling Memcached at Facebook»](https://www.usenix.org/system/files/conference/nsdi13/nsdi13-final170_update.pdf), NSDI '13.
+
+**Engineering blogs:**
+- [Netflix EVCache: caching for a global Netflix](https://netflixtechblog.com/caching-for-a-global-netflix-7bcc457012f1)
+- [Discord: how we scaled Elixir to 5M concurrent users](https://discord.com/blog/how-discord-scaled-elixir-to-5-000-000-concurrent-users)
+- [Twitter Manhattan blog](https://blog.twitter.com/engineering/en_us/a/2014/manhattan-our-real-time-multi-tenant-distributed-database-for-twitter-scale)
+
+**Docs:**
+- [Hazelcast IMDG documentation](https://docs.hazelcast.com/imdg/latest/)
+- [Apache Ignite documentation](https://ignite.apache.org/docs/latest/)
+- [Redis Cluster Specification](https://redis.io/docs/reference/cluster-spec/)
+
+**Wikipedia:**
+- [Rendezvous hashing (HRW)](https://en.wikipedia.org/wiki/Rendezvous_hashing)
+- [Consistent hashing](https://en.wikipedia.org/wiki/Consistent_hashing)
