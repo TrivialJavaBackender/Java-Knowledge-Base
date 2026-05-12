@@ -1,0 +1,7 @@
+[build]
+  base    = "web"
+  command = "pnpm install --frozen-lockfile && pnpm build"
+  publish = ".next"
+
+[build.environment]
+  NODE_VERSION = "20"

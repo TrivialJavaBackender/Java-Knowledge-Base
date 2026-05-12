@@ -51,7 +51,6 @@ export default async function ModulePage({ params }: { params: Promise<{ slug: s
                 <ToggleTheoryRead id={t.id} initial={t.isRead} />
                 <Link href={`/modules/${slug}/theory/${t.slug}`} className="flex-1 hover:text-accent">
                   <div className="font-medium">{t.title}</div>
-                  <div className="text-xs text-fg-subtle">{t.slug}.md</div>
                 </Link>
               </div>
             ))}
@@ -67,7 +66,6 @@ export default async function ModulePage({ params }: { params: Promise<{ slug: s
                 <ToggleExerciseRead id={e.id} initial={e.isRead} />
                 <Link href={`/modules/${slug}/exercises/${e.slug}`} className="flex-1 hover:text-accent">
                   <div className="font-medium">{e.title}</div>
-                  <div className="text-xs text-fg-subtle font-mono">{e.slug}.{e.language === 'kotlin' ? 'kt' : 'java'}</div>
                 </Link>
               </div>
             ))}

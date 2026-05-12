@@ -52,7 +52,7 @@ export default async function ManagePage({ searchParams }: { searchParams: Promi
 
   return (
     <div className="space-y-6">
-      <header className="flex items-end justify-between">
+      <header className="flex flex-wrap items-start justify-between gap-2">
         <div>
           <Link href="/flashcards" className="text-sm text-fg-muted hover:text-accent">← Review</Link>
           <h1 className="text-2xl font-semibold text-fg">Карточки</h1>
@@ -97,8 +97,8 @@ export default async function ManagePage({ searchParams }: { searchParams: Promi
         </button>
       </form>
 
-      <div className="overflow-hidden rounded-lg border border-border">
-        <table className="w-full text-sm">
+      <div className="overflow-x-auto rounded-lg border border-border">
+        <table className="w-full min-w-[640px] text-sm">
           <thead className="bg-bg-soft text-xs uppercase tracking-wide text-fg-subtle">
             <tr>
               <th className="px-3 py-2 text-left">Front</th>

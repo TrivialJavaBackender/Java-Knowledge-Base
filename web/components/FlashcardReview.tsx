@@ -86,7 +86,7 @@ export function FlashcardReview({ initialQueue }: { initialQueue: ReviewableCard
         </span>
       </div>
 
-      <div className="rounded-lg border border-border bg-bg-card p-6 min-h-[260px]">
+      <div className="rounded-lg border border-border bg-bg-card p-4 sm:p-6 min-h-[260px]">
         {(current.moduleTitle || current.sectionTitle) && (
           <div className="mb-4 text-xs uppercase tracking-wide text-fg-subtle">
             {current.moduleTitle}{current.sectionTitle ? ` · ${current.sectionTitle}` : ''}
@@ -121,7 +121,7 @@ export function FlashcardReview({ initialQueue }: { initialQueue: ReviewableCard
             onClick={() => setRevealed(true)}
             className="flex-1 rounded-md border border-accent/60 bg-accent/10 px-4 py-2.5 text-accent hover:bg-accent/20"
           >
-            Показать ответ <span className="ml-2 text-xs text-fg-subtle">[Space]</span>
+            Показать ответ <span className="ml-2 hidden sm:inline text-xs text-fg-subtle">[Space]</span>
           </button>
         ) : (
           <>
@@ -131,7 +131,7 @@ export function FlashcardReview({ initialQueue }: { initialQueue: ReviewableCard
               disabled={pending}
               className="flex-1 rounded-md border border-warn/40 bg-warn/10 px-4 py-2.5 text-warn hover:bg-warn/20 disabled:opacity-50"
             >
-              Повторить <span className="ml-2 text-xs text-fg-subtle">[1]</span>
+              Повторить <span className="ml-2 hidden sm:inline text-xs text-fg-subtle">[1]</span>
             </button>
             <button
               type="button"
@@ -139,15 +139,14 @@ export function FlashcardReview({ initialQueue }: { initialQueue: ReviewableCard
               disabled={pending}
               className="flex-1 rounded-md border border-ok/40 bg-ok/10 px-4 py-2.5 text-ok hover:bg-ok/20 disabled:opacity-50"
             >
-              Знал <span className="ml-2 text-xs text-fg-subtle">[2]</span>
+              Знал <span className="ml-2 hidden sm:inline text-xs text-fg-subtle">[2]</span>
             </button>
           </>
         )}
       </div>
 
       <div className="text-xs text-fg-subtle text-center">
-        Сделано: <b className="text-ok">{history.knew}</b> знал /{' '}
-        <b className="text-warn">{history.again}</b> повторить
+        Сделано: <b className="text-ok">{history.knew}</b> знал / <b className="text-warn">{history.again}</b> повторить
       </div>
     </div>
   );

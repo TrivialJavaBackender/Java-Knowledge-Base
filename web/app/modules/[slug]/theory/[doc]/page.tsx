@@ -44,7 +44,6 @@ export default async function TheoryPage({
           </div>
         </div>
         <h1 className="text-2xl font-semibold text-fg">{theory.title}</h1>
-        <div className="text-xs text-fg-subtle font-mono">{theory.filePath}</div>
       </header>
 
       <MarkdownView source={theory.body} moduleSlug={slug} />

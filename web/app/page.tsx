@@ -82,7 +82,7 @@ export default async function DashboardPage() {
           <h1 className="text-2xl font-semibold text-fg">Прогресс</h1>
           <Link
             href="/flashcards"
-            className="rounded-md border border-border bg-bg-card px-3 py-1.5 text-sm text-fg hover:text-fg hover:border-accent/50"
+            className="rounded-md border border-border bg-bg-card px-3 py-2 text-sm text-fg hover:text-fg hover:border-accent/50 sm:py-1.5"
           >
             На повторение: <b className="tabular-nums">{due}</b>
           </Link>

@@ -56,15 +56,15 @@ export default async function FlashcardsPage() {
         </div>
         <Link
           href="/flashcards/manage"
-          className="rounded-md border border-border bg-bg-card px-3 py-1.5 text-sm text-fg hover:text-fg hover:border-accent/50"
+          className="rounded-md border border-border bg-bg-card px-2 py-1.5 text-sm text-fg hover:text-fg hover:border-accent/50 sm:px-3"
         >
           Manage / new
         </Link>
       </header>
 
-      <section className="grid grid-cols-5 gap-2">
+      <section className="grid grid-cols-5 gap-1 sm:gap-2">
         {[1, 2, 3, 4, 5].map((b) => (
-          <div key={b} className="rounded border border-border bg-bg-card p-3 text-center">
+          <div key={b} className="rounded border border-border bg-bg-card p-2 sm:p-3 text-center">
             <div className="text-[10px] uppercase tracking-wide text-fg-subtle">Box {b}</div>
             <div className="mt-1 font-mono text-lg tabular-nums">{counts[b]}</div>
           </div>
@@ -73,7 +73,7 @@ export default async function FlashcardsPage() {
 
       <FlashcardReview initialQueue={queue} />
 
-      <div className="text-xs text-fg-subtle text-center">
+      <div className="hidden sm:block text-xs text-fg-subtle text-center">
         Total: {total} cards. Hotkeys: <kbd className="rounded bg-bg-card px-1.5 py-0.5">Space</kbd> reveal, <kbd className="rounded bg-bg-card px-1.5 py-0.5">1</kbd> repeat, <kbd className="rounded bg-bg-card px-1.5 py-0.5">2</kbd> knew.
       </div>
     </div>

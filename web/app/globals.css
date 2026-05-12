@@ -87,7 +87,10 @@ html.dark .prose :not(pre) > code {
 }
 
 .prose table {
-  font-size: 0.9rem;
+  font-size: 0.85rem;
+  display: block;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
 }
 .prose th, .prose td {
   padding: 0.5rem 0.75rem;

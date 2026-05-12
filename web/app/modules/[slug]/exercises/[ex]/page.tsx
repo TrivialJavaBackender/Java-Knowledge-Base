@@ -42,7 +42,6 @@ export default async function ExercisePage({
           </div>
         </div>
         <h1 className="text-2xl font-semibold text-fg">{exercise.title}</h1>
-        <div className="text-xs text-fg-subtle font-mono">{exercise.filePath}</div>
       </header>
 
       <CodeBlock code={exercise.body} lang={exercise.language} />
