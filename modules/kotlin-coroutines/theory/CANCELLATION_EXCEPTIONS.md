@@ -310,6 +310,15 @@ try { ... } catch (e: Exception) {
 
 ## Источники
 
-- [kotlinlang.org/docs/cancellation-and-timeouts.html](https://kotlinlang.org/docs/cancellation-and-timeouts.html)
-- [kotlinlang.org/docs/exception-handling.html](https://kotlinlang.org/docs/exception-handling.html)
-- Roman Elizarov, "The reason to avoid GlobalScope"
+**Официальная документация:**
+- [Cancellation and Timeouts](https://kotlinlang.org/docs/cancellation-and-timeouts.html) — кооперативная отмена, `withTimeout`, `NonCancellable`.
+- [Exception Handling and Supervision](https://kotlinlang.org/docs/exception-handling.html) — `CoroutineExceptionHandler`, propagation, supervisor scope.
+
+**Posts (must-read):**
+- [Roman Elizarov — «The reason to avoid GlobalScope»](https://elizarov.medium.com/the-reason-to-avoid-globalscope-835337445abc) — почему отмена связана с lifecycle scope, и как `GlobalScope` это ломает.
+- [Manuel Vivo — «Cancellation in coroutines» (Android Devs)](https://medium.com/androiddevelopers/cancellation-in-coroutines-aa6b90163629) — пошаговый разбор cooperative cancellation с примерами.
+- [Manuel Vivo — «Exceptions in coroutines»](https://medium.com/androiddevelopers/exceptions-in-coroutines-ce8da1ec060c) — propagation, parent-child, `try/catch` гочи.
+- [Joffrey Bion — «Cancellation in Kotlin coroutines»](https://jbion.dev/blog/2021/04/02/cancellation-in-kotlin-coroutines/) — глубокий разбор `ensureActive` vs `yield`.
+
+**Книги:**
+- [*Kotlin Coroutines: Deep Dive* (Moskała)](https://kt.academy/book/coroutines) — главы 7–9 (cancellation, exception handling).

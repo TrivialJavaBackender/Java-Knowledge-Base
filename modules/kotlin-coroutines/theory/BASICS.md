@@ -283,6 +283,18 @@ suspend fun foo() { delay(100) }
 
 ## Источники
 
-- [kotlinlang.org/docs/coroutines-basics.html](https://kotlinlang.org/docs/coroutines-basics.html)
-- Roman Elizarov, "Structured Concurrency" — KotlinConf 2019
-- KEEP-176 (Structured concurrency proposal)
+**Официальная документация:**
+- [Kotlin Coroutines Basics](https://kotlinlang.org/docs/coroutines-basics.html) — `runBlocking`, `launch`, `delay`, structured concurrency intro.
+- [Coroutines Guide (full)](https://kotlinlang.org/docs/coroutines-guide.html) — полное руководство, обновляется с релизами.
+- [`kotlinx.coroutines` API reference](https://kotlinlang.org/api/kotlinx.coroutines/) — Javadoc-стиль.
+
+**Спецификация / KEEP:**
+- [KEEP-176: Coroutines proposal](https://github.com/Kotlin/KEEP/blob/master/proposals/coroutines.md) — каноническая спецификация языка, формальный контракт `suspend`.
+
+**Книги:**
+- [*Kotlin Coroutines: Deep Dive* (Marcin Moskała, KT Academy)](https://kt.academy/book/coroutines) — самая полная книга по теме, обновляется до текущей версии.
+
+**Talks / posts:**
+- [Roman Elizarov — «Structured Concurrency» (KotlinConf 2019)](https://www.youtube.com/watch?v=Mj5P47F6nJg)
+- [Roman Elizarov — «Deep Dive into Coroutines on JVM» (KotlinConf 2017)](https://www.youtube.com/watch?v=YrrUCSi72E8) — внутренняя механика `suspend` (см. также `SUSPEND_INTERNALS.md`).
+- [Manuel Vivo — «Coroutines and Patterns for work that shouldn't be cancelled» (Android Dev Summit)](https://medium.com/androiddevelopers/coroutines-patterns-for-work-that-shouldnt-be-cancelled-e26c40f142ad)

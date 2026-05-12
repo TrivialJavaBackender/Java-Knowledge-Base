@@ -302,3 +302,26 @@ HMAC-SHA256(key, message) → signature
 TLS 1.3 убрал RSA key exchange (нет Perfect Forward Secrecy), поддерживает только ECDH.
 
 **Perfect Forward Secrecy:** временные ключи генерируются для каждой сессии. Компрометация долгосрочного ключа сервера не раскроет прошлые сессии.
+
+---
+
+## Источники
+
+**RFC (HTTP стек):**
+- [RFC 9110 — HTTP Semantics](https://datatracker.ietf.org/doc/html/rfc9110) — методы, статус-коды, header-семантика (заменил 7230-7235).
+- [RFC 9111 — HTTP Caching](https://datatracker.ietf.org/doc/html/rfc9111) — `Cache-Control`, `ETag`, `Vary`, `If-None-Match`.
+- [RFC 9112 — HTTP/1.1](https://datatracker.ietf.org/doc/html/rfc9112) — wire-format.
+- [RFC 9113 — HTTP/2](https://datatracker.ietf.org/doc/html/rfc9113) — мультиплексирование, HPACK, `RST_STREAM`.
+- [RFC 9114 — HTTP/3](https://datatracker.ietf.org/doc/html/rfc9114) и [RFC 9000 — QUIC](https://datatracker.ietf.org/doc/html/rfc9000).
+- [RFC 6455 — The WebSocket Protocol](https://datatracker.ietf.org/doc/html/rfc6455).
+- [RFC 8446 — TLS 1.3](https://datatracker.ietf.org/doc/html/rfc8446) — Perfect Forward Secrecy, 0-RTT, removed RSA key exchange.
+- [RFC 1918 — Address Allocation for Private Internets](https://datatracker.ietf.org/doc/html/rfc1918).
+
+**Книги / open resources:**
+- [*High Performance Browser Networking* (Ilya Grigorik, O'Reilly)](https://hpbn.co/) — каноническая бесплатная книга по HTTP/1.1/2/3, TLS, WebSocket.
+- *TCP/IP Illustrated, Vol. 1* (W. Richard Stevens, 2nd ed.) — фундамент TCP, retransmission, congestion control.
+
+**Engineering blogs:**
+- [Cloudflare Learning Center — HTTP/2 vs HTTP/3 articles](https://www.cloudflare.com/learning/performance/http2-vs-http1.1/) — простые сравнения с диаграммами.
+- [Daniel Stenberg (curl maintainer) — HTTP/3 Explained](https://http3-explained.haxx.se/) — бесплатная open-book.
+- [Mark Nottingham (HTTP WG chair) blog](https://www.mnot.net/blog/) — нюансы спеки от человека, который её редактирует.

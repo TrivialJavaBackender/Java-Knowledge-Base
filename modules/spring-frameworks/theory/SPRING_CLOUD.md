@@ -563,3 +563,29 @@ spring:
       config:
         enabled: true  # читает ConfigMap/Secret как application.properties
 ```
+
+---
+
+## Источники
+
+**Официальная документация:**
+- [Spring Cloud Reference (umbrella)](https://docs.spring.io/spring-cloud/docs/current/reference/html/) — каталог проектов: Config, Gateway, OpenFeign, LoadBalancer, Circuit Breaker.
+- [Spring Cloud Config](https://docs.spring.io/spring-cloud-config/docs/current/reference/html/) и [Spring Cloud Gateway](https://docs.spring.io/spring-cloud-gateway/reference/index.html).
+- [Spring Cloud OpenFeign](https://docs.spring.io/spring-cloud-openfeign/docs/current/reference/html/)
+- [Resilience4j Documentation](https://resilience4j.readme.io/) — Circuit Breaker, Retry, Bulkhead, RateLimiter, TimeLimiter.
+- [Micrometer Tracing](https://docs.micrometer.io/tracing/reference/index.html) — современная замена Spring Cloud Sleuth.
+
+**Books:**
+- *Spring Microservices in Action*, 2nd ed. (John Carnell, Illary Huaylupo, Manning 2021).
+- *Spring Microservices with Spring Boot 3 and Spring Cloud*, 3rd ed. (Magnus Larsson, Packt 2023).
+- *Microservices Patterns* (Chris Richardson, Manning 2018) — теория, реализуемая через Spring Cloud.
+
+**Battle stories (откуда пришли паттерны):**
+- [Netflix Tech Blog — «Introducing Hystrix» (2012)](https://netflixtechblog.com/introducing-hystrix-for-resilience-engineering-13531c1ab362) — origin story Circuit Breaker'а в Netflix-стеке.
+- [Netflix — «Hystrix in Maintenance Mode» (2018)](https://github.com/Netflix/Hystrix#hystrix-status) — почему Netflix переключился на adaptive concurrency limits и инструменты типа Resilience4j; для новых проектов — **Resilience4j, не Hystrix**.
+- [Eureka постмортемы и AZ failures](https://netflixtechblog.com/eureka-2-0-architecture-overview-deeb02c0b66c) — почему Eureka использует AP-выбор (consistency over availability), и какие нюансы это создаёт.
+- [Spring4Shell + Spring Cloud Gateway CVE-2022-22947](https://spring.io/security/cve-2022-22947) — RCE через SpEL в Gateway routing predicates. Mitigation: всегда валидировать пользовательский ввод, использовать read-only endpoints actuator в проде.
+
+**Migration / decisions:**
+- [«Why we moved from Hystrix to Resilience4j» (Resilience4j FAQ)](https://resilience4j.readme.io/docs/getting-started)
+- [«Spring Cloud Netflix is in Maintenance Mode»](https://spring.io/blog/2018/12/12/spring-cloud-greenwich-rc1-available-now) — Eureka/Hystrix/Ribbon/Zuul → Spring Cloud LoadBalancer + Gateway + Resilience4j.

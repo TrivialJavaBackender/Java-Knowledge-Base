@@ -216,3 +216,28 @@ Grafana 10+ позволяет из dashboard кликнуть на точку �
 
 ### Q5: Почему trace_id не используют как label в Prometheus метриках?
 **A:** Кардинальность — каждый уникальный набор label values создаёт отдельный time series в Prometheus. trace_id уникален для каждого запроса — это миллиарды уникальных values. Prometheus хранил бы отдельный time series для каждого запроса — невозможно масштабировать. Метрики предназначены для агрегированных данных, trace_id — для трейсинговых систем (Jaeger, Tempo).
+
+---
+
+## Источники
+
+**Books:**
+- *Observability Engineering* (Charity Majors, Liz Fong-Jones, George Miranda, O'Reilly 2022) — каноническая книга, которая ввела термин в массовое употребление.
+- *Site Reliability Engineering* (Google, [free online](https://sre.google/books/)) — главы по SLO, Error Budget, monitoring.
+- *Implementing Service Level Objectives* (Alex Hidalgo, O'Reilly 2020) — практика SLI/SLO/error budget.
+- *Distributed Tracing in Practice* (Austin Parker et al., O'Reilly 2020).
+
+**Стандарты / спецификации:**
+- [OpenTelemetry Specification](https://opentelemetry.io/docs/specs/otel/) — единый стандарт для metrics/logs/traces.
+- [W3C TraceContext (`traceparent`, `tracestate`)](https://www.w3.org/TR/trace-context/) — каноническое описание propagation.
+- [OpenMetrics specification](https://openmetrics.io/) — формат, на котором сошлись Prometheus, OpenTelemetry, Datadog.
+
+**Engineering posts:**
+- [Charity Majors — «Observability — A 3-Year Retrospective»](https://thenewstack.io/observability-a-3-year-retrospective/) — почему «monitoring» и «observability» — разные вещи.
+- [Cindy Sridharan — «Distributed Systems Observability» (free O'Reilly book)](https://www.oreilly.com/library/view/distributed-systems-observability/9781492033431/) — фундаментальная статья.
+- [Honeycomb — «What is observability?»](https://www.honeycomb.io/resources/getting-started/what-is-observability-engineering) — точка зрения от компании, которая на этом построилась.
+
+**Battle stories:**
+- [GitHub 2018 incident (24-hour outage)](https://github.blog/2018-10-30-oct21-post-incident-analysis/) — без правильного tracing восстановление заняло на порядок дольше; иллюстрация ROI инструментирования.
+- [«How Slack Built a SLO-driven Engineering Culture» (talk)](https://www.youtube.com/watch?v=jhXakeIgKt4) — реальный кейс внедрения error budget.
+- [Honeycomb — incident postmortems](https://www.honeycomb.io/blog/category/incident-response) — practitioner-postmortem'ы с использованием observability tools для root-cause.

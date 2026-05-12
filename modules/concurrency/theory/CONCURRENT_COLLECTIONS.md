@@ -465,3 +465,28 @@ Map<K,V> lruCache = Collections.synchronizedMap(
 7. Чем transfer() отличается от put() в LinkedTransferQueue?
 8. Почему итерация по `Collections.synchronizedMap` без внешнего `synchronized` небезопасна, хотя каждый метод синхронизирован?
 9. В каком случае `Collections.synchronizedMap(new LinkedHashMap<>(...))` предпочтительнее `ConcurrentHashMap`?
+
+---
+
+## Источники
+
+**Официальная документация:**
+- [`java.util.concurrent` package summary (JDK 21)](https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/concurrent/package-summary.html) — формальное определение weakly consistent iterators, memory consistency effects.
+- [`ConcurrentHashMap` Javadoc](https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/concurrent/ConcurrentHashMap.html) — разделы Bulk Operations и Stream support.
+- [`ConcurrentSkipListMap` Javadoc](https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/concurrent/ConcurrentSkipListMap.html)
+- [`BlockingQueue` Javadoc](https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/concurrent/BlockingQueue.html) — таблица «throws / returns / blocks / times out».
+
+**Books / papers:**
+- *Java Concurrency in Practice* (Goetz et al., 2006) — Ch. 5 (Building Blocks).
+- [William Pugh — «Skip Lists: A Probabilistic Alternative to Balanced Trees» (CACM 1990)](https://15721.courses.cs.cmu.edu/spring2018/papers/08-oltpindexes1/pugh-skiplists-cacm1990.pdf) — структура за `ConcurrentSkipListMap`.
+- [Michael & Scott (1996) — «Simple, Fast, and Practical Non-Blocking… Concurrent Queue Algorithms»](https://www.cs.rochester.edu/~scott/papers/1996_PODC_queues.pdf) — алгоритм за `ConcurrentLinkedQueue`.
+- [Lea (2014) — «ForkJoin / Striped64 internals» (OpenJDK source comments)](https://github.com/openjdk/jdk/blob/master/src/java.base/share/classes/java/util/concurrent/atomic/Striped64.java) — почему `LongAdder`-подход применён в `ConcurrentHashMap.size()`.
+
+**Bug reports / OpenJDK:**
+- [JDK-8071667: ConcurrentHashMap.computeIfAbsent rentry behavior](https://bugs.openjdk.org/browse/JDK-8071667)
+- [JDK-8161372 / JDK-8221462: computeIfAbsent atomicity (fixed in JDK 9)](https://bugs.openjdk.org/browse/JDK-8161372)
+
+**Engineering blogs / posts:**
+- [Doug Lea — `ConcurrentHashMap` design overview (concurrency-interest archive)](https://gee.cs.oswego.edu/dl/concurrency-interest/) — рассылка с обсуждениями API.
+- [Heinz Kabutz — «Concurrent Maps» (JavaSpecialists)](https://www.javaspecialists.eu/archive/Issue197.html)
+- [Brian Goetz — «Concurrent collections» (developerWorks, archive)](https://web.archive.org/web/2021*/developerWorks/java/library/j-jtp07233.html)

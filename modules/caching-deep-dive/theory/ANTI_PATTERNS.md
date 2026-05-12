@@ -15,7 +15,7 @@ T+10s: TTL expire
 T+10s+1ms: 1000 параллельных промахов → 1000 параллельных SELECT'ов в БД
 ```
 
-**Famous incident:** Facebook outage 23.09.2010 — массовая cache invalidation запустила петлю «промах → запрос в БД → kewriter cache → invalidation → промах» с экспоненциальным усилением, положив сайт на 2.5 часа. Постмортем: [More details on today's outage (FB engineering, 2010)](https://engineering.fb.com/2010/09/23/web/more-details-on-todays-outage/). Урок: кэш и БД образуют контур обратной связи; thundering herd может убить даже мега-инфру.
+**Famous incident:** Facebook outage 23.09.2010 — массовая cache invalidation запустила петлю «промах → запрос в БД → kewriter cache → invalidation → промах» с экспоненциальным усилением, положив сайт на 2.5 часа. Постмортем: [More details on today's outage (FB engineering, 2010)](https://engineering.fb.com/2010/09/23/uncategorized/more-details-on-today-s-outage/). Урок: кэш и БД образуют контур обратной связи; thundering herd может убить даже мега-инфру.
 
 **Защиты:**
 
@@ -302,10 +302,10 @@ Best practices от Prometheus: [Prometheus alerting](https://prometheus.io/docs
 - Vattani et al., [«Optimal Probabilistic Cache Stampede Prevention»](https://www.vldb.org/pvldb/vol8/p886-vattani.pdf), VLDB '15 — XFetch.
 
 **Engineering posts:**
-- [Facebook 2010 outage postmortem](https://engineering.fb.com/2010/09/23/web/more-details-on-todays-outage/) — каноничный пример cache-induced outage.
-- [Antirez: Avoiding cache stampedes via probabilistic early expiration](http://antirez.com/news/121)
+- [Facebook 2010 outage postmortem](https://engineering.fb.com/2010/09/23/uncategorized/more-details-on-today-s-outage/) — каноничный пример cache-induced outage.
+- [Antirez (Redis): Cache Stampede Prevention](https://redis.antirez.com/fundamental/cache-stampede-prevention.html) — probabilistic early expiration vs mutex locking, со сравнением сложности и нагрузки на БД.
 - [GitHub: Asynchronous deletion of large keys (`UNLINK`)](https://github.blog/engineering/) — про big keys в production.
-- [Cloudflare: tales of caching gone wrong](https://blog.cloudflare.com/cache-control-best-practices/)
+- [Cloudflare: Introducing CDN-Cache-Control](https://blog.cloudflare.com/cdn-cache-control/) — origin/CDN-уровень `Cache-Control`, разделение private/edge кэша.
 
 **Docs:**
 - [Guava: BloomFilter](https://github.com/google/guava/wiki/HashingExplained#bloomfilter)

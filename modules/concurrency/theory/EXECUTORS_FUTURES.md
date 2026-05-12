@@ -578,3 +578,28 @@ CompletableFuture: какой метод?
   ├─ Обработать ошибку          → exceptionally / handle
   └─ Побочный эффект            → whenComplete
 ```
+
+---
+
+## Источники
+
+**Спецификации / JEP:**
+- [JEP 266: More Concurrency Updates (JDK 9)](https://openjdk.org/jeps/266) — добавление `CompletionStage`, `orTimeout`, `completeOnTimeout`, `Flow`.
+- [JEP 444: Virtual Threads (JDK 21)](https://openjdk.org/jeps/444) — `Executors.newVirtualThreadPerTaskExecutor()` и взаимодействие с `ForkJoinPool`.
+
+**Официальная документация:**
+- [`ThreadPoolExecutor` Javadoc](https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/concurrent/ThreadPoolExecutor.html) — описание алгоритма принятия задач (core → queue → max → reject).
+- [`ScheduledExecutorService` Javadoc](https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/concurrent/ScheduledExecutorService.html) — точная семантика `scheduleAtFixedRate` vs `scheduleWithFixedDelay`.
+- [`CompletableFuture` Javadoc](https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/concurrent/CompletableFuture.html)
+- [`ForkJoinPool` Javadoc](https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/concurrent/ForkJoinPool.html)
+
+**Books / papers:**
+- *Java Concurrency in Practice* (Goetz et al., 2006) — Ch. 6 (Task Execution), Ch. 7 (Cancellation and Shutdown), Ch. 8 (Applying Thread Pools).
+- *Effective Java*, 3rd ed. (Bloch) — Item 80 («Prefer executors, tasks, and streams to threads»).
+- [Doug Lea — «A Java Fork/Join Framework» (PPoPP 2000)](https://gee.cs.oswego.edu/dl/papers/fj.pdf) — теоретическая основа `ForkJoinPool`, work-stealing deque, scan/steal protocol.
+
+**Engineering blogs / posts:**
+- [Tomasz Nurkiewicz — «CompletableFuture» series](https://www.nurkiewicz.com/2013/05/java-8-completablefuture-in-action.html) — практические сценарии (retry, timeouts, allOf-collect).
+- [Brian Goetz — «Concurrency past and present» (devoxx talks)](https://www.youtube.com/watch?v=YxmDCeFouxM) — про эволюцию `ExecutorService` к virtual threads.
+- [Heinz Kabutz — «ExecutorService — 10 tips and tricks»](https://www.javaspecialists.eu/archive/Issue222.html)
+- [Inside.java — «Async programming with virtual threads vs reactive»](https://inside.java/2022/10/13/the-age-of-virtual-threads/) — Ron Pressler/Brian Goetz о миграции с CompletableFuture-цепочек.

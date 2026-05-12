@@ -555,3 +555,27 @@ com.example.myfeature.MyFeatureAutoConfiguration
 my.feature.api-url=https://api.example.com
 my.feature.timeout=10s
 ```
+
+---
+
+## Источники
+
+**Официальная документация:**
+- [Spring Boot Reference Documentation](https://docs.spring.io/spring-boot/docs/current/reference/html/) — каноническая документация, особенно разделы Auto-configuration, Externalized Configuration, Actuator.
+- [Spring Boot 3.0 Migration Guide](https://github.com/spring-projects/spring-boot/wiki/Spring-Boot-3.0-Migration-Guide) — переход с 2.x: Jakarta EE 9 namespace (`javax.*` → `jakarta.*`), Java 17 baseline, Native Image.
+- [Spring Boot — Creating Your Own Auto-configuration](https://docs.spring.io/spring-boot/docs/current/reference/html/features.html#features.developing-auto-configuration) — как написать свой starter правильно.
+- [Spring Boot Actuator Reference](https://docs.spring.io/spring-boot/docs/current/reference/html/actuator.html)
+
+**Книги:**
+- *Spring Boot Up & Running* (Mark Heckler, O'Reilly 2021) — современный туториал от Spring developer advocate.
+- *Spring in Action*, 6th ed. (Craig Walls, Manning 2022) — главы по Boot, MVC, Reactive.
+- *Learning Spring Boot 3.0*, 3rd ed. (Greg Turnquist, Packt 2022) — focus на Spring Boot 3.
+
+**Talks / blogs:**
+- [Phil Webb (Spring Boot tech lead) — SpringOne talks](https://springone.io/) — ежегодные апдейты по архитектуре auto-configuration.
+- [Brian Clozel — «What's new in Spring Boot 3.x»](https://spring.io/blog/) — официальный блог Spring с release notes.
+- [«Reading and writing data using your auto-configured Spring Boot app»](https://spring.io/guides/) — 30+ официальных guides от team.
+
+**Security / postmortems:**
+- [CVE-2022-22965 «Spring4Shell»](https://nvd.nist.gov/vuln/detail/CVE-2022-22965) — RCE через DataBinder в Spring Framework (затрагивает Spring Boot apps на Tomcat/JSP). Иллюстрация почему `disallowedFields` важен и почему запускать ничего «как root» в контейнере нельзя.
+- [Spring Boot Security Releases page](https://spring.io/security/) — все CVE с патчами.

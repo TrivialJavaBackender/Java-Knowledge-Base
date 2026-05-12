@@ -248,7 +248,21 @@ val data = future.await()
 
 ## Источники
 
-- KEEP-176, секция "Implementation details"
-- [kotlinlang.org/docs/composing-suspending-functions.html](https://kotlinlang.org/docs/composing-suspending-functions.html)
-- Roman Elizarov, "Coroutines: First things first" — KotlinConf 2017
-- [github.com/Kotlin/kotlin-coroutines (KEEP)](https://github.com/Kotlin/KEEP/blob/master/proposals/coroutines.md)
+**Спецификация:**
+- [KEEP-176: Coroutines proposal](https://github.com/Kotlin/KEEP/blob/master/proposals/coroutines.md) — особенно раздел «Implementation details», где описана CPS-трансформация и state machine.
+- [`Continuation` (stdlib)](https://kotlinlang.org/api/latest/jvm/stdlib/kotlin.coroutines/-continuation/) — runtime-представление приостановленной корутины.
+- [`suspendCoroutine` / `suspendCancellableCoroutine`](https://kotlinlang.org/api/kotlinx.coroutines/kotlinx-coroutines-core/kotlinx.coroutines/suspend-cancellable-coroutine.html) — основные точки моста с callback API.
+
+**Talks (canonical для internals):**
+- [Roman Elizarov — «Deep Dive into Coroutines on JVM» (KotlinConf 2017)](https://www.youtube.com/watch?v=YrrUCSi72E8) — пошаговый разбор того, во что компилятор превращает `suspend fun`.
+- [Roman Elizarov — «Coroutines: First things first» (KotlinConf 2017)](https://www.youtube.com/watch?v=_hfBv0a09Jc) — высокоуровневая мотивация.
+- [Pavlo Liesnikov — «Kotlin Coroutines under the hood» (KotlinConf)](https://www.youtube.com/watch?v=Xo94e3WTw78)
+
+**Theory background:**
+- [Wadler — «Monads and Composable Continuations» (LFP)](https://homepages.inf.ed.ac.uk/wadler/papers/marktoberdorf/baastad.pdf) — один из источников, почему CPS — естественная форма для async-кода.
+
+**Книги:**
+- [*Kotlin Coroutines: Deep Dive* (Moskała)](https://kt.academy/book/coroutines) — отдельная глава «How does suspension work».
+
+**Compiler:**
+- [`CoroutineCodegen` в kotlin-compiler (OpenSource)](https://github.com/JetBrains/kotlin/tree/master/compiler/backend/src/org/jetbrains/kotlin/codegen/coroutines) — собственно реализация трансформации в JVM-байткод.

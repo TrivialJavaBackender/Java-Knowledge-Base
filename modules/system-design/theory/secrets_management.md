@@ -310,3 +310,29 @@ Pod:                /secrets/db_password (tmpfs, readOnly volume)
 | MD5/SHA хэши паролей | Brute-force за минуты при утечке БД |
 | K8s Secret без encryption at rest | etcd backup = все секреты открыты |
 | Long-lived static credentials | Утечка не обнаружена, эксплуатируется месяцами |
+
+---
+
+## Источники
+
+**Стандарты / RFC:**
+- [RFC 9106 — Argon2 Memory-Hard Function](https://datatracker.ietf.org/doc/html/rfc9106) — победитель Password Hashing Competition 2015.
+- [NIST SP 800-63B — Digital Identity Guidelines: Authentication](https://pages.nist.gov/800-63-3/sp800-63b.html) — текущие требования к хранению паролей и MFA.
+- [Provos & Mazières (1999) — «A Future-Adaptive Password Scheme» (USENIX)](https://www.usenix.org/legacy/events/usenix99/provos/provos_html/) — оригинал bcrypt.
+
+**Security cheatsheets:**
+- [OWASP Password Storage Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Password_Storage_Cheat_Sheet.html) — рекомендуемые алгоритмы и параметры (Argon2id `m=19MiB, t=2, p=1` и т.д.).
+- [OWASP Secrets Management Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Secrets_Management_Cheat_Sheet.html)
+- [OWASP Top 10 — A02:2021 Cryptographic Failures](https://owasp.org/Top10/A02_2021-Cryptographic_Failures/)
+
+**Документация продуктов:**
+- [HashiCorp Vault Documentation](https://developer.hashicorp.com/vault/docs) — auth methods, dynamic secrets, Shamir, auto-unseal.
+- [AWS Secrets Manager User Guide](https://docs.aws.amazon.com/secretsmanager/) — rotation Lambda, KMS-envelope encryption.
+- [Mozilla SOPS](https://github.com/getsops/sops) — encrypted-secrets-in-git с KMS-провайдерами.
+- [Kubernetes — Encrypting Secret Data at Rest](https://kubernetes.io/docs/tasks/administer-cluster/encrypt-data/)
+- [External Secrets Operator](https://external-secrets.io/) — синхронизация Vault/AWS SM в K8s Secrets.
+
+**Engineering / case studies:**
+- [GitGuardian — «State of Secrets Sprawl» annual report](https://www.gitguardian.com/state-of-secrets-sprawl-report-2024) — статистика по утечкам секретов в публичные репозитории.
+- [Cloudflare — «Cloudbleed» postmortem (2017)](https://blog.cloudflare.com/incident-report-on-memory-leak-caused-by-cloudflare-parser-bug/) — пример, почему секреты не должны попадать в кэши/HTTP-ответы.
+- [BeyondCorp papers (Google, USENIX ;login:)](https://research.google/pubs/beyondcorp-a-new-approach-to-enterprise-security/) — отказ от network-perimeter security, identity-aware proxies.

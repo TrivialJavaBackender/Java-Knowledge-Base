@@ -190,3 +190,31 @@ try (var scope = new StructuredTaskScope.ShutdownOnFailure()) {
 5. Для каких задач Virtual Threads НЕ дают преимущества?
 6. Как диагностировать pinning?
 7. Что произойдёт если запустить 1 000 000 virtual threads с Thread.sleep(1000)?
+
+---
+
+## Источники
+
+**JEPs (последовательность эволюции Loom):**
+- [JEP 425: Virtual Threads (Preview, JDK 19)](https://openjdk.org/jeps/425)
+- [JEP 436: Virtual Threads (Second Preview, JDK 20)](https://openjdk.org/jeps/436)
+- [JEP 444: Virtual Threads (Final, JDK 21)](https://openjdk.org/jeps/444) — текущая стабильная редакция.
+- [JEP 491: Synchronize Virtual Threads without Pinning (JDK 24)](https://openjdk.org/jeps/491) — устранение pinning для `synchronized`.
+- [JEP 487: Scoped Values (Fourth Preview, JDK 24)](https://openjdk.org/jeps/487) — replacement для `ThreadLocal` под Loom.
+- [JEP 499: Structured Concurrency (Fourth Preview, JDK 24)](https://openjdk.org/jeps/499) — `StructuredTaskScope` API.
+- [JEP 480: Structured Concurrency (Third Preview, JDK 23)](https://openjdk.org/jeps/480) — последняя итерация перед текущей.
+
+**Официальная документация:**
+- [`Thread.ofVirtual()` (JDK 21)](https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/Thread.Builder.OfVirtual.html)
+- [`Executors.newVirtualThreadPerTaskExecutor` (JDK 21)](https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/concurrent/Executors.html#newVirtualThreadPerTaskExecutor())
+- [Inside.java — Project Loom landing page](https://openjdk.org/projects/loom/)
+
+**Talks / posts:**
+- [Ron Pressler — «State of Loom» (Inside.java)](https://cr.openjdk.org/~rpressler/loom/loom/sol1_part1.html) — каноническое объяснение мотивации и архитектуры.
+- [Brian Goetz — «Project Loom: Modern Concurrency for the JVM» (Devoxx)](https://www.youtube.com/watch?v=EO9oMiL1fFo)
+- [Ron Pressler — «Loom and Reactive Programming»](https://www.youtube.com/watch?v=lIq-x_iI-kc) — почему Loom не отменяет реактивщину, но меняет её роль.
+- [Tomasz Nurkiewicz — «Java 21: Virtual Threads in Practice»](https://inside.java/2022/10/13/the-age-of-virtual-threads/)
+
+**Tooling / диагностика:**
+- [`-Djdk.tracePinnedThreads=full|short`](https://docs.oracle.com/en/java/javase/21/core/virtual-threads.html#GUID-DC4306FC-D6C1-4BCC-AECE-48C32C1A8DAA) — официальный гайд по диагностике pinning.
+- [JFR events для Loom: `jdk.VirtualThreadStart`, `jdk.VirtualThreadPinned`, `jdk.VirtualThreadSubmitFailed`](https://docs.oracle.com/en/java/javase/21/jfapi/) — флайт-рекордер сразу видит проблемы.

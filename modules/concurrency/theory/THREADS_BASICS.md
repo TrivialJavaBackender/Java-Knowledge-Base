@@ -235,3 +235,27 @@ synchronized (this) {
 5. Что произойдёт если `volatile` переменную инкрементируют 2 потока?
 6. Назови все правила happens-before.
 7. Почему синхронизация на `new Object()` внутри метода бесполезна?
+
+---
+
+## Источники
+
+**Спецификации / стандарты:**
+- [JLS §17 — Threads and Locks (Java SE 21)](https://docs.oracle.com/javase/specs/jls/se21/html/jls-17.html) — правила happens-before, semantics `volatile`, монитора, `final`-полей.
+- [JSR-133: Java Memory Model and Thread Specification Revision](https://www.cs.umd.edu/~pugh/java/memoryModel/) — оригинальная редакция JMM (Pugh, Manson, Adve, Goetz, Lea).
+- [JSR-133 FAQ (Jeremy Manson, Brian Goetz)](https://www.cs.umd.edu/~pugh/java/memoryModel/jsr-133-faq.html) — самая прагматичная версия объяснения JMM.
+
+**Официальная документация:**
+- [`java.lang.Thread` (Javadoc, JDK 21)](https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/Thread.html)
+- [`java.lang.Object#wait/notify/notifyAll`](https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/Object.html#wait())
+
+**Книги:**
+- *Java Concurrency in Practice* (Brian Goetz et al., 2006) — Ch. 3 (Sharing Objects), 14 (Building Custom Synchronizers), 16 (The Java Memory Model).
+- *Effective Java*, 3rd ed. (Joshua Bloch, 2018) — Items 78–84 (concurrency).
+- *Concurrent Programming in Java*, 2nd ed. (Doug Lea, 1999) — фундамент того, как устроен `java.util.concurrent`.
+
+**Engineering blogs / posts:**
+- [Aleksey Shipilëv — «Close Encounters of the Java Memory Model Kind» (JMM Pragmatics)](https://shipilev.net/blog/2014/jmm-pragmatics/) — лучшее современное объяснение JMM с примерами.
+- [Java Concurrency Stress Tests (jcstress) — OpenJDK](https://github.com/openjdk/jcstress) — тесты, которые ловят реальные нарушения JMM на твоей JVM.
+- [Brian Goetz — «Java theory and practice» (IBM developerWorks, archive.org)](https://web.archive.org/web/20210417000000*/developerWorks/java/library/j-jtp*) — серия статей-первоисточников по JCIP.
+- [Mechanical Sympathy (Martin Thompson)](https://mechanical-sympathy.blogspot.com/) — про CPU-кэши, барьеры, false sharing.

@@ -197,9 +197,27 @@ Composition валидирует: один и тот же тип должен б
 
 ---
 
-## 9. Что почитать
+## 9. Источники
 
-- Apollo Federation spec: <https://www.apollographql.com/docs/federation/>
-- graphql-kotlin federation: <https://opensource.expediagroup.com/graphql-kotlin/docs/server/federation/federated-schemas>
-- Apollo Router: <https://www.apollographql.com/docs/router/>
-- Rover CLI: <https://www.apollographql.com/docs/rover/>
+**Спецификация:**
+- [Apollo Federation v2 specification](https://www.apollographql.com/docs/federation/) — `@key`, `@external`, `@requires`, `@provides`, `@shareable`, `@override`, value types.
+- [Federation Subgraph specification](https://www.apollographql.com/docs/federation/subgraph-spec/) — точный контракт `_service { sdl }` и `_entities`.
+- [GraphQL Composition rules](https://www.apollographql.com/docs/federation/federated-types/composition/) — как именно router валидирует совместимость типов.
+
+**Реализации:**
+- [graphql-kotlin federation docs](https://opensource.expediagroup.com/graphql-kotlin/docs/schema-generator/federation/federated-schemas/) — `@KeyDirective`, `FederatedTypeResolver`, `FederatedSchemaGeneratorHooks`.
+- [Apollo Router (Rust)](https://www.apollographql.com/docs/router/) — production router, рекомендованный для federation v2.
+- [Rover CLI](https://www.apollographql.com/docs/rover/) — `rover supergraph compose`, schema check, schema publish.
+
+**Posts / talks:**
+- [Apollo — «Principled GraphQL» (best practices)](https://principledgraphql.com/) — каноническое руководство от создателей federation.
+- [Marc-André Giroux — «Building a Federated Architecture with GraphQL» (Shopify)](https://shopify.engineering/) — практический рассказ от компании, эксплуатирующей federation в проде.
+- [Netflix — «Migrating Netflix to GraphQL Safely» (Netflix Tech Blog)](https://netflixtechblog.com/migrating-netflix-to-graphql-safely-8e1e4d4f1f72) — как Netflix постепенно перевёл свои API на federated GraphQL.
+- [Apollo Blog — «Apollo Federation 2.0»](https://www.apollographql.com/blog/announcement/backend/announcing-federation-2/) — что именно изменилось в v2.
+
+**Альтернативы:**
+- [GraphQL Mesh](https://the-guild.dev/graphql/mesh) — стичинг REST/gRPC/SOAP/etc в один GraphQL без переписывания backends.
+- [Spring for GraphQL — Federation support](https://docs.spring.io/spring-graphql/reference/federation.html) — если основной код на Spring (не graphql-kotlin).
+
+**Books:**
+- [*Production Ready GraphQL* (Marc-André Giroux, 2020)](https://book.productionreadygraphql.com/) — глава «Modular Schemas» про federation.

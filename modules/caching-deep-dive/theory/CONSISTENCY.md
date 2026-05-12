@@ -60,7 +60,7 @@ sequenceDiagram
     Note over T1,C: ⚠️ В кэше застрял v_old<br/>пока не истечёт TTL
     Note over T1: Через 1-2 сек T1 делает повторный DEL
     T1->>C: DEL k (delayed double-delete)
-    Note over T1,C: Стейл вычищен;<br/>следующий read загрузит v_new
+    Note over T1,C: Стейл вычищен <br/>следующий read загрузит v_new
 ```
 
 `Delayed Double-Delete` реализуется через `ScheduledExecutor` или Kafka delayed message. Альтернатива — versioned keys (см. ниже), которые исключают эту race condition by design.
@@ -197,7 +197,7 @@ fun update(user: User) {
 ## Real-world кейсы
 
 - **Stripe — idempotency keys.** Каждый POST к API сохраняется по уникальному ключу клиента; Redis-кэш записывает `idempotency_key → response`. Это фактически write-through кэш на критичный endpoint. Консистентность гарантируется не invalidation, а атомарной записью + TTL ([Stripe blog: Designing robust and predictable APIs with idempotency](https://stripe.com/blog/idempotency)).
-- **GitHub repository cache.** Каждое изменение конфига репозитория (collaborators, branches) триггерит fan-out invalidation в десятки edge-кэшей через Sidekiq job ([Inside GitHub: Live updates with Hydro](https://github.blog/engineering/architecture-optimization/eight-million-events-per-second-with-msgpack/) — про event ingestion).
+- **GitHub repository cache.** Каждое изменение конфига репозитория (collaborators, branches) триггерит fan-out invalidation в десятки edge-кэшей через Sidekiq job — event ingestion идёт через внутреннюю платформу Hydro.
 - **Linkedin — Espresso + Databus.** Внутренний CDC-pipeline (предшественник Debezium идеи) — реплицирует mutation log в Kafka, который потом инвалидирует кэши, обновляет search index, etc. ([LinkedIn engineering: Databus](https://engineering.linkedin.com/data-replication/open-sourcing-databus-linkedins-low-latency-change-data-capture-system)).
 - **Shopify** использует флаг-based invalidation для каталогов: «версия каталога» хранится в Redis, все ключи генерируются с этим суффиксом. На обновление каталога просто INCR версии — старые ключи мгновенно перестают находиться (eventually evict-нутся).
 
@@ -217,7 +217,6 @@ fun update(user: User) {
 **Engineering blogs:**
 - [Stripe: Designing robust and predictable APIs with idempotency](https://stripe.com/blog/idempotency)
 - [LinkedIn Databus: open-sourcing low-latency CDC](https://engineering.linkedin.com/data-replication/open-sourcing-databus-linkedins-low-latency-change-data-capture-system)
-- [GitHub: 8 million events per second with Msgpack](https://github.blog/engineering/architecture-optimization/eight-million-events-per-second-with-msgpack/)
 - [Murat Demirbas blog (cache invalidation papers)](https://muratbuffalo.blogspot.com/)
 
 **Books:**

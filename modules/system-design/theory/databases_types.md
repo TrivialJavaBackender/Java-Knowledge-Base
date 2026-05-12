@@ -233,4 +233,91 @@ session.close();
 2. Изменение поля → объект помечается dirty (через dirty checking при flush)
 3. `flush()` / `commit()` → INSERT/UPDATE/DELETE для всех dirty объектов
 
-**Lazy Loading:** `@OneToMany(fetch=LAZY)` — коллекция не загружается до первого обращения. Проблема N+1: загрузить 100 заказов → 100 запросов за пользователями. Решение: `JOIN FETCH` или `@EntityGraph`.
+**Lazy Loading:** `@OneToMany(fetch=LAZY)` — коллекция не загружается до первого обращения.
+
+### N+1 Query Problem — флагманская боль ORM
+
+Сценарий: загрузить 100 заказов и для каждого получить пользователя.
+
+```java
+List<Order> orders = orderRepo.findAll();             // 1 запрос: SELECT * FROM orders
+for (Order o : orders) {
+    System.out.println(o.getUser().getEmail());      // +N запросов: по одному SELECT * FROM users WHERE id=?
+}
+// Всего: 1 + 100 = 101 запрос
+```
+
+В логе Hibernate (если включён `hibernate.show_sql=true`) видно как 100 раз летит один и тот же `SELECT … FROM users WHERE id = ?`. На production это означает 100 round-trip'ов к БД, каждый по 1-5ms — итого сотни миллисекунд latency на одном эндпоинте.
+
+**Почему ORM не решает это автоматически:** N+1 невидим на уровне domain-модели. Доступ `o.getUser()` — обычный геттер, ORM не знает, нужны ли тебе все пользователи или только один.
+
+**Решения (в порядке предпочтения):**
+
+```java
+// 1. JOIN FETCH в JPQL — один SQL с join
+@Query("SELECT o FROM Order o JOIN FETCH o.user")
+List<Order> findAllWithUser();
+// SQL: SELECT o.*, u.* FROM orders o JOIN users u ON o.user_id = u.id
+
+// 2. @EntityGraph — декларативно, переиспользуемо
+@EntityGraph(attributePaths = "user")
+@Query("SELECT o FROM Order o")
+List<Order> findAllWithUser();
+
+// 3. Batch fetching — N+1 → ceil(N/batch_size)+1
+@BatchSize(size = 50) @OneToMany ...
+// или глобально: hibernate.default_batch_fetch_size=50
+// Hibernate соберёт ID и сделает: SELECT … FROM users WHERE id IN (?, ?, …, ?)
+
+// 4. DTO projection — не грузить Entity вообще
+@Query("SELECT new com.example.OrderDto(o.id, u.email) FROM Order o JOIN o.user u")
+List<OrderDto> findOrderSummaries();
+```
+
+**Подвох с `JOIN FETCH` + pagination:** Hibernate не может сделать `LIMIT/OFFSET` после `JOIN FETCH` коллекции и **загрузит всё в память + отрежет в Java** (warning `HHH000104: firstResult/maxResults specified with collection fetch`). Решение — двухзапросный паттерн: сначала ID-список с пагинацией, потом `JOIN FETCH WHERE id IN (...)`.
+
+### LazyInitializationException
+
+Связанная проблема: что если обратиться к LAZY-коллекции **после закрытия** Persistence Context'а?
+
+```java
+@Transactional
+Order loadOrder(Long id) {
+    return orderRepo.findById(id).orElseThrow();
+}
+
+// Контроллер (не @Transactional):
+Order o = service.loadOrder(1L);  // транзакция уже закрыта
+o.getItems().size();              // ❌ LazyInitializationException
+```
+
+Решения:
+- Загружать связи внутри транзакции (`JOIN FETCH`, `@EntityGraph`).
+- Возвращать DTO, не Entity.
+- Open-Session-In-View — anti-pattern, держит соединение на всю длину HTTP-запроса (см. [`spring-frameworks/SPRING_DATA_JPA.md`](../../spring-frameworks/theory/SPRING_DATA_JPA.md)).
+
+### Identity Map: видимость concurrent UPDATE
+
+Identity Map гарантирует «один объект на ID в сессии». Но между сессиями — нет: если другая транзакция обновила строку, твоя сессия будет видеть **старое значение** в кэшированном объекте до `entityManager.refresh(obj)` или `clear()`. Это не баг — это snapshot-семантика persistence context'а.
+
+---
+
+## Источники
+
+**Books:**
+- *Designing Data-Intensive Applications* (Martin Kleppmann, O'Reilly 2017) — Ch. 2 (Data Models and Query Languages), Ch. 3 (Storage and Retrieval).
+- *Patterns of Enterprise Application Architecture* (Martin Fowler, 2002) — оригинальные определения Active Record, Data Mapper, Identity Map, Unit of Work.
+- *High-Performance Java Persistence* (Vlad Mihalcea, 2016) — самый практичный справочник по JPA/Hibernate, отдельная глава по N+1.
+
+**Документация:**
+- [PostgreSQL Documentation](https://www.postgresql.org/docs/16/index.html)
+- [MongoDB — Data Modeling Introduction](https://www.mongodb.com/docs/manual/core/data-modeling-introduction/)
+- [Cassandra — Data Modeling](https://cassandra.apache.org/doc/latest/cassandra/developing/data-modeling/intro.html)
+- [Redis — Data Types](https://redis.io/docs/latest/develop/data-types/)
+- [Hibernate ORM User Guide — Fetching strategies](https://docs.jboss.org/hibernate/orm/6.5/userguide/html_single/Hibernate_User_Guide.html#fetching)
+
+**Engineering posts:**
+- [Vlad Mihalcea — «The best way to handle the LazyInitializationException»](https://vladmihalcea.com/the-best-way-to-handle-the-lazyinitializationexception/) — все варианты с trade-off'ами.
+- [Vlad Mihalcea — «How to detect the Hibernate N+1 query problem during testing»](https://vladmihalcea.com/how-to-detect-the-n-plus-one-query-problem-during-testing/) — datasource-proxy для assert'ов в тестах.
+- [Markus Winand — *Use The Index, Luke!* — Pagination chapter](https://use-the-index-luke.com/no-offset) — почему `OFFSET` плох даже без N+1.
+- [«MongoDB Schema Design Best Practices»](https://www.mongodb.com/developer/products/mongodb/mongodb-schema-design-best-practices/) — embedding vs referencing.

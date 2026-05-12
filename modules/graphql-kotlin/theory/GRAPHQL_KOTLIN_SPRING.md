@@ -234,5 +234,30 @@ class UserGraphQLTest(@Autowired val client: WebTestClient) {
 
 - [DATALOADER_NPLUS1.md](DATALOADER_NPLUS1.md) — как победить N+1 в этой связке.
 - [FEDERATION.md](FEDERATION.md) — graphql-kotlin-federation для микросервисов.
-- Доки: <https://opensource.expediagroup.com/graphql-kotlin/docs/>
-- Самплы: <https://github.com/ExpediaGroup/graphql-kotlin/tree/master/examples>
+
+---
+
+## Источники
+
+**Документация:**
+- [graphql-kotlin docs (Expedia Group)](https://opensource.expediagroup.com/graphql-kotlin/docs/) — каноническая документация: server, client, federation, plugins.
+- [graphql-kotlin GitHub examples](https://github.com/ExpediaGroup/graphql-kotlin/tree/master/examples) — Spring Server, Federation, Subscriptions готовые примеры.
+- [graphql-java docs](https://www.graphql-java.com/documentation/getting-started/) — фундамент, на котором построен graphql-kotlin.
+- [GraphiQL](https://github.com/graphql/graphiql) и [Apollo Sandbox](https://studio.apollographql.com/sandbox/explorer) — UI-инструменты для разработки.
+
+**Альтернатива в Spring-экосистеме:**
+- [Spring for GraphQL Reference](https://docs.spring.io/spring-graphql/reference/) — schema-first библиотека от Spring team (не Expedia). Сравнение с graphql-kotlin: см. таблицу выше.
+- [«Spring for GraphQL: Spring Boot Starter»](https://spring.io/blog/2022/05/19/spring-for-graphql-1-0-release/) — Spring blog о выпуске.
+
+**Posts / talks:**
+- [Expedia Group — «Open sourcing graphql-kotlin» (engineering blog)](https://medium.com/expedia-group-tech/open-sourcing-graphql-kotlin-694b62d04394) — origin story и мотивация code-first подхода.
+- [Dariusz Kuc & Guillaume Scheibel — «GraphQL on the JVM with Kotlin and Spring» (KotlinConf)](https://www.youtube.com/watch?v=Y09r4eeIGUY) — авторы graphql-kotlin рассказывают про дизайн.
+- [Brian Norman — «Building a GraphQL Server with Kotlin and Spring Boot»](https://blog.expediagroup.com/) — пошаговый туториал.
+
+**Books:**
+- [*Production Ready GraphQL* (Marc-André Giroux, 2020)](https://book.productionreadygraphql.com/) — best practices, applicable независимо от языка.
+
+**Связанные модули:**
+- [`kotlin-coroutines/theory/DISPATCHERS.md`](../../kotlin-coroutines/theory/DISPATCHERS.md) — почему `runBlocking` в резолвере убивает throughput.
+- [`kotlin-coroutines/theory/TESTING_INTEROP.md`](../../kotlin-coroutines/theory/TESTING_INTEROP.md) — `runTest` для тестов suspend-резолверов.
+- [`spring-frameworks/theory/SPRING_BOOT.md`](../../spring-frameworks/theory/SPRING_BOOT.md) — auto-configuration механика, на которой построен graphql-kotlin starter.

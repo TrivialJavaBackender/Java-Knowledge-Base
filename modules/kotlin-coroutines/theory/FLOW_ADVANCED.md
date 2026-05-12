@@ -285,6 +285,18 @@ val shared = coldFlow.shareIn(scope, WhileSubscribed(5_000), replay = 0)
 
 ## Источники
 
-- [kotlinlang.org/docs/flow.html#flow-completion](https://kotlinlang.org/docs/flow.html)
-- [kotlinlang.org/api/kotlinx.coroutines/kotlinx-coroutines-core/kotlinx.coroutines.flow/-state-flow/](https://kotlinlang.org/api/kotlinx.coroutines/kotlinx-coroutines-core/kotlinx.coroutines.flow/-state-flow/)
-- Roman Elizarov, "Shared flows, broadcast channels" — Medium
+**Официальная документация:**
+- [`StateFlow` API](https://kotlinlang.org/api/kotlinx.coroutines/kotlinx-coroutines-core/kotlinx.coroutines.flow/-state-flow/) — conflated, `value`, `update`.
+- [`SharedFlow` API](https://kotlinlang.org/api/kotlinx.coroutines/kotlinx-coroutines-core/kotlinx.coroutines.flow/-shared-flow/) — `replay`, `extraBufferCapacity`, `BufferOverflow`.
+- [`SharingStarted` (`Eagerly` / `Lazily` / `WhileSubscribed`)](https://kotlinlang.org/api/kotlinx.coroutines/kotlinx-coroutines-core/kotlinx.coroutines.flow/-sharing-started/)
+
+**Posts (canonical):**
+- [Roman Elizarov — «Shared flows, broadcast channels»](https://elizarov.medium.com/shared-flows-broadcast-channels-899b675e805c) — почему появились `SharedFlow`/`StateFlow` и как они заменили `BroadcastChannel`.
+- [Manuel Vivo — «Things to know about Flow's `shareIn` and `stateIn` operators»](https://medium.com/androiddevelopers/things-to-know-about-flows-sharein-and-statein-operators-20e6ccb2bc74) — как именно работает `WhileSubscribed(5_000)`.
+- [Marko Devcic — «StateFlow, end of LiveData?»](https://proandroiddev.com/) — практическое сравнение для Android.
+
+**Talks:**
+- [Manuel Vivo — «Flows in Android: Three things every Android developer should know» (Android Dev Summit)](https://www.youtube.com/watch?v=BOHK_w09pVA)
+
+**Книги:**
+- [*Kotlin Coroutines: Deep Dive* (Moskała)](https://kt.academy/book/coroutines) — глава «SharedFlow and StateFlow».

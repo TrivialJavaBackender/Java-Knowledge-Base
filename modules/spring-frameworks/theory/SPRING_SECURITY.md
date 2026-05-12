@@ -521,3 +521,30 @@ class OrderControllerSecurityTest {
 | **IDOR** | Пользователь A читает/меняет данные пользователя B | `@PreAuthorize("#id == authentication.principal.id")` |
 | **Sensitive Data** | Пароли в логах, незашифрованные данные | `@JsonIgnore` на passwordHash; HTTPS; зашифрованные properties |
 | **Broken Access Control** | URL-манипуляция обходит проверку прав | Spring Security URL patterns + Method Security |
+
+---
+
+## Источники
+
+**Официальная документация:**
+- [Spring Security Reference (current)](https://docs.spring.io/spring-security/reference/index.html) — Filter Chain architecture, OAuth2 Resource Server, Method Security, CSRF, CORS.
+- [Spring Security — Architecture](https://docs.spring.io/spring-security/reference/servlet/architecture.html) — то самое каноническое описание `FilterChainProxy`/`SecurityFilterChain`/`AuthenticationManager`.
+- [Spring Security 6 Migration Guide](https://docs.spring.io/spring-security/reference/migration/index.html) — переход от `WebSecurityConfigurerAdapter` к компонентному стилю.
+
+**Books:**
+- *Spring Security in Action*, 2nd ed. (Laurențiu Spilca, Manning 2024) — самая актуальная книга, обновлена под Spring Security 6.
+- *OAuth 2 in Action* (Justin Richer, Antonio Sanso, Manning 2017) — фундамент OAuth/OIDC, на котором построен `oauth2ResourceServer`.
+
+**Security guidance:**
+- [OWASP Top 10 (2021)](https://owasp.org/Top10/) — особенно A01 Broken Access Control, A02 Cryptographic Failures, A07 Auth Failures.
+- [OWASP Authentication Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Authentication_Cheat_Sheet.html)
+- [OWASP Password Storage Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Password_Storage_Cheat_Sheet.html) — параметры BCrypt/Argon2id.
+- [Provos & Mazières (1999) — «A Future-Adaptive Password Scheme» (USENIX)](https://www.usenix.org/legacy/events/usenix99/provos/provos_html/) — оригинал bcrypt.
+
+**Real-world incidents (зачем именно такое хеширование и storage):**
+- [LinkedIn 2012 — 167M password hashes leaked (unsalted SHA-1)](https://www.troyhunt.com/observations-and-thoughts-on-the-linkedin-data-breach/) — каноническая иллюстрация почему BCrypt/Argon2 + соль обязательны.
+- [Capital One 2019 SSRF breach (postmortem)](https://krebsonsecurity.com/2019/07/capital-one-data-theft-impacts-106m-people/) — SSRF через misconfigured WAF + over-privileged IAM role; пример того, как auth/authz failure может стоить $190M штрафов.
+- [CVE-2022-22978 — Spring Security RegexRequestMatcher authorization bypass](https://nvd.nist.gov/vuln/detail/CVE-2022-22978) — regex с `.` в URL pattern мог пропустить символ `\n`, обходя auth-rule. Иллюстрация почему URL-pattern-based access control хрупок и Method Security `@PreAuthorize` надёжнее.
+
+**Spring Security CVE feed:**
+- [Spring Security Security Releases](https://spring.io/security/) — все CVE с патчами и mitigation.

@@ -323,6 +323,23 @@ val data = cf.await()
 
 ## Источники
 
-- [kotlinlang.org/api/kotlinx.coroutines/kotlinx-coroutines-test/](https://kotlinlang.org/api/kotlinx.coroutines/kotlinx-coroutines-test/)
-- [github.com/cashapp/turbine](https://github.com/cashapp/turbine)
-- "Migrating to kotlinx-coroutines-test 1.6" guide
+**Официальная документация:**
+- [`kotlinx-coroutines-test` API reference](https://kotlinlang.org/api/kotlinx.coroutines/kotlinx-coroutines-test/) — `runTest`, `TestScope`, `StandardTestDispatcher`, `UnconfinedTestDispatcher`.
+- [Migration guide: kotlinx-coroutines-test 1.6+](https://github.com/Kotlin/kotlinx.coroutines/blob/1.6.0/kotlinx-coroutines-test/MIGRATION.md) — переход с `runBlockingTest` на `runTest`.
+- [`Dispatchers.setMain` / `resetMain` (Android)](https://developer.android.com/kotlin/coroutines/test) — рекомендованный паттерн для UI-тестов.
+
+**Tooling:**
+- [Turbine (Cash App)](https://github.com/cashapp/turbine) — must-have для тестирования `Flow` (`expectItem`, `expectComplete`, `expectError`).
+- [MockK](https://mockk.io/) — `coEvery`, `coVerify` для suspend-функций.
+
+**Posts:**
+- [Sebastian Aigner — «Coroutines testing: hands-on»](https://kotlinlang.org/docs/coroutines-and-channels.html#testing-coroutines)
+- [Manuel Vivo — «Testing Kotlin coroutines on Android» (Android Devs)](https://medium.com/androiddevelopers/testing-kotlin-coroutines-on-android-fa61d5e95cca)
+- [Roman Elizarov — «What is `kotlinx.coroutines.test` for?» (issue discussion)](https://github.com/Kotlin/kotlinx.coroutines/issues/1996)
+
+**Java interop:**
+- [`kotlinx-coroutines-jdk8`](https://kotlinlang.org/api/kotlinx.coroutines/kotlinx-coroutines-core/kotlinx.coroutines.future/) — `CompletableFuture.await()`, `future { ... }`.
+- [`kotlinx-coroutines-reactor` / `-rx3`](https://kotlinlang.org/api/kotlinx.coroutines/) — interop с реактивными мирами.
+
+**Книги:**
+- [*Kotlin Coroutines: Deep Dive* (Moskała)](https://kt.academy/book/coroutines) — глава «Testing Kotlin Coroutines».

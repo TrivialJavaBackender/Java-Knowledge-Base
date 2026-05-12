@@ -194,5 +194,24 @@ JSON ответ { data, errors, extensions }
 - [GRAPHQL_KOTLIN_SPRING.md](GRAPHQL_KOTLIN_SPRING.md) — как всё это запустить на Kotlin + Spring Boot.
 - [DATALOADER_NPLUS1.md](DATALOADER_NPLUS1.md) — как избежать N+1.
 - [FEDERATION.md](FEDERATION.md) — несколько GraphQL-сервисов как один граф.
-- Спецификация: <https://spec.graphql.org/>
-- Apollo learning: <https://www.apollographql.com/tutorials/>
+
+---
+
+## Источники
+
+**Спецификация:**
+- [GraphQL Specification (current draft)](https://spec.graphql.org/) — каноническое описание языка: типы, валидация, executor, response model, error propagation.
+- [GraphQL over HTTP (working draft)](https://graphql.github.io/graphql-over-http/draft/) — стандартизация транспорта (status codes, content negotiation, batching).
+
+**Origin:**
+- [Lee Byron — «GraphQL: A Query Language for APIs» (React Europe 2015, original talk)](https://www.youtube.com/watch?v=WQLzZf34FJ8) — публичное представление языка от автора (Facebook).
+- [Facebook — «GraphQL: A data query language» (engineering blog)](https://engineering.fb.com/2015/09/14/core-infra/graphql-a-data-query-language/) — origin story.
+
+**Books:**
+- [*Production Ready GraphQL* (Marc-André Giroux, 2020)](https://book.productionreadygraphql.com/) — лучшая книга по best practices в проде (errors, schema design, security, performance).
+- *Learning GraphQL* (Eve Porcello, Alex Banks, O'Reilly 2018) — вводный учебник.
+
+**Engineering blogs:**
+- [Apollo Tutorials](https://www.apollographql.com/tutorials/) — структурированные пошаговые курсы.
+- [GitHub GraphQL API docs](https://docs.github.com/en/graphql) — пример реальной production-схемы со всеми идиомами (Relay-style cursors, `@deprecated`, scalars).
+- [Hasura — «GraphQL vs REST: A Critical Review»](https://hasura.io/blog/architects-dilemma-when-to-choose-graphql-over-rest-and-why/) — баланс trade-off'ов.

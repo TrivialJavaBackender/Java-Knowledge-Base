@@ -592,3 +592,26 @@ List<UserDto> findUserDtos();
 ```
 
 > **Транзакции, ACID, MVCC** — теория уровня БД в [`modules/system-design/theory/database_transactions.md`](../../system-design/theory/database_transactions.md)
+
+---
+
+## Источники
+
+**Спецификации / документация:**
+- [Spring Data JPA Reference](https://docs.spring.io/spring-data/jpa/reference/jpa.html) — derived queries, `@Query`, projections, `Specification`.
+- [Hibernate ORM 6 User Guide](https://docs.jboss.org/hibernate/orm/6.5/userguide/html_single/Hibernate_User_Guide.html) — fetching strategies, caching, batching.
+- [Jakarta Persistence 3.1 Specification (JPA)](https://jakarta.ee/specifications/persistence/3.1/) — стандарт, реализуемый Hibernate.
+
+**Books:**
+- *High-Performance Java Persistence* (Vlad Mihalcea, 2016) — самый практичный справочник по JPA/Hibernate, отдельные главы про N+1, batching, locking, caching.
+- *Java Persistence with Spring Data and Hibernate* (Cătălin Tudose, Manning 2023) — современная редакция Mihalcea-style контента под Spring Boot 3.
+
+**Engineering blogs (must-read):**
+- [Vlad Mihalcea — «The best way to handle the LazyInitializationException»](https://vladmihalcea.com/the-best-way-to-handle-the-lazyinitializationexception/) и связанные посты по N+1, fetch-стратегиям.
+- [Vlad Mihalcea — «The hidden cost of OSIV (open-session-in-view)»](https://vladmihalcea.com/the-open-session-in-view-anti-pattern/) — почему `spring.jpa.open-in-view=false` нужно ставить **сразу** в любом новом проекте: реальные кейсы DB-connection exhaustion на проде описаны там.
+- [Thorben Janssen — Hibernate Tips](https://thorben-janssen.com/hibernate-tips/) — короткие задачи-решения по типичным граблям.
+- [Vlad Mihalcea — «Hibernate `@BatchSize` vs default_batch_fetch_size»](https://vladmihalcea.com/how-to-batch-insert-and-update-statements-with-hibernate/) — практические замеры.
+
+**Tooling:**
+- [Hypersistence Optimizer](https://vladmihalcea.com/hypersistence-optimizer/) — статический анализатор JPA-конфигов на наличие N+1, неправильных Cascade, неправильных коллекций.
+- [datasource-proxy](https://github.com/jdbc-observations/datasource-proxy) — runtime-обёртка `DataSource` для логирования и assert'ов количества SQL в тестах.

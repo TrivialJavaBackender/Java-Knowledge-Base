@@ -301,6 +301,18 @@ queryFlow
 
 ## Источники
 
-- [kotlinlang.org/docs/flow.html](https://kotlinlang.org/docs/flow.html)
-- Roman Elizarov, "Cold flows, hot channels" — Medium
-- Kotlin coroutines guide §4
+**Официальная документация:**
+- [Asynchronous Flow (kotlinlang.org)](https://kotlinlang.org/docs/flow.html) — builders, операторы, контекст, обработка исключений.
+- [`Flow` API reference](https://kotlinlang.org/api/kotlinx.coroutines/kotlinx-coroutines-core/kotlinx.coroutines.flow/-flow/) — все операторы с примерами.
+
+**Posts (must-read):**
+- [Roman Elizarov — «Cold flows, hot channels»](https://elizarov.medium.com/cold-flows-hot-channels-d74769805f9) — почему Flow холодный и почему это важно.
+- [Roman Elizarov — «Kotlin Flow Tips»](https://elizarov.medium.com/kotlin-flow-tips-9d1c4a6c9d2c)
+- [Manuel Vivo — «Migrating from LiveData to Kotlin's Flow»](https://medium.com/androiddevelopers/migrating-from-livedata-to-kotlins-flow-379292f419fb)
+- [Christophe Beyls — «Flow operators: real differences»](https://medium.com/androiddevelopers/47bc4783b5a)
+
+**Talks:**
+- [Roman Elizarov — «Asynchronous Data Streams with Kotlin Flow» (KotlinConf 2019)](https://www.youtube.com/watch?v=tYcqn48SMT8)
+
+**Книги:**
+- [*Kotlin Coroutines: Deep Dive* (Moskała)](https://kt.academy/book/coroutines) — Part 2 целиком про Flow.

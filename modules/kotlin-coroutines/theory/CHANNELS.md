@@ -282,6 +282,18 @@ ch.close(IOException("source dead"))
 
 ## Источники
 
-- [kotlinlang.org/docs/channels.html](https://kotlinlang.org/docs/channels.html)
-- [kotlinlang.org/docs/select-expression.html](https://kotlinlang.org/docs/select-expression.html)
-- Roman Elizarov, "Cold flows, hot channels"
+**Официальная документация:**
+- [Channels (kotlinlang.org)](https://kotlinlang.org/docs/channels.html) — capacity, `produce`, `consumeEach`, fan-out/fan-in.
+- [Select Expression](https://kotlinlang.org/docs/select-expression.html) — `onReceive`, `onSend`, `onTimeout`.
+- [`Channel` API reference](https://kotlinlang.org/api/kotlinx.coroutines/kotlinx-coroutines-core/kotlinx.coroutines.channels/-channel/)
+
+**Posts:**
+- [Roman Elizarov — «Cold flows, hot channels»](https://elizarov.medium.com/cold-flows-hot-channels-d74769805f9) — каноническое объяснение когда Channel, когда Flow.
+- [Roman Elizarov — «Kotlin Flow Tips»](https://elizarov.medium.com/kotlin-flow-tips-9d1c4a6c9d2c) — про producer-consumer без Channel.
+- [Sebastian Aigner — «Kotlin Coroutines and Channels»](https://www.youtube.com/watch?v=HpWQUoVURWQ) — KotlinConf-style talk.
+
+**Theory:**
+- [Hoare (1978) — «Communicating Sequential Processes» (CSP, CACM)](https://dl.acm.org/doi/10.1145/359576.359585) — теоретическая основа Channel-семантики (как и в Go).
+
+**Книги:**
+- [*Kotlin Coroutines: Deep Dive* (Moskała)](https://kt.academy/book/coroutines) — главы про Channel, Select.

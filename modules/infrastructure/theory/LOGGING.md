@@ -281,3 +281,25 @@ rate({app="infra-learn"} |= "ERROR" [5m])
 
 ### Q8: Что такое async appender и зачем он нужен?
 **A:** По умолчанию Logback пишет синхронно — поток приложения блокируется пока лог запись не записана. Async appender (`AsyncAppender`) ставит запись в очередь и отдаёт управление обратно немедленно. Отдельный поток пишет из очереди в реальный appender. Ускоряет запись логов, особенно при медленных appender (файл, сеть). В production обязательно для высоконагруженных приложений. Риск: при переполнении очереди записи могут теряться.
+
+---
+
+## Источники
+
+**Стандарты / официальная документация:**
+- [The Twelve-Factor App — XI. Logs](https://12factor.net/logs) — каноническое «приложение пишет в stdout, инфраструктура агрегирует» — основа всего современного логирования.
+- [SLF4J Manual](https://www.slf4j.org/manual.html) и [Logback Documentation](https://logback.qos.ch/documentation.html) — фасад и реализация.
+- [OpenTelemetry Logs Specification](https://opentelemetry.io/docs/specs/otel/logs/) — будущий стандарт корреляции logs/metrics/traces.
+
+**Books:**
+- *Logging in Action* (Phil Wilkins, Manning 2022) — современный гайд по structured logging, MDC, аггрегации.
+
+**Engineering blogs / specs:**
+- [«Best practices for logging in Java» (Baeldung)](https://www.baeldung.com/java-logging-best-practices) — argument matchers, lazy evaluation, exception handling.
+- [Brett Slatkin — «Effective Python: logging» principles](https://effectivepython.com/) — переносимы на Java.
+- [Grafana Loki — Best Practices](https://grafana.com/docs/loki/latest/best-practices/) — labels vs message body, кардинальность.
+- [Elastic — «Common patterns in observability data»](https://www.elastic.co/observability) — ECS (Elastic Common Schema) — стандартизированные имена полей в JSON-логах.
+
+**Battle stories:**
+- [Cloudflare «Cloudbleed» (2017)](https://blog.cloudflare.com/incident-report-on-memory-leak-caused-by-cloudflare-parser-bug/) — утечка приватных данных (cookies, tokens) через логи и кэши, проиндексированные поисковиками. Иллюстрация почему PII/credentials в логи попадать не должны никогда.
+- [Equifax 2017 breach (US House report)](https://oversight.house.gov/wp-content/uploads/2018/12/Equifax-Report.pdf) — отсутствие логирования и мониторинга позволило атаке длиться 76 дней незамеченной. Иллюстрация что «нет логов» не безопаснее «есть логи».

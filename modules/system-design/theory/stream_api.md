@@ -268,3 +268,27 @@ Optional<User> user = findById(id)
     .or(() -> findByEmail(email))   // Java 9+
     .filter(User::isActive);
 ```
+
+---
+
+## Источники
+
+**Официальная документация:**
+- [`java.util.stream` package summary (JDK 21)](https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/stream/package-summary.html) — characteristics, lazy evaluation, parallel.
+- [`java.util.function` package summary](https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/function/package-summary.html) — все functional interfaces.
+- [`Optional` Javadoc](https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/Optional.html) — официальные anti-patterns и intended use.
+
+**JEPs (эволюция функциональных API):**
+- [JEP 126: Lambda Expressions & Virtual Extension Methods (JDK 8)](https://openjdk.org/jeps/126)
+- [JEP 269: Convenience Factory Methods for Collections (JDK 9)](https://openjdk.org/jeps/269) — `List.of`, `Map.of`.
+- [JEP 461: Stream Gatherers (JDK 22 Preview / JDK 24 Final)](https://openjdk.org/jeps/461) — кастомные intermediate операции.
+
+**Книги:**
+- *Modern Java in Action* (Raoul-Gabriel Urma, Mario Fusco, Alan Mycroft, Manning 2018) — основной справочник по Stream/Optional/Collectors.
+- *Effective Java*, 3rd ed. (Joshua Bloch, 2018) — Items 42–48 (lambdas and streams).
+- *Java by Comparison* (Simon Harrer, Jörg Lenhard, Linus Dietz, Pragmatic 2018) — рефакторинг к функциональному стилю.
+
+**Talks / posts:**
+- [Brian Goetz — «Stream API: Beyond the Basics» (Devoxx)](https://www.youtube.com/watch?v=1OpAgZvYXLQ) — внутренности spliterator'ов и parallel streams.
+- [Stuart Marks — «Diving into the Optional class»](https://stuartmarks.wordpress.com/2016/09/27/vjug24-session-on-optional/) — лучший разбор «когда использовать, когда нет».
+- [Maurice Naftalin — «Java Streams Tutorial»](https://www.oracle.com/technical-resources/articles/java/architect-streams-pt2.html)

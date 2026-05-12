@@ -229,3 +229,22 @@ Thread consumer = new Thread(() -> {
 4. Когда нужен Phaser вместо CyclicBarrier?
 5. Что такое "broken barrier"?
 6. Может ли один поток вызвать release() на Semaphore несколько раз? Что будет?
+
+---
+
+## Источники
+
+**Официальная документация:**
+- [`CountDownLatch` Javadoc](https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/concurrent/CountDownLatch.html)
+- [`CyclicBarrier` Javadoc](https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/concurrent/CyclicBarrier.html) — раздел про `BrokenBarrierException` и `reset()`.
+- [`Semaphore` Javadoc](https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/concurrent/Semaphore.html) — про fair/unfair и почему `release()` может вызвать любой поток.
+- [`Phaser` Javadoc](https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/concurrent/Phaser.html) — иерархические Phaser'ы, `onAdvance()`.
+- [`Exchanger` Javadoc](https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/concurrent/Exchanger.html)
+
+**Books / papers:**
+- *Java Concurrency in Practice* (Goetz et al., 2006) — Ch. 5.5 (Synchronizers).
+- [Doug Lea — «The java.util.concurrent Synchronizer Framework» (AQS paper)](https://gee.cs.oswego.edu/dl/papers/aqs.pdf) — общий механизм за всеми синхронизаторами.
+
+**Engineering blogs / posts:**
+- [Heinz Kabutz — «Phaser, the most underused synchronizer» (JavaSpecialists)](https://www.javaspecialists.eu/archive/Issue199.html)
+- [Brian Goetz — «Latches and barriers» (developerWorks, archive)](https://web.archive.org/web/2021*/developerWorks/java/library/j-jtp10264.html)

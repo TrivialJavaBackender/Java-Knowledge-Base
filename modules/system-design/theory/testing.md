@@ -627,3 +627,32 @@ PR →  [Unit tests: 2min]
     </configuration>
 </plugin>
 ```
+
+---
+
+## Источники
+
+**Официальная документация:**
+- [JUnit 5 User Guide](https://junit.org/junit5/docs/current/user-guide/) — assertions, parameterized tests, extensions.
+- [Mockito Documentation](https://javadoc.io/doc/org.mockito/mockito-core/latest/org/mockito/Mockito.html) — argument matchers, BDD-style, `verify`, `ArgumentCaptor`.
+- [Testcontainers Documentation](https://testcontainers.com/) — JUnit 5 integration, modules для Postgres/Kafka/Redis.
+- [Pact (Consumer-Driven Contracts) — Pact Foundation](https://docs.pact.io/) — contract testing.
+- [k6 Documentation](https://grafana.com/docs/k6/latest/) — load testing, thresholds, executors.
+
+**Книги:**
+- *Test Driven Development by Example* (Kent Beck, Addison-Wesley 2002) — оригинал TDD.
+- *Growing Object-Oriented Software, Guided by Tests* (Steve Freeman, Nat Pryce, 2009) — мокинг, hexagonal architecture.
+- *Effective Software Testing* (Maurício Aniche, Manning 2022) — современный сборник практик.
+- *Agile Testing* (Lisa Crispin, Janet Gregory, 2009) — testing quadrants, BDD, exploratory testing.
+
+**Articles / talks:**
+- [Martin Fowler — «Test Pyramid»](https://martinfowler.com/bliki/TestPyramid.html) — оригинал концепции от Mike Cohn / Fowler.
+- [Martin Fowler — «Mocks Aren't Stubs»](https://martinfowler.com/articles/mocksArentStubs.html) — классификация test doubles.
+- [Mike Cohn — «The Forgotten Layer of the Test Automation Pyramid»](https://www.mountaingoatsoftware.com/blog/the-forgotten-layer-of-the-test-automation-pyramid)
+- [Google Testing Blog — «Just Say No to More End-to-End Tests»](https://testing.googleblog.com/2015/04/just-say-no-to-more-end-to-end-tests.html)
+
+**Security / Chaos / NFT:**
+- [OWASP Top 10 (2021)](https://owasp.org/Top10/) и [OWASP Testing Guide v4](https://owasp.org/www-project-web-security-testing-guide/v42/).
+- [Principles of Chaos Engineering](https://principlesofchaos.org/) — Netflix-style chaos engineering manifesto.
+- [«Chaos Engineering: System Resiliency in Practice» (Casey Rosenthal, Nora Jones, O'Reilly 2020)](https://www.oreilly.com/library/view/chaos-engineering/9781492043861/).
+- [PIT (Pitest) Documentation](https://pitest.org/) — mutation testing для Java.

@@ -273,7 +273,22 @@ class Service {
 
 ## Источники
 
-- [kotlinlang.org/docs/composing-suspending-functions.html](https://kotlinlang.org/docs/composing-suspending-functions.html)
-- [kotlinlang.org/docs/exception-handling.html](https://kotlinlang.org/docs/exception-handling.html)
-- Roman Elizarov, "Structured Concurrency" — Medium 2018
-- KEEP-176
+**Официальная документация:**
+- [Composing Suspending Functions](https://kotlinlang.org/docs/composing-suspending-functions.html) — `coroutineScope`, `async`, `await`.
+- [Exception Handling and Supervision](https://kotlinlang.org/docs/exception-handling.html) — `SupervisorJob`, `supervisorScope`.
+
+**Foundational essays (canonical):**
+- [Nathaniel J. Smith — «Notes on structured concurrency, or: Go statement considered harmful» (2018)](https://vorpus.org/blog/notes-on-structured-concurrency-or-go-statement-considered-harmful/) — оригинальный термин, на котором построены и Kotlin coroutines, и Java `StructuredTaskScope`.
+- [Roman Elizarov — «Structured concurrency» (Medium, 2018)](https://elizarov.medium.com/structured-concurrency-722d765aa952) — каноническая адаптация идеи Smith'а на Kotlin.
+
+**Talks:**
+- [Roman Elizarov — «Structured Concurrency» (KotlinConf 2019)](https://www.youtube.com/watch?v=Mj5P47F6nJg) — каноничный доклад.
+
+**KEEP:**
+- [KEEP-176: Coroutines](https://github.com/Kotlin/KEEP/blob/master/proposals/coroutines.md) — раздел Structured concurrency.
+
+**Java-аналог:**
+- [JEP 499: Structured Concurrency (4th Preview, JDK 24)](https://openjdk.org/jeps/499) — `StructuredTaskScope`, идея та же; см. `concurrency/theory/VIRTUAL_THREADS.md` §5.
+
+**Книги:**
+- [*Kotlin Coroutines: Deep Dive* (Moskała)](https://kt.academy/book/coroutines) — главы про structured concurrency и supervision.

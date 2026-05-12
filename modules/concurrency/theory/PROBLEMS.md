@@ -313,3 +313,27 @@ False sharing     → @Contended / padding
 5. Что такое safe publication? Назови 4 способа.
 6. Что такое false sharing? Как диагностировать?
 7. Может ли race condition быть без data race? Пример.
+
+---
+
+## Источники
+
+**Спецификации / стандарты:**
+- [JLS §17.4 — Memory Model (Java SE 21)](https://docs.oracle.com/javase/specs/jls/se21/html/jls-17.html#jls-17.4) — формальное определение happens-before, data race, well-formed executions.
+- [JSR-133 FAQ (Manson, Goetz)](https://www.cs.umd.edu/~pugh/java/memoryModel/jsr-133-faq.html) — DCL, safe publication, volatile semantics.
+
+**Books / papers:**
+- *Java Concurrency in Practice* (Goetz et al., 2006) — Ch. 10 (Avoiding Liveness Hazards), Ch. 16 (The Java Memory Model).
+- [Coffman, Elphick, Shoshani (1971) — «System Deadlocks» (ACM Computing Surveys 3(2))](https://dl.acm.org/doi/10.1145/356586.356588) — оригинал четырёх условий deadlock'а.
+- *The Art of Multiprocessor Programming*, 2nd ed. (Herlihy/Shavit, 2020) — Ch. 7 (Spin Locks and Contention).
+
+**Официальная документация:**
+- [`ThreadMXBean#findDeadlockedThreads` (JDK 21)](https://docs.oracle.com/en/java/javase/21/docs/api/java.management/java/lang/management/ThreadMXBean.html#findDeadlockedThreads()) — программное обнаружение deadlock'а.
+- [`jdk.internal.vm.annotation.Contended` / `jstack(1)`, `jcmd Thread.print`](https://docs.oracle.com/en/java/javase/21/docs/specs/man/jstack.html)
+
+**Engineering blogs / posts:**
+- [Aleksey Shipilëv — «Close Encounters of the Java Memory Model Kind»](https://shipilev.net/blog/2014/jmm-pragmatics/) — детальный разбор DCL, publication, volatile, final.
+- [Aleksey Shipilëv — «Java Concurrency Stress Tests (jcstress)»](https://github.com/openjdk/jcstress) — стресс-тесты, ловящие data races на реальной JVM.
+- [Cliff Click — «False Sharing» (talk + slides)](https://www.youtube.com/watch?v=PVkRl5XAWzE) — что это, как диагностировать perf-tools.
+- [Martin Thompson — «False sharing && @Contended»](https://mechanical-sympathy.blogspot.com/2011/07/false-sharing.html)
+- [Doug Lea — «The JSR-133 Cookbook for Compiler Writers»](https://gee.cs.oswego.edu/dl/jmm/cookbook.html) — реальные барьеры, генерируемые JIT'ом для разных JMM-конструкций.

@@ -187,6 +187,17 @@ withContext(Dispatchers.IO.limitedParallelism(10))  // bounded IO
 
 ## Источники
 
-- [kotlinlang.org/docs/coroutine-context-and-dispatchers.html](https://kotlinlang.org/docs/coroutine-context-and-dispatchers.html)
-- KEEP-176
-- Vsevolod Tolstopyatov, "Concurrent coroutines" — KotlinConf 2021
+**Официальная документация:**
+- [Coroutine Context and Dispatchers](https://kotlinlang.org/docs/coroutine-context-and-dispatchers.html)
+- [`CoroutineDispatcher` Javadoc](https://kotlinlang.org/api/kotlinx.coroutines/kotlinx-coroutines-core/kotlinx.coroutines/-coroutine-dispatcher/) — `dispatch`, `interceptContinuation`, `limitedParallelism`.
+
+**KEEPs / спецификация:**
+- [KEEP-176: Coroutines](https://github.com/Kotlin/KEEP/blob/master/proposals/coroutines.md) — раздел про dispatchers и interception.
+
+**Talks / posts:**
+- [Vsevolod Tolstopyatov — «Concurrent coroutines: deep dive» (KotlinConf 2021)](https://www.youtube.com/watch?v=zluKcazgkV4) — внутренности scheduler'а, IO/Default объединение.
+- [Roman Elizarov — «Blocking threads, suspending coroutines»](https://elizarov.medium.com/blocking-threads-suspending-coroutines-d33e11bf4761) — почему `Default` для CPU и `IO` для блокировок.
+- [Manuel Vivo — «Coroutines on Android (part III): Real work»](https://medium.com/androiddevelopers/coroutines-on-android-part-iii-real-work-2ba8a2ec2f45) — dispatcher-выбор на практике.
+
+**Книги:**
+- [*Kotlin Coroutines: Deep Dive* (Moskała)](https://kt.academy/book/coroutines) — глава по dispatchers, custom dispatchers.

@@ -210,3 +210,27 @@ class Counter {
 5. Что такое spin-loop? Когда он вреден?
 6. Реализуй incrementAndGet() через compareAndSet без использования incrementAndGet().
 7. Чем AtomicStampedReference отличается от AtomicMarkableReference?
+
+---
+
+## Источники
+
+**Спецификации / JEP:**
+- [JEP 193: Variable Handles (JDK 9)](https://openjdk.org/jeps/193) — `VarHandle` как замена `sun.misc.Unsafe` и `AtomicXxxFieldUpdater`.
+- [Intel® 64 and IA-32 Architectures Software Developer's Manual, Vol. 2A: «CMPXCHG»](https://www.intel.com/content/www/us/en/developer/articles/technical/intel-sdm.html) — что именно делает CPU-инструкция за `compareAndSet`.
+
+**Официальная документация:**
+- [`java.util.concurrent.atomic` package summary (JDK 21)](https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/concurrent/atomic/package-summary.html)
+- [`LongAdder` Javadoc](https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/concurrent/atomic/LongAdder.html) — раздел про striping и `Striped64`.
+- [`VarHandle` Javadoc](https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/invoke/VarHandle.html)
+
+**Books / papers:**
+- *The Art of Multiprocessor Programming*, 2nd ed. (Maurice Herlihy, Nir Shavit, Victor Luchangco, Michael Spear, 2020) — Ch. 5 (Primitive Synchronization Instructions), Ch. 9–11 (lock-free structures).
+- *Java Concurrency in Practice* (Goetz et al., 2006) — Ch. 15 (Atomic Variables and Nonblocking Synchronization).
+- [Treiber, R.K. (1986) — «Systems Programming: Coping with Parallelism» (IBM Research Report RJ 5118)](https://dominoweb.draco.res.ibm.com/58319a2ed2b1078985257003004617ef.html) — оригинал Treiber stack.
+- [Michael & Scott (1996) — «Simple, Fast, and Practical Non-Blocking and Blocking Concurrent Queue Algorithms» (PODC '96)](https://www.cs.rochester.edu/~scott/papers/1996_PODC_queues.pdf) — алгоритм за `ConcurrentLinkedQueue`.
+
+**Engineering blogs / posts:**
+- [Aleksey Shipilëv — «Nanotrusting the nanotime» (про CAS-cost и memory ordering)](https://shipilev.net/blog/2014/nanotrusting-nanotime/)
+- [Cliff Click — «A Lock-Free Hash Table» (talk + paper)](https://web.stanford.edu/class/ee380/Abstracts/070221_LockFreeHash.pdf) — глубокое погружение в lock-free структуры.
+- [Martin Thompson — Mechanical Sympathy: «Memory Barriers / Fences»](https://mechanical-sympathy.blogspot.com/2011/07/memory-barriersfences.html)

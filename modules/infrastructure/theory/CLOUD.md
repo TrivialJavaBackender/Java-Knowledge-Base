@@ -262,3 +262,28 @@ resource "aws_rds_instance" "postgres" {
 ```
 
 Инфраструктура — код: версионирование, code review, воспроизводимость.
+
+---
+
+## Источники
+
+**Cloud architecture frameworks (must-read):**
+- [AWS Well-Architected Framework](https://docs.aws.amazon.com/wellarchitected/latest/framework/welcome.html) — 6 столпов: Operational Excellence, Security, Reliability, Performance, Cost, Sustainability.
+- [Google Cloud Architecture Framework](https://cloud.google.com/architecture/framework)
+- [Azure Well-Architected Framework](https://learn.microsoft.com/en-us/azure/well-architected/)
+- [Site Reliability Engineering (Google, free book)](https://sre.google/books/)
+
+**Books:**
+- *Cloud Native Patterns* (Cornelia Davis, Manning 2019) — паттерны cloud-native приложений.
+- *Designing Distributed Systems* (Brendan Burns, O'Reilly 2018, [free PDF от Microsoft](https://azure.microsoft.com/en-us/resources/designing-distributed-systems/)) — Sidecar, Ambassador, Adapter, master-elected leader, work-queue.
+- *Architecting for Scale*, 2nd ed. (Lee Atchison, O'Reilly 2020).
+
+**Postmortems / battle stories:**
+- [AWS S3 outage (Feb 2017)](https://aws.amazon.com/message/41926/) — typo в команде debugger выключил больше capacity, чем планировалось; половина интернета лежала несколько часов. Каноническая иллюстрация почему IaC с peer-review важнее интерактивного `aws s3 ...`.
+- [AWS us-east-1 outage (Dec 2021)](https://aws.amazon.com/message/12721/) — internal AWS network issue → Disney+, Netflix, Slack лежали; иллюстрация blast radius у одного региона.
+- [Cloudflare global outage (2020-07-17)](https://blog.cloudflare.com/cloudflare-outage-on-july-17-2020/) — bad config rolled out to all PoPs за секунды; staged rollout уроки.
+- [Werner Vogels — «All Things Distributed»](https://www.allthingsdistributed.com/) — блог CTO Amazon, многолетние разборы реальных incident'ов и решений.
+
+**Decision frameworks:**
+- [Martin Fowler — «Don't get locked up into avoiding lock-in»](https://martinfowler.com/articles/oss-lockin.html) — vendor lock-in vs cost ofабстракции.
+- [Cornell — «Cloud Repatriation» (Andreessen-Horowitz, «The Cost of Cloud, a Trillion Dollar Paradox»)](https://a16z.com/the-cost-of-cloud-a-trillion-dollar-paradox/) — почему крупные компании уезжают с cloud обратно.

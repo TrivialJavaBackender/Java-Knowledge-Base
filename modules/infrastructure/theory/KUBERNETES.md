@@ -330,3 +330,29 @@ BestEffort (нет requests/limits)    ← выселяется первым
 
 ### Q8: Зачем нужен startupProbe?
 **A:** Для приложений с медленным стартом (прогрев кэшей, heavy initialization). Без startupProbe нужно ставить большой `initialDelaySeconds` для liveness — это добавляет слепое время для всех рестартов. startupProbe позволяет задать отдельные параметры для фазы старта: `failureThreshold * periodSeconds` = максимальное время ожидания. После успешного startupProbe начинают работать liveness и readiness.
+
+---
+
+## Источники
+
+**Официальная документация:**
+- [Kubernetes Documentation](https://kubernetes.io/docs/) — concepts, tasks, reference. Особенно важны разделы Workloads, Services-Networking, Configuration.
+- [Kubernetes API Reference](https://kubernetes.io/docs/reference/kubernetes-api/) — каноническое описание спек ресурсов.
+- [Kubernetes Enhancement Proposals (KEPs)](https://github.com/kubernetes/enhancements) — что меняется в API и почему.
+- [Configure Liveness, Readiness and Startup Probes](https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/)
+
+**Books:**
+- *Kubernetes Up & Running*, 3rd ed. (Brendan Burns, Joe Beda, Kelsey Hightower, Lachlan Evenson, O'Reilly 2022).
+- *Kubernetes Patterns*, 2nd ed. (Bilgin Ibryam, Roland Huss, O'Reilly 2023) — каталог паттернов: Health Probe, Sidecar, Init Container, Stateful Service.
+- *The Kubernetes Book* (Nigel Poulton, 2024) — обновляется ежегодно под новые версии.
+- *Programming Kubernetes* (Michael Hausenblas, Stefan Schimanski, O'Reilly 2019) — для тех, кто пишет операторов.
+
+**Battle stories / postmortems:**
+- [Henning Jacobs (Zalando) — «Liveness Probes are Dangerous»](https://srcco.de/posts/kubernetes-liveness-probes-are-dangerous.html) — почему неосторожный liveness probe вызывает каскадные перезапуски под нагрузкой; ровно та проблема, о которой пишет Q4. Must-read.
+- [Reddit Engineering — «How a Single PR Brought Down Production for Hours»](https://www.reddit.com/r/kubernetes/) — типичные failure modes (resource starvation, eviction loops).
+- [Cloudflare 2019 — «Bad regex took us offline»](https://blog.cloudflare.com/details-of-the-cloudflare-outage-on-july-2-2019/) — почему staged rollouts (canary) и rollback нужны до того, как они понадобятся.
+
+**Tooling:**
+- [`kubectl` cheat sheet](https://kubernetes.io/docs/reference/kubectl/cheatsheet/)
+- [k9s — terminal UI for k8s](https://k9scli.io/) — на порядок удобнее голого `kubectl`.
+- [Lens / OpenLens](https://k8slens.dev/) — desktop GUI.

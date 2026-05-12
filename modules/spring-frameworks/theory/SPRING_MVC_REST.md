@@ -483,3 +483,26 @@ class OrderControllerTest {
     }
 }
 ```
+
+---
+
+## Источники
+
+**Спецификации / документация:**
+- [Spring Framework Reference — Web on Servlet Stack (Spring MVC)](https://docs.spring.io/spring-framework/reference/web/webmvc.html) — `DispatcherServlet`, handler mappings, message converters, exception handling.
+- [Jakarta Servlet 6.0 Specification](https://jakarta.ee/specifications/servlet/6.0/) — стандарт, поверх которого работает Spring MVC.
+- [Jakarta Bean Validation 3.0](https://jakarta.ee/specifications/bean-validation/3.0/) — `@Valid`, `@NotBlank`, групповая валидация.
+
+**Books:**
+- *Spring in Action*, 6th ed. (Craig Walls, Manning 2022) — главы по MVC, REST, validation, exception handling.
+- *Spring Microservices with Spring Boot 3 and Spring Cloud*, 3rd ed. (Magnus Larsson, Packt 2023).
+
+**Engineering blogs:**
+- [Baeldung — Spring MVC tutorials](https://www.baeldung.com/spring-mvc-tutorial) — большая коллекция how-to'у с edge-cases.
+- [Josh Long — «Bootiful» series (Spring blog)](https://spring.io/blog) — guidance от Spring developer advocate.
+- [«ResponseEntity vs `@ResponseStatus`» (Baeldung)](https://www.baeldung.com/spring-response-entity)
+
+**Security / battle stories:**
+- [CVE-2022-22965 «Spring4Shell»](https://nvd.nist.gov/vuln/detail/CVE-2022-22965) — RCE через `getClass().getProtectionDomain()...` в data binding (Java 9+, Tomcat). [Подробный postmortem (Praetorian)](https://www.praetorian.com/blog/spring-core-jdk9-rce/) описывает цепочку: forms binding → ClassLoader → AccessLogValve → web shell. Это иллюстрация ровно того, почему `disallowedFields` в `WebDataBinder` важен.
+- [CVE-2024-22243 — Open Redirect в `UriComponentsBuilder`](https://spring.io/security/cve-2024-22243) — пример того, что user-controlled URI parsing требует whitelisting.
+- [OWASP — Top 10 for Web Application Security](https://owasp.org/Top10/) — A03:2021 Injection, A07:2021 Auth Failures и т.д. — практический чек-лист для REST API.

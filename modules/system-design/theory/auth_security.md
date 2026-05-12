@@ -158,3 +158,23 @@ OIDC — аутентификация (кто ты).
 ---
 
 > **Distributed Tracing** — см. [`modules/infrastructure/theory/OBSERVABILITY.md`](../../infrastructure/theory/OBSERVABILITY.md) (раздел 4). Tracing — один из трёх столпов observability, который живёт в infrastructure модуле.
+
+---
+
+## Источники
+
+**RFC / стандарты:**
+- [RFC 7519 — JSON Web Token (JWT)](https://datatracker.ietf.org/doc/html/rfc7519)
+- [RFC 6749 — The OAuth 2.0 Authorization Framework](https://datatracker.ietf.org/doc/html/rfc6749)
+- [RFC 7636 — Proof Key for Code Exchange (PKCE)](https://datatracker.ietf.org/doc/html/rfc7636)
+- [RFC 8252 — OAuth 2.0 for Native Apps (Best Current Practice)](https://datatracker.ietf.org/doc/html/rfc8252)
+- [OpenID Connect Core 1.0](https://openid.net/specs/openid-connect-core-1_0.html) — OIDC поверх OAuth 2.0.
+
+**Security guidance:**
+- [OWASP — JSON Web Token for Java Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/JSON_Web_Token_for_Java_Cheat_Sheet.html) — типичные ошибки валидации JWT.
+- [OAuth 2.0 Threat Model and Security Considerations (RFC 6819)](https://datatracker.ietf.org/doc/html/rfc6819)
+- [OAuth 2.0 Security Best Current Practice (draft-ietf-oauth-security-topics)](https://datatracker.ietf.org/doc/html/draft-ietf-oauth-security-topics) — почему Implicit flow устарел.
+
+**Книги:**
+- *OAuth 2 in Action* (Justin Richer, Antonio Sanso, Manning 2017) — единственная книга от автора многих RFC.
+- *API Security in Action* (Neil Madden, Manning 2020) — JWT/JWE/JWS, OAuth, mTLS на практике.

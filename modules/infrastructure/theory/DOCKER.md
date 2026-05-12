@@ -236,3 +236,27 @@ networks:
 
 ### Q8: Что такое distroless образ?
 **A:** Образы от Google, содержащие только runtime без shell, package manager, лишних утилит. `gcr.io/distroless/java21` содержит только JRE. Преимущества: меньше размер, минимальный attack surface (нет shell = нет возможности зайти в контейнер интерактивно). Недостаток: сложнее отлаживать.
+
+---
+
+## Источники
+
+**Официальная документация / стандарты:**
+- [Docker Documentation](https://docs.docker.com/) — Dockerfile reference, Compose, networking, storage.
+- [OCI Image Specification](https://github.com/opencontainers/image-spec) — открытый стандарт формата образов (его реализуют Docker, containerd, podman).
+- [OCI Runtime Specification](https://github.com/opencontainers/runtime-spec) — как именно запускается контейнер.
+- [Dockerfile best practices (Docker Docs)](https://docs.docker.com/develop/develop-images/dockerfile_best-practices/)
+
+**Books:**
+- *Docker in Action*, 2nd ed. (Jeff Nickoloff, Stephen Kuenzli, Manning 2019).
+- *The Docker Book* (James Turnbull, 2014) — основа, до сих пор актуальная по концепциям.
+
+**Talks / posts:**
+- [Liz Rice — «What is a container, really?» (KubeCon)](https://www.youtube.com/watch?v=8fi7uSYlOdc) — namespaces + cgroups «руками».
+- [Jérôme Petazzoni — «Container internals: namespaces and cgroups»](https://jpetazzo.github.io/2014/03/23/lxc-attach-nsinit-nsenter-docker-0-9/) — каноническая работа от инженера Docker.
+- [Google — Distroless images](https://github.com/GoogleContainerTools/distroless) — почему минимальный attack surface важен.
+- [«Use multi-stage builds» (Docker blog)](https://docs.docker.com/build/building/multi-stage/)
+
+**Security:**
+- [CVE-2019-5736 — runc breakout](https://nvd.nist.gov/vuln/detail/CVE-2019-5736) — почему non-root user в контейнере не косметика.
+- [Snyk — «10 Docker image security best practices»](https://snyk.io/blog/10-docker-image-security-best-practices/)

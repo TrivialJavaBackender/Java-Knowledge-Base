@@ -281,3 +281,24 @@ class OrderCreatedV2 { ... }
 ```
 
 **Confluent Schema Registry** — централизованное хранение Avro/Protobuf схем. При публикации в Kafka — схема регистрируется, при чтении — загружается нужная версия. Поддерживает `BACKWARD`, `FORWARD`, `FULL` режимы совместимости.
+
+---
+
+## Источники
+
+**Books:**
+- *Clean Architecture* (Robert C. Martin, Prentice Hall 2017) — формулировка SOLID, Dependency Rule.
+- *Agile Software Development: Principles, Patterns, and Practices* (Robert C. Martin, 2002) — оригинальные эссе по SOLID.
+- *Patterns of Enterprise Application Architecture* (Martin Fowler, Addison-Wesley 2002) — Adapter, Repository, Unit of Work.
+- *Effective Java*, 3rd ed. (Joshua Bloch, 2018) — Item 18 (composition over inheritance), 64 (interfaces, not classes).
+- *Refactoring*, 2nd ed. (Martin Fowler, 2018) — практический контекст SOLID-изменений в коде.
+
+**Papers:**
+- [Liskov, Wing (1994) — «A Behavioral Notion of Subtyping» (ACM TOPLAS)](https://www.cs.cmu.edu/~wing/publications/LiskovWing94.pdf) — формальное определение LSP (контракты, инварианты).
+- [Robert C. Martin — «The Single Responsibility Principle» (objectmentor PDF, 2003)](https://web.archive.org/web/20150202200348/http://www.objectmentor.com/resources/articles/srp.pdf) — оригинальное эссе.
+
+**Schema evolution:**
+- [Confluent — Schema Compatibility Types](https://docs.confluent.io/platform/current/schema-registry/avro.html#schema-evolution-and-compatibility) — `BACKWARD`, `FORWARD`, `FULL`, `TRANSITIVE`.
+- [Apache Avro — Schema Resolution](https://avro.apache.org/docs/1.11.1/specification/#schema-resolution)
+- [Protocol Buffers — Updating A Message Type](https://protobuf.dev/programming-guides/proto3/#updating)
+- [Greg Young — «Versioning in an Event Sourced System» (Leanpub, бесплатно)](https://leanpub.com/esversioning/read) — каноническая работа по upcasting и event versioning.

@@ -265,3 +265,23 @@ Nested Loop — хорош при маленьком outer, Hash Join — при
 | Поиск по `lower(col)`, выражениям | **Expression B-tree** |
 | Покрыть запрос без обращения к heap | **Covering / INCLUDE** |
 | Нечёткий поиск, `LIKE '%middle%'`, опечатки | **GIN/GiST + pg_trgm** |
+
+---
+
+## Источники
+
+**Официальная документация:**
+- [PostgreSQL 16 — Chapter 11. Indexes](https://www.postgresql.org/docs/16/indexes.html) — все типы индексов, операторы, expression/partial/INCLUDE.
+- [PostgreSQL — `EXPLAIN` reference](https://www.postgresql.org/docs/16/sql-explain.html) и [Using EXPLAIN](https://www.postgresql.org/docs/16/using-explain.html).
+- [`pg_trgm` extension docs](https://www.postgresql.org/docs/16/pgtrgm.html)
+- [PostgreSQL — Index-Only Scans and Covering Indexes](https://www.postgresql.org/docs/16/indexes-index-only-scans.html)
+
+**Книги:**
+- [*Use The Index, Luke!* (Markus Winand)](https://use-the-index-luke.com/) — лучший практический справочник по индексам и плану выполнения, бесплатно онлайн.
+- *Database Internals* (Alex Petrov, O'Reilly 2019) — Ch. 2 (B-Tree Basics), Ch. 4 (Implementing B-Trees).
+- *PostgreSQL 14 Internals* (Egor Rogov, бесплатно от Postgres Pro) — раздел про MVCC и индексы.
+
+**Engineering blogs:**
+- [Heikki Linnakangas — PostgreSQL committer blog](https://hlinnaka.iki.fi/) — глубокие посты про реализацию индексов.
+- [Bruce Momjian — PostgreSQL performance presentations](https://momjian.us/presentations/) — особенно «Explaining the Postgres Query Optimizer».
+- [«ARC: a self-tuning, low-overhead replacement cache» (Megiddo & Modha, USENIX FAST '03)](https://www.usenix.org/legacy/publications/library/proceedings/fast03/tech/full_papers/megiddo/megiddo.pdf) — важно для понимания page cache, на котором построены индексы.

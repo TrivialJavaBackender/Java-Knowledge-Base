@@ -374,3 +374,27 @@ A: Никак — мобильное приложение public client. client_
 
 **Q: SSO — как работает между несколькими приложениями?**  
 A: После логина в Keycloak создаётся SSO session (cookie на домене Keycloak). При открытии второго приложения — оно редиректит на Keycloak, Keycloak видит валидную сессию и сразу выдаёт code без повторного ввода пароля.
+
+---
+
+## Источники
+
+**OAuth / OIDC:**
+- [RFC 6749 — The OAuth 2.0 Authorization Framework](https://datatracker.ietf.org/doc/html/rfc6749)
+- [RFC 7636 — PKCE](https://datatracker.ietf.org/doc/html/rfc7636)
+- [RFC 8252 — OAuth 2.0 for Native Apps](https://datatracker.ietf.org/doc/html/rfc8252)
+- [RFC 7662 — Token Introspection](https://datatracker.ietf.org/doc/html/rfc7662)
+- [OpenID Connect Core 1.0](https://openid.net/specs/openid-connect-core-1_0.html), [Discovery 1.0](https://openid.net/specs/openid-connect-discovery-1_0.html)
+- [OAuth 2.0 Security Best Current Practice (draft-ietf-oauth-security-topics)](https://datatracker.ietf.org/doc/html/draft-ietf-oauth-security-topics) — текущее «как делать правильно» от IETF.
+
+**SAML 2.0:**
+- [SAML 2.0 OASIS Standard — Core](http://docs.oasis-open.org/security/saml/v2.0/saml-core-2.0-os.pdf)
+- [SAML 2.0 Bindings (HTTP-Redirect, HTTP-POST)](http://docs.oasis-open.org/security/saml/v2.0/saml-bindings-2.0-os.pdf)
+
+**Документация продуктов:**
+- [Keycloak Server Administration Guide](https://www.keycloak.org/docs/latest/server_admin/) — realms, clients, identity brokering, user federation.
+- [Auth0 — OAuth 2.0 / OIDC concepts](https://auth0.com/docs/authenticate/protocols/oauth) — образцовое объяснение flow с диаграммами.
+
+**Книги / posts:**
+- *OAuth 2 in Action* (Justin Richer, Antonio Sanso, Manning 2017) — авторы — Working Group участники.
+- [Daniel Fett — «OAuth 2.0 Security Cheatsheet»](https://danielfett.de/) — глубокий разбор атак (mix-up, code interception).

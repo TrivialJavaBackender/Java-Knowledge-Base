@@ -234,3 +234,25 @@ Lock downgrade нужен                       → ReentrantReadWriteLock
 5. В чём отличие `Condition.await()` от `Object.wait()`?
 6. Как работает optimistic read в StampedLock?
 7. Когда ReadWriteLock НЕ даёт преимущества над synchronized?
+
+---
+
+## Источники
+
+**Спецификации / JEP:**
+- [JEP 491: Synchronize Virtual Threads without Pinning (JDK 24)](https://openjdk.org/jeps/491) — почему `synchronized` блокировал carrier-поток до Java 24 и как это решили.
+- [JEP 444: Virtual Threads (final, JDK 21)](https://openjdk.org/jeps/444) — раздел Pinning, рекомендация переходить на `ReentrantLock`.
+
+**Официальная документация:**
+- [`java.util.concurrent.locks` package summary (JDK 21)](https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/concurrent/locks/package-summary.html)
+- [`ReentrantLock` Javadoc](https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/concurrent/locks/ReentrantLock.html)
+- [`StampedLock` Javadoc](https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/concurrent/locks/StampedLock.html)
+
+**Книги / papers:**
+- *Java Concurrency in Practice* (Goetz et al., 2006) — Ch. 13 (Explicit Locks), Ch. 14 (Building Custom Synchronizers).
+- [Doug Lea — «The java.util.concurrent Synchronizer Framework» (AQS paper, 2005)](https://gee.cs.oswego.edu/dl/papers/aqs.pdf) — внутреннее устройство `AbstractQueuedSynchronizer`, на котором построены все локи.
+
+**Engineering blogs / posts:**
+- [Heinz Kabutz — «Phaser, StampedLock and friends» (JavaSpecialists Newsletter)](https://www.javaspecialists.eu/archive/Issue215.html) — практические нюансы StampedLock.
+- [Aleksey Shipilëv — «Java Object Header Layout» (для biased locking)](https://shipilev.net/jvm/objects-inside-out/) — что было в заголовке объекта до отмены biased locking в JEP 374.
+- [JEP 374: Disable and Deprecate Biased Locking (JDK 15)](https://openjdk.org/jeps/374) — почему `synchronized` стало проще, но не быстрее.

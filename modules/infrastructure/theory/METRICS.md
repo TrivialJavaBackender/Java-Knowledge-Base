@@ -287,3 +287,28 @@ latencyMs                        ❌ нет единицы, camelCase
 
 ### Q7: Как Prometheus находит endpoint для scrape в Kubernetes?
 **A:** Через kubernetes_sd (service discovery). Prometheus смотрит Kubernetes API на Pod/Service/Node. Через `relabel_configs` фильтрует: берёт только Pod с аннотацией `prometheus.io/scrape: "true"` и использует `prometheus.io/port` и `prometheus.io/path` для настройки scrape. Spring Boot Pod нужно аннотировать: `annotations: prometheus.io/scrape: "true"`, `prometheus.io/port: "8080"`, `prometheus.io/path: "/actuator/prometheus"`.
+
+---
+
+## Источники
+
+**Официальная документация:**
+- [Prometheus Documentation](https://prometheus.io/docs/) — types of metrics, storage, querying, alerting.
+- [PromQL Cheat Sheet (Promlabs)](https://promlabs.com/promql-cheat-sheet/) — лучшая практическая шпаргалка.
+- [Micrometer Documentation](https://micrometer.io/docs) — фасад, как и почему.
+- [Spring Boot Actuator — Metrics](https://docs.spring.io/spring-boot/docs/current/reference/html/actuator.html#actuator.metrics)
+- [Grafana Documentation](https://grafana.com/docs/grafana/latest/) — Dashboards, Alerting, Loki/Tempo интеграции.
+
+**Books:**
+- *Prometheus: Up & Running*, 2nd ed. (Brian Brazil, O'Reilly 2024) — автор — core developer Prometheus.
+- *Site Reliability Engineering* (Google, [open book](https://sre.google/books/)) — Ch. 6 «Monitoring Distributed Systems».
+- *The Site Reliability Workbook* (Google, открытая книга) — практические примеры USE/RED.
+
+**Methodologies:**
+- [Brendan Gregg — «The USE Method» (Utilization, Saturation, Errors)](https://www.brendangregg.com/usemethod.html) — про hardware ресурсы.
+- [Tom Wilkie — «The RED Method» (Rate, Errors, Duration)](https://grafana.com/blog/2018/08/02/the-red-method-how-to-instrument-your-services/) — про request-driven сервисы.
+- [Google SRE — «Four Golden Signals» (Latency, Traffic, Errors, Saturation)](https://sre.google/sre-book/monitoring-distributed-systems/#xref_monitoring_golden-signals)
+
+**Engineering posts:**
+- [Cindy Sridharan — «Monitoring in the time of cloud native»](https://copyconstruct.medium.com/monitoring-in-the-time-of-cloud-native-c87c7a5bfa3e) — переход от хост-метрик к request-метрикам.
+- [Grafana Labs — «How we cut our Prometheus memory usage by 90%»](https://grafana.com/blog/) — про cardinality, recording rules.

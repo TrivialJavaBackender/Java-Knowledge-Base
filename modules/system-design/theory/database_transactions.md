@@ -373,3 +373,24 @@ public void innerMethod() { ... }
 | `makeReservation` | READ COMMITTED | EXCLUDE constraint — атомарный INSERT |
 | Финансовые операции | REPEATABLE READ | + FOR UPDATE на строке счёта |
 | Инварианты между строками | SERIALIZABLE | + retry-логика |
+
+---
+
+## Источники
+
+**Официальная документация:**
+- [PostgreSQL 16 — Chapter 13. Concurrency Control](https://www.postgresql.org/docs/16/mvcc.html) — MVCC, уровни изоляции, явные локи, SSI.
+- [PostgreSQL — Transaction Isolation](https://www.postgresql.org/docs/16/transaction-iso.html) — таблица аномалий, поведение SSI.
+- [PostgreSQL — Routine Vacuuming + Wraparound Failures](https://www.postgresql.org/docs/16/routine-vacuuming.html#VACUUM-FOR-WRAPAROUND)
+
+**Papers / books:**
+- [Berenson, Bernstein, Gray et al. (1995) — «A Critique of ANSI SQL Isolation Levels» (SIGMOD '95)](https://www.microsoft.com/en-us/research/wp-content/uploads/2016/02/tr-95-51.pdf) — каноническое определение всех аномалий, включая phantom и read skew.
+- [Adya, Liskov, O'Neil (2000) — «Generalized Isolation Level Definitions» (ICDE)](https://pmg.csail.mit.edu/papers/icde00.pdf) — формальная иерархия аномалий поверх ANSI.
+- [Cahill, Röhm, Fekete (2008) — «Serializable Isolation for Snapshot Databases» (SIGMOD '08)](https://people.eecs.berkeley.edu/~kubitron/courses/cs262a-F13/handouts/papers/p729-cahill.pdf) — алгоритм SSI, реализованный в PostgreSQL 9.1+.
+- *Designing Data-Intensive Applications* (Martin Kleppmann, O'Reilly 2017) — Ch. 7 (Transactions).
+- *Transaction Processing: Concepts and Techniques* (Jim Gray, Andreas Reuter, 1992) — фундаментальная работа по ACID.
+
+**Engineering blogs:**
+- [Vlad Mihalcea — «A beginner's guide to ACID and database transactions»](https://vladmihalcea.com/a-beginners-guide-to-acid-and-database-transactions/) и серия по уровням изоляции.
+- [Markus Winand — «We need tool support for keyset pagination» (про FOR UPDATE SKIP LOCKED)](https://use-the-index-luke.com/no-offset)
+- [Jepsen — PostgreSQL analyses](https://jepsen.io/analyses) — какие именно аномалии PG допускает (или не допускает) на практике.

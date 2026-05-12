@@ -604,3 +604,26 @@ Circular dependency почти всегда — симптом нарушени�
 ```
 
 Это решает техническую проблему, но не архитектурную. Используй только если действительно не можешь рефакторить.
+
+---
+
+## Источники
+
+**Официальная документация:**
+- [Spring Framework Reference — Core (IoC, DI, AOP)](https://docs.spring.io/spring-framework/reference/core.html) — каноническое описание `BeanFactory`, `ApplicationContext`, scopes, lifecycle, AOP.
+- [Spring Framework — The IoC Container](https://docs.spring.io/spring-framework/reference/core/beans.html)
+- [Spring Framework — Aspect Oriented Programming](https://docs.spring.io/spring-framework/reference/core/aop.html)
+
+**Books:**
+- *Spring in Action*, 6th ed. (Craig Walls, Manning 2022) — главы 1–4 по DI, Beans, AOP.
+- [*Expert One-on-One J2EE Design and Development* (Rod Johnson, Wrox 2002)](https://www.amazon.com/Expert-One---One-Design-Development/dp/0764543857) — оригинал, из которого вырос Spring Framework.
+- *Pro Spring 6* (Iuliana Cosmina et al., Apress 2023) — глубокий разбор Bean Lifecycle, BeanPostProcessor.
+
+**Articles / talks:**
+- [Martin Fowler — «Inversion of Control Containers and the Dependency Injection pattern» (2004)](https://martinfowler.com/articles/injection.html) — каноническая статья о терминологии IoC vs DI.
+- [Phil Webb — «State of Spring Boot» (SpringOne)](https://springone.io/) — ежегодные обновления по эволюции container'а.
+- [Baeldung — «Guide to Spring @Autowired» / «Spring Bean Scopes»](https://www.baeldung.com/spring-autowire) — практические примеры с edge-cases.
+
+**Common pitfalls:**
+- [«Why field injection is evil» (Olivier Croisier, 2014)](https://blog.marcnuri.com/field-injection-is-not-recommended) — оригинал популярного аргумента против `@Autowired` на полях.
+- [«Self-invocation in Spring AOP» (Baeldung)](https://www.baeldung.com/spring-aop-self-invocation) — почему `this.method()` обходит прокси и как это лечить.

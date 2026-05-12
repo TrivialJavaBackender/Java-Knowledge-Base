@@ -217,6 +217,17 @@ suspend fun whoAmI() {
 
 ## Источники
 
-- [kotlinlang.org/docs/coroutine-context-and-dispatchers.html](https://kotlinlang.org/docs/coroutine-context-and-dispatchers.html)
-- KEEP-176, секция "CoroutineScope and CoroutineContext"
-- Roman Elizarov, "Coroutine context and scope" — Medium
+**Официальная документация:**
+- [Coroutine Context and Dispatchers](https://kotlinlang.org/docs/coroutine-context-and-dispatchers.html) — context elements, scope, child relationships.
+- [`CoroutineScope` Javadoc](https://kotlinlang.org/api/kotlinx.coroutines/kotlinx-coroutines-core/kotlinx.coroutines/-coroutine-scope/)
+- [`CoroutineContext` (stdlib)](https://kotlinlang.org/api/latest/jvm/stdlib/kotlin.coroutines/-coroutine-context/) — алгебра элементов.
+
+**KEEP:**
+- [KEEP-176: Coroutines](https://github.com/Kotlin/KEEP/blob/master/proposals/coroutines.md) — раздел про `CoroutineScope` и `CoroutineContext`.
+
+**Posts (canonical):**
+- [Roman Elizarov — «Coroutine context and scope»](https://elizarov.medium.com/coroutine-context-and-scope-c8b255d59055) — must-read, объясняет ровно эту тему.
+- [Roman Elizarov — «Structured Concurrency, Lifecycle and Coroutine Parent-Child Hierarchy»](https://elizarov.medium.com/structured-concurrency-722d765aa952)
+
+**Книги:**
+- [*Kotlin Coroutines: Deep Dive* (Moskała)](https://kt.academy/book/coroutines) — главы по context и scope.

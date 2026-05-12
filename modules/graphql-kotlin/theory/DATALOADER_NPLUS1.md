@@ -173,9 +173,25 @@ DataLoader даёт `Statistics`: `batchInvokeCount`, `batchLoadCount`, `cacheHi
 
 ---
 
-## 9. Что почитать
+## 9. Источники
 
-- DataLoader спецификация: <https://github.com/graphql/dataloader> (JS, но идеи те же).
-- graphql-java DataLoader: <https://www.graphql-java.com/documentation/batching/>.
-- graphql-kotlin DataLoader: <https://opensource.expediagroup.com/graphql-kotlin/docs/server/data-loader>.
-- Контекст про индексы и батч-запросы → `system-design/theory/database_indexes.md`.
+**Спецификация / canonical:**
+- [DataLoader spec (Facebook / GraphQL Foundation)](https://github.com/graphql/dataloader) — JS-референс, но семантика (per-request, batching, caching) одинакова для всех языков.
+- [Lee Byron — original DataLoader talk](https://www.youtube.com/watch?v=OQTnXNCDywA) — мотивация и ключевая идея от автора.
+
+**Реализации:**
+- [graphql-java — Async Execution & DataLoader](https://www.graphql-java.com/documentation/batching/) — JVM-портирование, на котором построен graphql-kotlin.
+- [graphql-kotlin DataLoader docs](https://opensource.expediagroup.com/graphql-kotlin/docs/server/data-loader) — `KotlinDataLoader`, регистрация, suspend-резолверы.
+- [Spring for GraphQL — `@BatchMapping`](https://docs.spring.io/spring-graphql/reference/controllers.html#controllers.batch-mapping) — нативный аналог в Spring (но **не в graphql-kotlin**, см. таблицу выше).
+
+**Posts (must-read):**
+- [Marc-André Giroux — «GraphQL N+1 problem and DataLoader» (production-ready-graphql.com)](https://productionreadygraphql.com/blog/2019-07-15-the-graphql-dataloader-pattern-visualized/)
+- [Apollo Blog — «Solving the N+1 Problem with DataLoader»](https://www.apollographql.com/docs/graphos/schema-design/guides/handling-n-plus-one)
+- [Shopify — «GraphQL Best Practices: DataLoader»](https://shopify.engineering/) — пример из реального production масштаба.
+
+**Books:**
+- [*Production Ready GraphQL* (Marc-André Giroux, 2020)](https://book.productionreadygraphql.com/) — глава «Optimizing for Performance».
+
+**Связано:**
+- Контекст про индексы и батч-запросы → [`system-design/theory/database_indexes.md`](../../system-design/theory/database_indexes.md).
+- Hibernate `@BatchSize` как альтернатива на JPA-уровне → [`spring-frameworks/theory/SPRING_DATA_JPA.md`](../../spring-frameworks/theory/SPRING_DATA_JPA.md).

@@ -261,3 +261,26 @@ helm get values myapp-prod
 
 ### Q6: Что происходит при провале Helm hook Job?
 **A:** Helm ждёт Job в статусе Complete (exit code 0). Если Job завершился ошибкой — весь `helm upgrade` помечается как failed, новые ресурсы не создаются. Это защищает от деплоя версии, где DB миграция не прошла. Состояние кластера зависит от `hook-delete-policy` и того, на каком этапе упал hook.
+
+---
+
+## Источники
+
+**Официальная документация:**
+- [Helm Documentation](https://helm.sh/docs/) — install, charts, templating, hooks, values.
+- [Helm — Chart Best Practices](https://helm.sh/docs/chart_best_practices/) — naming, values, labels, dependencies.
+- [Helm — Chart Hooks](https://helm.sh/docs/topics/charts_hooks/) — pre-/post-install, upgrade, rollback, delete.
+- [Helm Template Functions and Pipelines](https://helm.sh/docs/chart_template_guide/function_list/)
+
+**Books:**
+- *Learning Helm* (Matt Butcher, Matt Farina, Josh Dolitsky, O'Reilly 2021) — авторы — core maintainers Helm.
+- *The Kubernetes Book* (Nigel Poulton) — глава про Helm есть в современных изданиях.
+
+**Engineering blogs / talks:**
+- [«Helm vs Kustomize: Pros and Cons» (CNCF Blog)](https://www.cncf.io/blog/2020/08/26/why-do-devops-engineers-love-helm/) — когда Helm избыточен.
+- [Helm Charts Repository — best practices](https://github.com/helm/charts) — большая коллекция реальных charts (deprecated, но образцы хороши).
+- [Bitnami Charts](https://github.com/bitnami/charts) — самые популярные production-ready charts; примеры паттернов.
+
+**Альтернативы (важно знать):**
+- [Kustomize](https://kustomize.io/) — встроенный в `kubectl` overlay-инструмент, без шаблонов.
+- [Argo CD](https://argo-cd.readthedocs.io/) — GitOps-операционка для Helm/Kustomize в проде.

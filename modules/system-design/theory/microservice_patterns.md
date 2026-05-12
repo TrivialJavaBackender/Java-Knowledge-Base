@@ -412,3 +412,24 @@ UPDATE outbox SET published = true WHERE id = ?;
 ```
 
 Или **Debezium (CDC)** — читает WAL PostgreSQL и публикует изменения в Kafka автоматически.
+
+---
+
+## Источники
+
+**Books:**
+- *Microservices Patterns* (Chris Richardson, Manning 2018) — каталог паттернов: Saga, CQRS, Event Sourcing, API Gateway, Service Discovery, Circuit Breaker.
+- *Building Microservices*, 2nd ed. (Sam Newman, O'Reilly 2021) — миграция с монолита, deployment, ownership boundaries.
+- *Release It!*, 2nd ed. (Michael Nygard, Pragmatic 2018) — Circuit Breaker, Bulkhead, Timeouts — оригинал большинства resilience-паттернов.
+- *Designing Data-Intensive Applications* (Martin Kleppmann, O'Reilly 2017) — Ch. 9 (Consistency), Ch. 11 (Stream Processing).
+
+**Pattern catalogs:**
+- [microservices.io (Chris Richardson)](https://microservices.io/patterns/index.html) — открытый каталог паттернов с диаграммами.
+- [Martin Fowler — «Microservices»](https://martinfowler.com/articles/microservices.html) и [«Strangler Fig Application»](https://martinfowler.com/bliki/StranglerFigApplication.html) — оригинальные определения.
+
+**Engineering blogs / case studies:**
+- [Stripe Engineering — «Designing Robust and Predictable APIs with Idempotency»](https://stripe.com/blog/idempotency) — как реализована Idempotency Key в продакшене.
+- [Netflix Tech Blog — Hystrix circuit breaker, Eureka service discovery](https://netflixtechblog.com/) — origin story паттернов.
+- [Resilience4j Documentation](https://resilience4j.readme.io/) — современный преемник Hystrix (Java).
+- [Debezium Documentation](https://debezium.io/documentation/) — CDC-реализация Outbox-pattern через Postgres WAL.
+- [«Knight Capital — A 45-minute, $440M loss» (postmortem)](https://www.henricodolfing.ch/en/project-failure-case-studies/) — пример того, что бывает при некорректном rolling deployment.

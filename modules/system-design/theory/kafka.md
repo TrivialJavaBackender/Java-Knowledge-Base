@@ -282,3 +282,23 @@ session.timeout.ms=45000         // таймаут heartbeat (считается
 heartbeat.interval.ms=3000       // как часто слать heartbeat
 max.poll.interval.ms=300000      // макс время между poll() (долгая обработка → rebalance)
 ```
+
+---
+
+## Источники
+
+**Официальная документация / KIPs:**
+- [Apache Kafka Documentation](https://kafka.apache.org/documentation/) — protocol, configuration reference, design.
+- [KIP-98: Exactly Once Delivery and Transactional Messaging](https://cwiki.apache.org/confluence/display/KAFKA/KIP-98+-+Exactly+Once+Delivery+and+Transactional+Messaging) — как именно работает idempotent + transactional producer.
+- [KIP-500: Replace ZooKeeper with a Self-Managed Metadata Quorum (KRaft)](https://cwiki.apache.org/confluence/display/KAFKA/KIP-500%3A+Replace+ZooKeeper+with+a+Self-Managed+Metadata+Quorum)
+- [KIP-429: Cooperative Sticky Assignor](https://cwiki.apache.org/confluence/display/KAFKA/KIP-429%3A+Kafka+Consumer+Incremental+Rebalance+Protocol) — почему rebalance стал быстрее.
+
+**Книги / talks:**
+- *Kafka: The Definitive Guide*, 2nd ed. (Gwen Shapira, Todd Palino, Rajini Sivaram, Krit Petty, O'Reilly 2021).
+- *Designing Event-Driven Systems* (Ben Stopford, Confluent / O'Reilly, бесплатно) — паттерны Outbox, CDC, event-driven architecture.
+- [Jay Kreps — «The Log: What every software engineer should know about real-time data's unifying abstraction»](https://engineering.linkedin.com/distributed-systems/log-what-every-software-engineer-should-know-about-real-time-datas-unifying) — концептуальная статья от соавтора Kafka.
+
+**Engineering blogs:**
+- [Confluent Engineering Blog](https://www.confluent.io/blog/) — глубокие посты про exactly-once, KRaft, tiered storage.
+- [Jepsen — Kafka analyses](https://jepsen.io/analyses) — какие именно гарантии Kafka реально даёт под partitioning.
+- [Apache Kafka Improvement Proposals (KIPs)](https://cwiki.apache.org/confluence/display/KAFKA/Kafka+Improvement+Proposals) — все будущие изменения протокола.

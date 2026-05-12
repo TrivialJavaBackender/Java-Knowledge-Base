@@ -171,7 +171,7 @@ XPENDING orders processors                      # узнать что завис
 XCLAIM orders processors worker-2 60000 1715001234-0   # перенести в worker-2
 ```
 
-Семантика — at-least-once (как у Kafka): `XACK` обязателен после успешной обработки, иначе при рестарте сообщение придёт повторно. Подробнее: [Redis Streams introduction](https://redis.io/docs/data-types/streams-tutorial/) и Kafka-аналогии в [`system-design/theory/kafka.md`](../../system-design/theory/kafka.md).
+Семантика — at-least-once (как у Kafka): `XACK` обязателен после успешной обработки, иначе при рестарте сообщение придёт повторно. Подробнее: [Redis Streams introduction](https://redis.io/docs/latest/develop/data-types/streams/) и Kafka-аналогии в [`system-design/theory/kafka.md`](../../system-design/theory/kafka.md).
 
 ## Транзакции и Lua
 
@@ -253,7 +253,7 @@ return 'OK'
 - [Redis Cluster Specification](https://redis.io/docs/reference/cluster-spec/)
 - [Redis persistence (RDB/AOF)](https://redis.io/docs/management/persistence/)
 - [Redis: key eviction policies](https://redis.io/docs/reference/eviction/)
-- [Redis Streams introduction](https://redis.io/docs/data-types/streams-tutorial/)
+- [Redis Streams introduction](https://redis.io/docs/latest/develop/data-types/streams/)
 - [Lettuce reference](https://lettuce.io/core/release/reference/)
 
 **Author / engineering blogs:**
