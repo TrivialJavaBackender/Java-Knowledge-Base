@@ -408,7 +408,7 @@ async function syncQAs(
           data: {
             flashcardId: card.id,
             box: 1,
-            nextDueAt: spreadInitialDueDate(newCardSeed.idx++),
+            nextDueAt: new Date('2099-01-01'),
           },
         });
         cardCounter.added++;
@@ -510,6 +510,30 @@ async function pruneRemoved(
   }
 }
 
+// ────────────────────── Dormantify Existing ───────────────────────
+
+async function dormantifyUnknownCards() {
+  const DORMANT = new Date('2099-01-01');
+  const DORMANT_THRESHOLD = new Date('2098-01-01');
+
+  const cards = await prisma.flashcard.findMany({
+    where: { source: 'AUTO', archived: false, qa: { isKnown: false } },
+    include: { leitner: true },
+  });
+
+  let count = 0;
+  for (const card of cards) {
+    if (!card.leitner || card.leitner.box !== 1) continue;
+    if (card.leitner.nextDueAt >= DORMANT_THRESHOLD) continue;
+    await prisma.leitnerState.update({
+      where: { flashcardId: card.id },
+      data: { nextDueAt: DORMANT },
+    });
+    count++;
+  }
+  console.log(`dormantified: ${count} box1 auto-cards with unknown QA`);
+}
+
 // ──────────────────────────── Driver ──────────────────────────────
 
 async function main() {
@@ -563,6 +587,7 @@ async function main() {
     );
   }
   console.log(`auto-flashcards: +${cardCounter.added} ~${cardCounter.updated} -${cardCounter.removed}`);
+  await dormantifyUnknownCards();
   await prisma.$disconnect();
 }
 

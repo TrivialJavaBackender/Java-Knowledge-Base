@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { prisma } from '@/lib/db';
 import { endOfDay } from '@/lib/leitner';
 import { FlashcardReview, type ReviewableCard } from '@/components/FlashcardReview';
+import { renderMarkdown } from '@/lib/markdown';
 
 export const dynamic = 'force-dynamic';
 
@@ -23,16 +24,18 @@ export default async function FlashcardsPage() {
     },
   });
 
-  const queue: ReviewableCard[] = dueRows.map((r) => ({
+  const queue: ReviewableCard[] = await Promise.all(dueRows.map(async (r) => ({
     id: r.flashcard.id,
     front: r.flashcard.front,
     back: r.flashcard.back,
+    frontHtml: await renderMarkdown(r.flashcard.front),
+    backHtml: await renderMarkdown(r.flashcard.back),
     box: r.box,
     source: r.flashcard.source,
     moduleTitle: r.flashcard.module?.title ?? null,
     sectionTitle: r.flashcard.qa?.section?.title ?? null,
     tags: r.flashcard.tags,
-  }));
+  })));
 
   // Box distribution for header.
   const boxCounts = await prisma.leitnerState.groupBy({

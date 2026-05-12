@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { prisma } from '@/lib/db';
-import { reviewCard } from '@/lib/leitner';
+import { reviewCard, startOfDay, addDays } from '@/lib/leitner';
 
 export async function toggleTheoryRead(id: number, value: boolean) {
   await prisma.theoryDoc.update({
@@ -27,6 +27,24 @@ export async function toggleQAKnown(id: number, value: boolean) {
     where: { id },
     data: { isKnown: value, knownAt: value ? new Date() : null },
   });
+
+  if (value) {
+    const flashcard = await prisma.flashcard.findUnique({
+      where: { qaId: id },
+      include: { leitner: true },
+    });
+    if (flashcard?.leitner && flashcard.leitner.box === 1) {
+      const dormantThreshold = new Date('2098-01-01');
+      if (flashcard.leitner.nextDueAt >= dormantThreshold) {
+        const tomorrow = startOfDay(addDays(new Date(), 1));
+        await prisma.leitnerState.update({
+          where: { flashcardId: flashcard.id },
+          data: { nextDueAt: tomorrow },
+        });
+      }
+    }
+  }
+
   revalidatePath('/');
   revalidatePath('/modules');
 }

@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation';
 import { prisma } from '@/lib/db';
 import { ProgressBar } from '@/components/ProgressBar';
 import { QAItem } from '@/components/QAItem';
+import { renderMarkdown } from '@/lib/markdown';
 
 export const dynamic = 'force-dynamic';
 
@@ -21,6 +22,10 @@ export default async function QAPage({ params }: { params: Promise<{ slug: strin
 
   const allQas = module.sections.flatMap((s) => s.qas);
   const done = allQas.filter((q) => q.isKnown).length;
+
+  const answerHtmlMap = new Map(
+    await Promise.all(allQas.map(async (q) => [q.id, await renderMarkdown(q.answer)] as const))
+  );
 
   return (
     <div className="space-y-8">
@@ -49,7 +54,7 @@ export default async function QAPage({ params }: { params: Promise<{ slug: strin
                   id={q.id}
                   qNumber={q.qNumber}
                   question={q.question}
-                  answer={q.answer}
+                  answerHtml={answerHtmlMap.get(q.id) ?? ''}
                   sourceRef={q.sourceRef}
                   initialKnown={q.isKnown}
                 />

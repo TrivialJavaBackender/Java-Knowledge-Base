@@ -160,6 +160,10 @@ function splitAnchor(href: string): [string, string] {
   return [href.slice(0, i), href.slice(i)];
 }
 
+export async function renderMarkdown(source: string): Promise<string> {
+  return renderMarkdownToHtml(source);
+}
+
 export async function MarkdownView({
   source,
   moduleSlug,

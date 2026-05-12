@@ -7,6 +7,8 @@ export interface ReviewableCard {
   id: number;
   front: string;
   back: string;
+  frontHtml?: string;
+  backHtml?: string;
   box: number;
   source: string;
   moduleTitle?: string | null;
@@ -90,12 +92,24 @@ export function FlashcardReview({ initialQueue }: { initialQueue: ReviewableCard
             {current.moduleTitle}{current.sectionTitle ? ` · ${current.sectionTitle}` : ''}
           </div>
         )}
-        <div className="text-lg font-medium text-fg whitespace-pre-wrap">
-          {current.front}
-        </div>
+        {current.frontHtml ? (
+          <div
+            className="prose prose-sm max-w-none text-fg"
+            dangerouslySetInnerHTML={{ __html: current.frontHtml }}
+          />
+        ) : (
+          <div className="text-lg font-medium text-fg whitespace-pre-wrap">{current.front}</div>
+        )}
         {revealed && (
-          <div className="mt-6 border-t border-border pt-4 whitespace-pre-wrap text-fg leading-relaxed">
-            {current.back}
+          <div className="mt-6 border-t border-border pt-4">
+            {current.backHtml ? (
+              <div
+                className="prose prose-sm max-w-none text-fg leading-relaxed"
+                dangerouslySetInnerHTML={{ __html: current.backHtml }}
+              />
+            ) : (
+              <div className="whitespace-pre-wrap text-fg leading-relaxed">{current.back}</div>
+            )}
           </div>
         )}
       </div>

@@ -7,14 +7,14 @@ export function QAItem({
   id,
   qNumber,
   question,
-  answer,
+  answerHtml,
   sourceRef,
   initialKnown,
 }: {
   id: number;
   qNumber: number;
   question: string;
-  answer: string;
+  answerHtml: string;
   sourceRef?: string | null;
   initialKnown: boolean;
 }) {
@@ -35,8 +35,11 @@ export function QAItem({
             <span className="font-medium text-fg hover:text-accent">{question}</span>
           </div>
           {open && (
-            <div className="mt-3 whitespace-pre-wrap rounded bg-bg-soft p-3 text-sm leading-relaxed text-fg">
-              {answer}
+            <div className="mt-3 rounded bg-bg-soft p-3">
+              <div
+                className="prose prose-sm max-w-none text-fg leading-relaxed"
+                dangerouslySetInnerHTML={{ __html: answerHtml }}
+              />
               {sourceRef && (
                 <div className="mt-3 border-l-2 border-accent/40 pl-3 text-xs text-fg-subtle italic">
                   {sourceRef}
