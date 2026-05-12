@@ -73,8 +73,7 @@ export async function reviewFlashcard(flashcardId: number, knewIt: boolean) {
       },
     }),
   ]);
-  revalidatePath('/flashcards');
-  revalidatePath('/');
+  // No revalidatePath: queue is managed client-side, page is force-dynamic.
 }
 
 export async function createManualFlashcard(input: {
