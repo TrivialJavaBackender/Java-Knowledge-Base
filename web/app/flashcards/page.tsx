@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { prisma } from '@/lib/db';
+import { requireUser } from '@/lib/auth';
 import { endOfDay } from '@/lib/leitner';
 import { FlashcardReview, type ReviewableCard } from '@/components/FlashcardReview';
 import { renderMarkdown } from '@/lib/markdown';
@@ -7,8 +8,11 @@ import { renderMarkdown } from '@/lib/markdown';
 export const dynamic = 'force-dynamic';
 
 export default async function FlashcardsPage() {
+  const userId = await requireUser();
+
   const dueRows = await prisma.leitnerState.findMany({
     where: {
+      userId,
       nextDueAt: { lte: endOfDay(new Date()) },
       flashcard: { archived: false },
     },
@@ -37,10 +41,9 @@ export default async function FlashcardsPage() {
     tags: r.flashcard.tags,
   })));
 
-  // Box distribution for header.
   const boxCounts = await prisma.leitnerState.groupBy({
     by: ['box'],
-    where: { flashcard: { archived: false } },
+    where: { userId, flashcard: { archived: false } },
     _count: true,
   });
   const counts: Record<number, number> = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };

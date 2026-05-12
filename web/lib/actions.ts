@@ -2,44 +2,49 @@
 
 import { revalidatePath } from 'next/cache';
 import { prisma } from '@/lib/db';
+import { requireUser } from '@/lib/auth';
 import { reviewCard, startOfDay, addDays } from '@/lib/leitner';
 
-export async function toggleTheoryRead(id: number, value: boolean) {
-  await prisma.theoryDoc.update({
-    where: { id },
-    data: { isRead: value, readAt: value ? new Date() : null },
+export async function toggleTheoryRead(theoryDocId: number, value: boolean) {
+  const userId = await requireUser();
+  await prisma.userTheoryProgress.upsert({
+    where: { userId_theoryDocId: { userId, theoryDocId } },
+    create: { userId, theoryDocId, isRead: value, readAt: value ? new Date() : null },
+    update: { isRead: value, readAt: value ? new Date() : null },
   });
   revalidatePath('/');
   revalidatePath('/modules');
 }
 
-export async function toggleExerciseRead(id: number, value: boolean) {
-  await prisma.exercise.update({
-    where: { id },
-    data: { isRead: value, readAt: value ? new Date() : null },
+export async function toggleExerciseRead(exerciseId: number, value: boolean) {
+  const userId = await requireUser();
+  await prisma.userExerciseProgress.upsert({
+    where: { userId_exerciseId: { userId, exerciseId } },
+    create: { userId, exerciseId, isRead: value, readAt: value ? new Date() : null },
+    update: { isRead: value, readAt: value ? new Date() : null },
   });
   revalidatePath('/');
   revalidatePath('/modules');
 }
 
-export async function toggleQAKnown(id: number, value: boolean) {
-  await prisma.interviewQA.update({
-    where: { id },
-    data: { isKnown: value, knownAt: value ? new Date() : null },
+export async function toggleQAKnown(qaId: number, value: boolean) {
+  const userId = await requireUser();
+  await prisma.userQAProgress.upsert({
+    where: { userId_qaId: { userId, qaId } },
+    create: { userId, qaId, isKnown: value, knownAt: value ? new Date() : null },
+    update: { isKnown: value, knownAt: value ? new Date() : null },
   });
 
   if (value) {
-    const flashcard = await prisma.flashcard.findUnique({
-      where: { qaId: id },
-      include: { leitner: true },
-    });
-    if (flashcard?.leitner && flashcard.leitner.box === 1) {
-      const dormantThreshold = new Date('2098-01-01');
-      if (flashcard.leitner.nextDueAt >= dormantThreshold) {
-        const tomorrow = startOfDay(addDays(new Date(), 1));
+    const flashcard = await prisma.flashcard.findUnique({ where: { qaId } });
+    if (flashcard) {
+      const leitner = await prisma.leitnerState.findUnique({
+        where: { userId_flashcardId: { userId, flashcardId: flashcard.id } },
+      });
+      if (leitner && leitner.box === 1 && leitner.nextDueAt >= new Date('2098-01-01')) {
         await prisma.leitnerState.update({
-          where: { flashcardId: flashcard.id },
-          data: { nextDueAt: tomorrow },
+          where: { userId_flashcardId: { userId, flashcardId: flashcard.id } },
+          data: { nextDueAt: startOfDay(addDays(new Date(), 1)) },
         });
       }
     }
@@ -50,12 +55,15 @@ export async function toggleQAKnown(id: number, value: boolean) {
 }
 
 export async function reviewFlashcard(flashcardId: number, knewIt: boolean) {
-  const state = await prisma.leitnerState.findUnique({ where: { flashcardId } });
+  const userId = await requireUser();
+  const state = await prisma.leitnerState.findUnique({
+    where: { userId_flashcardId: { userId, flashcardId } },
+  });
   if (!state) throw new Error('Leitner state not found');
   const next = reviewCard({ box: state.box, streak: state.streak, lapses: state.lapses }, knewIt);
   await prisma.$transaction([
     prisma.leitnerState.update({
-      where: { flashcardId },
+      where: { userId_flashcardId: { userId, flashcardId } },
       data: {
         box: next.box,
         streak: next.streak,
@@ -65,12 +73,7 @@ export async function reviewFlashcard(flashcardId: number, knewIt: boolean) {
       },
     }),
     prisma.reviewLog.create({
-      data: {
-        flashcardId,
-        prevBox: state.box,
-        newBox: next.box,
-        knewIt,
-      },
+      data: { flashcardId, userId, prevBox: state.box, newBox: next.box, knewIt },
     }),
   ]);
   // No revalidatePath: queue is managed client-side, page is force-dynamic.
@@ -82,9 +85,11 @@ export async function createManualFlashcard(input: {
   tags?: string;
   moduleId?: number | null;
 }) {
+  const userId = await requireUser();
   const card = await prisma.flashcard.create({
     data: {
       source: 'MANUAL',
+      userId,
       front: input.front,
       back: input.back,
       tags: input.tags ?? '',
@@ -92,11 +97,7 @@ export async function createManualFlashcard(input: {
     },
   });
   await prisma.leitnerState.create({
-    data: {
-      flashcardId: card.id,
-      box: 1,
-      nextDueAt: new Date(),
-    },
+    data: { flashcardId: card.id, userId, box: 1, nextDueAt: new Date() },
   });
   revalidatePath('/flashcards/manage');
   revalidatePath('/flashcards');
@@ -107,27 +108,36 @@ export async function updateManualFlashcard(
   id: number,
   input: { front: string; back: string; tags?: string; moduleId?: number | null },
 ) {
+  const userId = await requireUser();
   await prisma.flashcard.update({
-    where: { id },
-    data: {
-      front: input.front,
-      back: input.back,
-      tags: input.tags ?? '',
-      moduleId: input.moduleId ?? null,
-    },
+    where: { id, userId },
+    data: { front: input.front, back: input.back, tags: input.tags ?? '', moduleId: input.moduleId ?? null },
   });
   revalidatePath('/flashcards/manage');
 }
 
 export async function archiveFlashcard(id: number, archived: boolean) {
-  await prisma.flashcard.update({ where: { id }, data: { archived } });
+  const userId = await requireUser();
+  const card = await prisma.flashcard.findUnique({ where: { id } });
+  if (!card) return;
+  // MANUAL cards: only owner can archive. AUTO cards: archive per user via leitner dormant.
+  if (card.source === 'MANUAL') {
+    await prisma.flashcard.update({ where: { id, userId }, data: { archived } });
+  } else {
+    const dormant = new Date('2099-01-01');
+    await prisma.leitnerState.update({
+      where: { userId_flashcardId: { userId, flashcardId: id } },
+      data: { nextDueAt: archived ? dormant : new Date() },
+    });
+  }
   revalidatePath('/flashcards/manage');
   revalidatePath('/flashcards');
 }
 
 export async function resetLeitner(flashcardId: number) {
+  const userId = await requireUser();
   await prisma.leitnerState.update({
-    where: { flashcardId },
+    where: { userId_flashcardId: { userId, flashcardId } },
     data: { box: 1, streak: 0, nextDueAt: new Date() },
   });
   revalidatePath('/flashcards/manage');

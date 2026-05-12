@@ -3,9 +3,57 @@ generator client {
 }
 
 datasource db {
-  provider  = "postgresql"
-  url       = env("DATABASE_URL")
-  directUrl = env("DIRECT_URL")
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           Int    @id @default(autoincrement())
+  username     String @unique
+  passwordHash String
+
+  theoryProgress   UserTheoryProgress[]
+  exerciseProgress UserExerciseProgress[]
+  qaProgress       UserQAProgress[]
+  leitnerStates    LeitnerState[]
+  reviewLogs       ReviewLog[]
+  flashcards       Flashcard[]
+}
+
+model UserTheoryProgress {
+  userId      Int
+  theoryDocId Int
+  isRead      Boolean   @default(false)
+  readAt      DateTime?
+
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  theoryDoc TheoryDoc @relation(fields: [theoryDocId], references: [id], onDelete: Cascade)
+
+  @@id([userId, theoryDocId])
+}
+
+model UserExerciseProgress {
+  userId     Int
+  exerciseId Int
+  isRead     Boolean   @default(false)
+  readAt     DateTime?
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  exercise Exercise @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
+
+  @@id([userId, exerciseId])
+}
+
+model UserQAProgress {
+  userId  Int
+  qaId    Int
+  isKnown Boolean   @default(false)
+  knownAt DateTime?
+
+  user User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  qa   InterviewQA @relation(fields: [qaId], references: [id], onDelete: Cascade)
+
+  @@id([userId, qaId])
 }
 
 model Module {
@@ -30,16 +78,15 @@ model TheoryDoc {
   contentHash String
   body        String
   order       Int      @default(999)
-  isRead      Boolean  @default(false)
-  readAt      DateTime?
 
-  module Module @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  module         Module               @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  userProgress   UserTheoryProgress[]
 
   @@unique([moduleId, slug])
 }
 
 model Exercise {
-  id          Int      @id @default(autoincrement())
+  id          Int    @id @default(autoincrement())
   moduleId    Int
   slug        String
   number      Int
@@ -47,11 +94,10 @@ model Exercise {
   filePath    String
   contentHash String
   body        String
-  language    String   @default("kotlin")
-  isRead      Boolean  @default(false)
-  readAt      DateTime?
+  language    String @default("kotlin")
 
-  module Module @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  module       Module                 @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  userProgress UserExerciseProgress[]
 
   @@unique([moduleId, slug])
 }
@@ -70,7 +116,7 @@ model InterviewSection {
 }
 
 model InterviewQA {
-  id          Int      @id @default(autoincrement())
+  id          Int     @id @default(autoincrement())
   sectionId   Int
   moduleId    Int
   qNumber     Int
@@ -78,12 +124,11 @@ model InterviewQA {
   answer      String
   sourceRef   String?
   contentHash String
-  isKnown     Boolean  @default(false)
-  knownAt     DateTime?
 
-  section   InterviewSection @relation(fields: [sectionId], references: [id], onDelete: Cascade)
-  module    Module           @relation(fields: [moduleId], references: [id], onDelete: Cascade)
-  flashcard Flashcard?
+  section      InterviewSection @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  module       Module           @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  flashcard    Flashcard?
+  userProgress UserQAProgress[]
 
   @@unique([moduleId, qNumber])
 }
@@ -92,6 +137,7 @@ model Flashcard {
   id        Int      @id @default(autoincrement())
   source    String   // 'AUTO' | 'MANUAL'
   qaId      Int?     @unique
+  userId    Int?
   front     String
   back      String
   tags      String   @default("")
@@ -100,36 +146,42 @@ model Flashcard {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  qa      InterviewQA?  @relation(fields: [qaId], references: [id], onDelete: SetNull)
-  module  Module?       @relation(fields: [moduleId], references: [id], onDelete: SetNull)
-  leitner LeitnerState?
-  reviews ReviewLog[]
+  qa            InterviewQA?  @relation(fields: [qaId], references: [id], onDelete: SetNull)
+  module        Module?       @relation(fields: [moduleId], references: [id], onDelete: SetNull)
+  user          User?         @relation(fields: [userId], references: [id], onDelete: SetNull)
+  leitnerStates LeitnerState[]
+  reviews       ReviewLog[]
 }
 
 model LeitnerState {
-  id              Int       @id @default(autoincrement())
-  flashcardId     Int       @unique
-  box             Int       @default(1)
-  nextDueAt       DateTime
-  lastReviewedAt  DateTime?
-  lapses          Int       @default(0)
-  streak          Int       @default(0)
+  id             Int       @id @default(autoincrement())
+  flashcardId    Int
+  userId         Int
+  box            Int       @default(1)
+  nextDueAt      DateTime
+  lastReviewedAt DateTime?
+  lapses         Int       @default(0)
+  streak         Int       @default(0)
 
   flashcard Flashcard @relation(fields: [flashcardId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@index([nextDueAt])
+  @@unique([userId, flashcardId])
+  @@index([userId, nextDueAt])
 }
 
 model ReviewLog {
   id          Int      @id @default(autoincrement())
   flashcardId Int
+  userId      Int
   reviewedAt  DateTime @default(now())
   prevBox     Int
   newBox      Int
   knewIt      Boolean
 
   flashcard Flashcard @relation(fields: [flashcardId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@index([flashcardId])
+  @@index([userId, flashcardId])
   @@index([reviewedAt])
 }

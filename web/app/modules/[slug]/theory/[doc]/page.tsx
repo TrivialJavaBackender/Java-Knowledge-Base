@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation';
 import { prisma } from '@/lib/db';
 import { MarkdownView } from '@/lib/markdown';
 import { ToggleTheoryRead } from '@/components/ToggleProgress';
+import { requireUser } from '@/lib/auth';
 import { OpenInIde } from '@/components/OpenInIde';
 import { MermaidInit } from '@/components/MermaidInit';
 
@@ -14,12 +15,17 @@ export default async function TheoryPage({
   params: Promise<{ slug: string; doc: string }>;
 }) {
   const { slug, doc } = await params;
+  const userId = await requireUser();
   const module = await prisma.module.findUnique({ where: { slug } });
   if (!module) notFound();
   const theory = await prisma.theoryDoc.findUnique({
     where: { moduleId_slug: { moduleId: module.id, slug: doc } },
   });
   if (!theory) notFound();
+  const progress = await prisma.userTheoryProgress.findUnique({
+    where: { userId_theoryDocId: { userId, theoryDocId: theory.id } },
+  });
+  const isRead = progress?.isRead ?? false;
 
   // Build sibling list for prev/next navigation
   const siblings = await prisma.theoryDoc.findMany({
@@ -40,7 +46,7 @@ export default async function TheoryPage({
           </Link>
           <div className="flex items-center gap-3">
             <OpenInIde filePath={theory.filePath} />
-            <ToggleTheoryRead id={theory.id} initial={theory.isRead} label="Прочитано" />
+            <ToggleTheoryRead id={theory.id} initial={isRead} label="Прочитано" />
           </div>
         </div>
         <h1 className="text-2xl font-semibold text-fg">{theory.title}</h1>

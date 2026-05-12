@@ -13,7 +13,6 @@ import { readdir, readFile, stat } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { MODULES, type ModuleConfig } from '../content.config';
-import { spreadInitialDueDate } from '../lib/leitner';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const MODULES_ROOT = process.env.MODULES_ROOT
@@ -355,7 +354,6 @@ async function syncQAs(
   cfg: ModuleConfig,
   qaCounter: Counter,
   cardCounter: Counter,
-  newCardSeed: { idx: number },
 ): Promise<{ qaIds: Set<number> }> {
   const file = path.join(moduleDir, 'INTERVIEW_QUESTIONS.md');
   const qaIds = new Set<number>();
@@ -394,22 +392,9 @@ async function syncQAs(
         });
         qaId = created.id;
         qaCounter.added++;
-        // Auto-flashcard
-        const card = await prisma.flashcard.create({
-          data: {
-            source: 'AUTO',
-            qaId,
-            front: q.question,
-            back: q.answer,
-            moduleId,
-          },
-        });
-        await prisma.leitnerState.create({
-          data: {
-            flashcardId: card.id,
-            box: 1,
-            nextDueAt: new Date('2099-01-01'),
-          },
+        // Auto-flashcard (no LeitnerState — created per-user on registration)
+        await prisma.flashcard.create({
+          data: { source: 'AUTO', qaId, front: q.question, back: q.answer, moduleId },
         });
         cardCounter.added++;
       } else {
@@ -440,16 +425,9 @@ async function syncQAs(
               cardCounter.updated++;
             }
           } else {
-            // Auto card was missing — recreate.
-            const created = await prisma.flashcard.create({
+            // Auto card was missing — recreate (no LeitnerState — per-user).
+            await prisma.flashcard.create({
               data: { source: 'AUTO', qaId, front: q.question, back: q.answer, moduleId },
-            });
-            await prisma.leitnerState.create({
-              data: {
-                flashcardId: created.id,
-                box: 1,
-                nextDueAt: spreadInitialDueDate(newCardSeed.idx++),
-              },
             });
             cardCounter.added++;
           }
@@ -510,30 +488,6 @@ async function pruneRemoved(
   }
 }
 
-// ────────────────────── Dormantify Existing ───────────────────────
-
-async function dormantifyUnknownCards() {
-  const DORMANT = new Date('2099-01-01');
-  const DORMANT_THRESHOLD = new Date('2098-01-01');
-
-  const cards = await prisma.flashcard.findMany({
-    where: { source: 'AUTO', archived: false, qa: { isKnown: false } },
-    include: { leitner: true },
-  });
-
-  let count = 0;
-  for (const card of cards) {
-    if (!card.leitner || card.leitner.box !== 1) continue;
-    if (card.leitner.nextDueAt >= DORMANT_THRESHOLD) continue;
-    await prisma.leitnerState.update({
-      where: { flashcardId: card.id },
-      data: { nextDueAt: DORMANT },
-    });
-    count++;
-  }
-  console.log(`dormantified: ${count} box1 auto-cards with unknown QA`);
-}
-
 // ──────────────────────────── Driver ──────────────────────────────
 
 async function main() {
@@ -544,7 +498,6 @@ async function main() {
   }
 
   const cardCounter = newCounter();
-  const newCardSeed = { idx: 0 };
 
   for (const cfg of MODULES) {
     const moduleDir = path.join(MODULES_ROOT, cfg.slug);
@@ -564,14 +517,7 @@ async function main() {
 
     const seenTheory = await syncTheory(module.id, moduleDir, theoryC);
     const seenExercises = await syncExercises(module.id, moduleDir, exercisesC);
-    const { qaIds: seenQAIds } = await syncQAs(
-      module.id,
-      moduleDir,
-      cfg,
-      qaC,
-      cardCounter,
-      newCardSeed,
-    );
+    const { qaIds: seenQAIds } = await syncQAs(module.id, moduleDir, cfg, qaC, cardCounter);
 
     await pruneRemoved(module.id, seenTheory, seenExercises, seenQAIds, {
       theory: theoryC,
@@ -587,7 +533,6 @@ async function main() {
     );
   }
   console.log(`auto-flashcards: +${cardCounter.added} ~${cardCounter.updated} -${cardCounter.removed}`);
-  await dormantifyUnknownCards();
   await prisma.$disconnect();
 }
 

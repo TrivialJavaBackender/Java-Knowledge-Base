@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { prisma } from '@/lib/db';
+import { requireUser } from '@/lib/auth';
 import { ProgressBar } from '@/components/ProgressBar';
 import { endOfDay } from '@/lib/leitner';
 
@@ -14,16 +15,27 @@ interface ModuleStats {
   qas: { done: number; total: number };
 }
 
-async function loadStats(): Promise<{ modules: ModuleStats[]; totals: { done: number; total: number }; due: number }> {
+async function loadStats(userId: number): Promise<{ modules: ModuleStats[]; totals: { done: number; total: number }; due: number }> {
   const modules = await prisma.module.findMany({
     orderBy: { order: 'asc' },
     include: {
       _count: { select: { theory: true, exercises: true, qas: true } },
-      theory: { select: { isRead: true } },
-      exercises: { select: { isRead: true } },
-      qas: { select: { isKnown: true } },
     },
   });
+
+  const [theoryProgress, exerciseProgress, qaProgress] = await Promise.all([
+    prisma.userTheoryProgress.findMany({ where: { userId, isRead: true }, select: { theoryDocId: true } }),
+    prisma.userExerciseProgress.findMany({ where: { userId, isRead: true }, select: { exerciseId: true } }),
+    prisma.userQAProgress.findMany({ where: { userId, isKnown: true }, select: { qaId: true } }),
+  ]);
+
+  const readTheory = new Set(theoryProgress.map((p) => p.theoryDocId));
+  const readExercises = new Set(exerciseProgress.map((p) => p.exerciseId));
+  const knownQAs = new Set(qaProgress.map((p) => p.qaId));
+
+  const allTheory = await prisma.theoryDoc.findMany({ select: { id: true, moduleId: true } });
+  const allExercises = await prisma.exercise.findMany({ select: { id: true, moduleId: true } });
+  const allQAs = await prisma.interviewQA.findMany({ select: { id: true, moduleId: true } });
 
   const stats: ModuleStats[] = modules.map((m) => ({
     slug: m.slug,
@@ -31,15 +43,15 @@ async function loadStats(): Promise<{ modules: ModuleStats[]; totals: { done: nu
     order: m.order,
     theory: {
       total: m._count.theory,
-      done: m.theory.filter((t) => t.isRead).length,
+      done: allTheory.filter((t) => t.moduleId === m.id && readTheory.has(t.id)).length,
     },
     exercises: {
       total: m._count.exercises,
-      done: m.exercises.filter((e) => e.isRead).length,
+      done: allExercises.filter((e) => e.moduleId === m.id && readExercises.has(e.id)).length,
     },
     qas: {
       total: m._count.qas,
-      done: m.qas.filter((q) => q.isKnown).length,
+      done: allQAs.filter((q) => q.moduleId === m.id && knownQAs.has(q.id)).length,
     },
   }));
 
@@ -51,17 +63,15 @@ async function loadStats(): Promise<{ modules: ModuleStats[]; totals: { done: nu
   }
 
   const due = await prisma.leitnerState.count({
-    where: {
-      nextDueAt: { lte: endOfDay(new Date()) },
-      flashcard: { archived: false },
-    },
+    where: { userId, nextDueAt: { lte: endOfDay(new Date()) }, flashcard: { archived: false } },
   });
 
   return { modules: stats, totals: { done: totalDone, total: totalTotal }, due };
 }
 
 export default async function DashboardPage() {
-  const { modules, totals, due } = await loadStats();
+  const userId = await requireUser();
+  const { modules, totals, due } = await loadStats(userId);
 
   if (modules.length === 0) {
     return (

@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { prisma } from '@/lib/db';
+import { requireUser } from '@/lib/auth';
 import { ArchiveButton, ResetButton } from '@/components/FlashcardActions';
 
 export const dynamic = 'force-dynamic';
@@ -13,6 +14,8 @@ interface Search {
 
 export default async function ManagePage({ searchParams }: { searchParams: Promise<Search> }) {
   const sp = await searchParams;
+  const userId = await requireUser();
+
   const sourceFilter = sp.source ?? 'all';
   const archivedFilter = sp.archived ?? 'no';
   const moduleSlugFilter = sp.module ?? 'all';
@@ -22,18 +25,16 @@ export default async function ManagePage({ searchParams }: { searchParams: Promi
   const moduleId =
     moduleSlugFilter !== 'all' ? modules.find((m) => m.slug === moduleSlugFilter)?.id ?? null : null;
 
-  const where: any = {};
+  const where: any = {
+    OR: [{ source: 'AUTO' }, { source: 'MANUAL', userId }],
+  };
   if (sourceFilter === 'auto') where.source = 'AUTO';
-  if (sourceFilter === 'manual') where.source = 'MANUAL';
+  if (sourceFilter === 'manual') { where.source = 'MANUAL'; where.userId = userId; delete where.OR; }
   if (archivedFilter === 'yes') where.archived = true;
   else if (archivedFilter === 'no') where.archived = false;
   if (moduleId !== null) where.moduleId = moduleId;
   if (search) {
-    where.OR = [
-      { front: { contains: search } },
-      { back: { contains: search } },
-      { tags: { contains: search } },
-    ];
+    where.AND = [{ OR: [{ front: { contains: search } }, { back: { contains: search } }, { tags: { contains: search } }] }];
   }
 
   const cards = await prisma.flashcard.findMany({
@@ -42,13 +43,13 @@ export default async function ManagePage({ searchParams }: { searchParams: Promi
     take: 200,
     include: {
       module: { select: { title: true } },
-      leitner: true,
+      leitnerStates: { where: { userId }, take: 1 },
     },
   });
 
-  const total = await prisma.flashcard.count({ where: { archived: false } });
-  const auto = await prisma.flashcard.count({ where: { source: 'AUTO', archived: false } });
-  const manual = await prisma.flashcard.count({ where: { source: 'MANUAL', archived: false } });
+  const total = await prisma.leitnerState.count({ where: { userId, flashcard: { archived: false } } });
+  const auto = await prisma.leitnerState.count({ where: { userId, flashcard: { source: 'AUTO', archived: false } } });
+  const manual = await prisma.flashcard.count({ where: { source: 'MANUAL', userId, archived: false } });
 
   return (
     <div className="space-y-6">
@@ -110,38 +111,39 @@ export default async function ManagePage({ searchParams }: { searchParams: Promi
             </tr>
           </thead>
           <tbody className="divide-y divide-border">
-            {cards.map((c) => (
-              <tr key={c.id} className={c.archived ? 'opacity-50' : ''}>
-                <td className="px-3 py-2 align-top">
-                  <div className="line-clamp-2 text-fg">{c.front}</div>
-                  {c.tags && (
-                    <div className="mt-1 text-xs text-fg-subtle">tags: {c.tags}</div>
-                  )}
-                </td>
-                <td className="px-3 py-2 align-top text-xs text-fg-muted">{c.module?.title ?? '—'}</td>
-                <td className="px-3 py-2 align-top font-mono">{c.leitner?.box ?? '—'}</td>
-                <td className="px-3 py-2 align-top text-xs text-fg-muted tabular-nums">
-                  {c.leitner ? c.leitner.nextDueAt.toISOString().slice(0, 10) : '—'}
-                </td>
-                <td className="px-3 py-2 align-top text-xs">
-                  <span className={c.source === 'AUTO' ? 'text-fg-muted' : 'text-accent'}>{c.source}</span>
-                </td>
-                <td className="px-3 py-2 align-top">
-                  <div className="flex justify-end gap-2">
-                    {c.source === 'MANUAL' && (
-                      <Link
-                        href={`/flashcards/${c.id}/edit`}
-                        className="rounded border border-border bg-bg-card px-2 py-1 text-xs text-fg hover:text-accent"
-                      >
-                        Edit
-                      </Link>
-                    )}
-                    <ResetButton id={c.id} />
-                    <ArchiveButton id={c.id} archived={c.archived} />
-                  </div>
-                </td>
-              </tr>
-            ))}
+            {cards.map((c) => {
+              const leitner = c.leitnerStates[0];
+              return (
+                <tr key={c.id} className={c.archived ? 'opacity-50' : ''}>
+                  <td className="px-3 py-2 align-top">
+                    <div className="line-clamp-2 text-fg">{c.front}</div>
+                    {c.tags && <div className="mt-1 text-xs text-fg-subtle">tags: {c.tags}</div>}
+                  </td>
+                  <td className="px-3 py-2 align-top text-xs text-fg-muted">{c.module?.title ?? '—'}</td>
+                  <td className="px-3 py-2 align-top font-mono">{leitner?.box ?? '—'}</td>
+                  <td className="px-3 py-2 align-top text-xs text-fg-muted tabular-nums">
+                    {leitner ? leitner.nextDueAt.toISOString().slice(0, 10) : '—'}
+                  </td>
+                  <td className="px-3 py-2 align-top text-xs">
+                    <span className={c.source === 'AUTO' ? 'text-fg-muted' : 'text-accent'}>{c.source}</span>
+                  </td>
+                  <td className="px-3 py-2 align-top">
+                    <div className="flex justify-end gap-2">
+                      {c.source === 'MANUAL' && (
+                        <Link
+                          href={`/flashcards/${c.id}/edit`}
+                          className="rounded border border-border bg-bg-card px-2 py-1 text-xs text-fg hover:text-accent"
+                        >
+                          Edit
+                        </Link>
+                      )}
+                      <ResetButton id={c.id} />
+                      <ArchiveButton id={c.id} archived={c.archived} />
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
         {cards.length === 0 && (

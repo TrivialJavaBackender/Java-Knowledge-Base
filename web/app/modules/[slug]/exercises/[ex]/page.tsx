@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation';
 import { prisma } from '@/lib/db';
 import { CodeBlock } from '@/lib/markdown';
 import { ToggleExerciseRead } from '@/components/ToggleProgress';
+import { requireUser } from '@/lib/auth';
 import { OpenInIde } from '@/components/OpenInIde';
 
 export const dynamic = 'force-dynamic';
@@ -13,12 +14,17 @@ export default async function ExercisePage({
   params: Promise<{ slug: string; ex: string }>;
 }) {
   const { slug, ex } = await params;
+  const userId = await requireUser();
   const module = await prisma.module.findUnique({ where: { slug } });
   if (!module) notFound();
   const exercise = await prisma.exercise.findUnique({
     where: { moduleId_slug: { moduleId: module.id, slug: ex } },
   });
   if (!exercise) notFound();
+  const progress = await prisma.userExerciseProgress.findUnique({
+    where: { userId_exerciseId: { userId, exerciseId: exercise.id } },
+  });
+  const isRead = progress?.isRead ?? false;
 
   const siblings = await prisma.exercise.findMany({
     where: { moduleId: module.id },
@@ -38,7 +44,7 @@ export default async function ExercisePage({
           </Link>
           <div className="flex items-center gap-3">
             <OpenInIde filePath={exercise.filePath} />
-            <ToggleExerciseRead id={exercise.id} initial={exercise.isRead} label="Сделано" />
+            <ToggleExerciseRead id={exercise.id} initial={isRead} label="Сделано" />
           </div>
         </div>
         <h1 className="text-2xl font-semibold text-fg">{exercise.title}</h1>

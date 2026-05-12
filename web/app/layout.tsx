@@ -4,6 +4,8 @@ import './globals.css';
 import { prisma } from '@/lib/db';
 import { endOfDay } from '@/lib/leitner';
 import { ThemeToggle, themeBootScript } from '@/components/ThemeToggle';
+import { LogoutButton } from '@/app/login/logout';
+import { getSession } from '@/lib/auth';
 
 export const metadata: Metadata = {
   title: 'Interview Prep',
@@ -12,8 +14,11 @@ export const metadata: Metadata = {
 
 async function getDueCount(): Promise<number> {
   try {
+    const session = await getSession();
+    if (!session) return 0;
     return await prisma.leitnerState.count({
       where: {
+        userId: session.userId,
         nextDueAt: { lte: endOfDay(new Date()) },
         flashcard: { archived: false },
       },
@@ -48,6 +53,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
               </Link>
               <Link href="/flashcards/manage" className="hover:text-fg text-fg-muted">Manage</Link>
               <ThemeToggle />
+              <LogoutButton />
             </nav>
           </div>
         </header>
