@@ -1,5 +1,7 @@
 # Microservice Patterns — System Design
 
+> **Scope**: архитектурные паттерны микросервисов. Фундаментальная теория распределённых систем (CAP, PACELC, Lamport, Quorum, consistency models) — см. [distributed_systems.md](distributed_systems.md).
+
 ## Monolith vs Microservices
 
 | | Monolith | Microservices |
@@ -204,24 +206,16 @@ CLOSED             OPEN
 
 ---
 
-## Caching Patterns
+## Caching в микросервисах
 
-**Cache-aside (Lazy loading):**
-```
-1. Read cache → miss
-2. Read DB
-3. Write to cache
-4. Return
-```
-Популярно с Redis. Cache inconsistency при обновлении данных.
+Кэширование — отдельная большая тема, полностью раскрытая в модуле `caching-deep-dive`:
 
-**Write-through:** запись идёт сначала в cache, потом в DB. Всегда актуальный cache, но latency записи выше.
+- **Cache patterns** (cache-aside, read-through, write-through, write-behind, refresh-ahead) → [`caching-deep-dive/theory/CACHE_PATTERNS.md`](../../caching-deep-dive/theory/CACHE_PATTERNS.md)
+- **Eviction policies** (LRU, LFU, W-TinyLFU, TTL) → [`caching-deep-dive/theory/EVICTION_POLICIES.md`](../../caching-deep-dive/theory/EVICTION_POLICIES.md)
+- **Anti-patterns** (stampede, penetration, breakdown, avalanche, hot/big keys) → [`caching-deep-dive/theory/ANTI_PATTERNS.md`](../../caching-deep-dive/theory/ANTI_PATTERNS.md)
+- **Distributed caching, Redis, Caffeine** — соответствующие файлы того же модуля
 
-**Write-behind (Write-back):** запись только в cache, асинхронно сбрасывается в DB. Максимальная скорость записи, риск потери данных.
-
-**Cache eviction:** LRU (Least Recently Used), LFU (Least Frequently Used), TTL.
-
-**Cache stampede (Dog-piling):** при инвалидации популярного ключа сотни запросов идут в БД одновременно. Решение: mutex lock при регенерации, probabilistic early expiration.
+В контексте микросервисов кэш чаще всего ставится перед slow downstream'ом (DB, external API) или в API Gateway для read-heavy эндпоинтов.
 
 ---
 
@@ -247,21 +241,63 @@ CLOSED             OPEN
 
 ### CQRS (Command Query Responsibility Segregation)
 
-Отдельные модели для записи и чтения. Write side нормализован (ACID). Read side денормализован (быстрое чтение, eventual consistency).
+Разделение модели на write-side (команды) и read-side (запросы).
+
+- **Write side**: PostgreSQL, нормализованная схема, ACID-транзакции, блокировки
+- **Read side**: денормализованные projections (Redis, Elasticsearch, отдельная read-БД), оптимизированные под конкретные запросы, eventual consistency
+
+```
+POST /reservations → write-side (Postgres, ACID)
+GET  /availability → read-side (Redis cache, fast, eventual)
+```
+
+CQRS часто (но не обязательно) идёт в паре с Event Sourcing: события из write-side формируют projections для read-side. Минимальный CQRS — просто отдельный read replica без Event Sourcing.
 
 ### Event Sourcing
 
-Хранить не текущее состояние, а историю событий. Состояние восстанавливается replay событий.
+Хранить не текущее состояние, а **append-only лог событий**. Состояние агрегата восстанавливается replay событий с начала истории.
 
 ```
 AccountCreated(id, owner)
 MoneyDeposited(id, 100)
 MoneyWithdrawn(id, 30)
-→ balance = 70
+→ replay → balance = 70
 ```
 
-**Плюсы:** полный audit log, temporal queries ("что было год назад"), event replay.
-**Минусы:** сложность, eventual consistency, snapshots для производительности.
+**Event store** — специализированное хранилище:
+- Append-only (события иммутабельны, не редактируются и не удаляются)
+- Партиционирование по `aggregateId` (все события одного агрегата идут в одну партицию → строгий порядок)
+- Каждое событие имеет `version` (offset внутри агрегата) и `globalSequence`
+- Реализации: EventStoreDB, Axon Server, Kafka (compacted topic), PostgreSQL (jsonb + sequence)
+
+**Snapshots — почему нужны.**
+Restore состояния = replay всех событий агрегата. При тысячах событий на агрегат — startup становится медленным (linear scan).
+Snapshot — материализованное состояние после N-ного события, хранится отдельно.
+Restore = `load snapshot + replay tail` (только события после snapshot).
+Обычно snapshot берётся каждые 100–1000 событий. Trade-off: дополнительное место и invalidation snapshots при изменении схемы события vs скорость восстановления.
+
+**CQRS-связка.**
+Event Sourcing почти всегда идёт в паре с CQRS:
+- **Write side**: команда → доменная логика → события → append в event store
+- **Read side**: события → projections (materialized views) в отдельной БД для быстрых запросов
+- Между write и read — eventual consistency (projection лагает)
+
+**Плюсы:**
+- Полный audit log "из коробки" (что произошло, когда, в каком порядке)
+- Temporal queries ("какой был баланс на 1 января?") через replay до точки
+- Event replay для debugging, build новых projections без миграций
+- Естественная интеграция с event-driven архитектурой (события публикуются в Kafka)
+
+**Минусы:**
+- Высокая сложность реализации (event store, snapshots, projections, replay)
+- Eventual consistency между write и read side
+- **Миграция схемы событий нетривиальна** — старые события в логе нельзя переписать, нужно поддерживать совместимость
+- Сложный onboarding команды
+
+**Когда стоит:** audit-heavy домены (банки, медицина, compliance), workflow с длинной историей решений, системы где нужен полноценный replay.
+**Когда не стоит:** простой CRUD без требований к истории, малые команды без опыта event-driven, домен с агрессивно меняющейся структурой.
+
+**Schema evolution** — отдельная большая тема: см. [kafka.md → Schema Evolution и Schema Registry](kafka.md#schema-evolution-и-schema-registry).
 
 ---
 
@@ -422,6 +458,7 @@ UPDATE outbox SET published = true WHERE id = ?;
 - *Building Microservices*, 2nd ed. (Sam Newman, O'Reilly 2021) — миграция с монолита, deployment, ownership boundaries.
 - *Release It!*, 2nd ed. (Michael Nygard, Pragmatic 2018) — Circuit Breaker, Bulkhead, Timeouts — оригинал большинства resilience-паттернов.
 - *Designing Data-Intensive Applications* (Martin Kleppmann, O'Reilly 2017) — Ch. 9 (Consistency), Ch. 11 (Stream Processing).
+- [Greg Young — «Versioning in an Event Sourced System» (Leanpub, бесплатно)](https://leanpub.com/esversioning/read) — каноническая работа по upcasting, snapshots и event versioning.
 
 **Pattern catalogs:**
 - [microservices.io (Chris Richardson)](https://microservices.io/patterns/index.html) — открытый каталог паттернов с диаграммами.

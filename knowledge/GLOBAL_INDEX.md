@@ -154,18 +154,31 @@ Canonical concept → owner file map. One concept, one owner. Other modules must
 - Strangler Fig → modules/system-design/theory/microservice_patterns.md
 - Kafka (topics/partitions/consumer groups) → modules/system-design/theory/kafka.md
 - Kafka replication / ISR → modules/system-design/theory/kafka.md
-- JWT → modules/system-design/theory/auth_security.md
-- OAuth2 (protocol concepts) → modules/system-design/theory/auth_security.md
+- JWT → modules/system-design/theory/identity_providers.md
+- OAuth2 (protocol concepts) → modules/system-design/theory/identity_providers.md
 - OIDC (protocol concepts) → modules/system-design/theory/identity_providers.md
 - SAML 2.0 → modules/system-design/theory/identity_providers.md
 - Keycloak / IdP → modules/system-design/theory/identity_providers.md
+- bcrypt / Argon2 (password hashing) → modules/system-design/theory/identity_providers.md
 - Vault → modules/system-design/theory/secrets_management.md
-- bcrypt / Argon2 → modules/system-design/theory/secrets_management.md
 - envelope encryption → modules/system-design/theory/secrets_management.md
+- mTLS / TLS termination → modules/system-design/theory/secrets_management.md
 - SOLID principles → modules/system-design/theory/solid_oop.md
 - Stream API (Java) → modules/system-design/theory/stream_api.md
 - testing pyramid (Unit/Integration/E2E) → modules/system-design/theory/testing.md
 - HTTP/TCP/DNS fundamentals → modules/system-design/theory/http_networking.md
+- event sourcing → modules/system-design/theory/microservice_patterns.md
+- event store / snapshot (event sourcing) → modules/system-design/theory/microservice_patterns.md
+- schema evolution → modules/system-design/theory/kafka.md
+- backward / forward compatibility → modules/system-design/theory/kafka.md
+- upcasting → modules/system-design/theory/kafka.md
+- Schema Registry / Avro / Protobuf → modules/system-design/theory/kafka.md
+- higher-order function (HOF) → modules/system-design/theory/stream_api.md
+- first-class functions → modules/system-design/theory/stream_api.md
+- referential transparency → modules/system-design/theory/stream_api.md
+- currying / partial application → modules/system-design/theory/stream_api.md
+- default method (Java) → modules/system-design/theory/stream_api.md
+- tail recursion / TCO → modules/system-design/theory/stream_api.md
 
 ## Spring
 
@@ -242,6 +255,6 @@ Concepts that legitimately appear in multiple modules — canonical owner listed
 | Concept | Canonical Owner | Secondary Reference |
 |---------|----------------|---------------------|
 | N+1 problem | graphql-kotlin/DATALOADER_NPLUS1.md (GraphQL context) | spring-frameworks/SPRING_DATA_JPA.md (JPA context) |
-| OAuth2 | system-design/auth_security.md (protocol) | spring-frameworks/SPRING_SECURITY.md (implementation) |
+| OAuth2 | system-design/identity_providers.md (protocol) | spring-frameworks/SPRING_SECURITY.md (implementation) |
 | Circuit Breaker | system-design/microservice_patterns.md (pattern) | spring-frameworks/SPRING_CLOUD.md (Resilience4j impl) |
 | CDC | caching-deep-dive/CONSISTENCY.md (cache invalidation) | system-design/distributed_systems.md (event streaming) |

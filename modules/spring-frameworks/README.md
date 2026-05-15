@@ -31,7 +31,7 @@ modules/spring-frameworks/
 
 | Тема | Модуль |
 |------|--------|
-| JWT структура, OAuth2 потоки | [system-design/theory/auth_security.md](../system-design/theory/auth_security.md) |
+| JWT структура, OAuth2 потоки, OIDC, SAML, IdP | [system-design/theory/identity_providers.md](../system-design/theory/identity_providers.md) |
 | Circuit Breaker паттерн, Saga, Outbox | [system-design/theory/microservice_patterns.md](../system-design/theory/microservice_patterns.md) |
 | Database transactions, ACID, MVCC | [system-design/theory/database_transactions.md](../system-design/theory/database_transactions.md) |
 | Distributed Tracing, Observability | [infrastructure/theory/OBSERVABILITY.md](../infrastructure/theory/OBSERVABILITY.md) |

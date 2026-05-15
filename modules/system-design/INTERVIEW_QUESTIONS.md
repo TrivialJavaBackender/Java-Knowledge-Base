@@ -97,3 +97,33 @@
 
 ### Q25: Circuit Breaker — зачем и когда открывается?
 **A:** Защищает от каскадных сбоев: если downstream сервис медленный/недоступный — быстро возвращаем ошибку вместо ожидания timeout. Состояния: CLOSED (нормальная работа) → OPEN (при превышении threshold ошибок, быстрые отказы) → HALF-OPEN (пробный запрос) → CLOSED или снова OPEN. Resilience4j, Hystrix. Разница от Retry: Retry повторяет, Circuit Breaker прекращает попытки на время.
+
+---
+
+## Event Sourcing (Q26–Q28)
+
+### Q26: Что такое Backward и Forward compatibility в Event Sourcing?
+**A:** Backward — новый код читает старые события: добавлять поля только как optional с дефолтом, не удалять required, не переименовывать. Forward — старый код читает новые события: игнорировать неизвестные поля; в Jackson требуется `@JsonIgnoreProperties(ignoreUnknown = true)`, иначе бросит `UnrecognizedPropertyException`. Full = пересечение (обе стороны). Transitive — совместимость между любыми версиями, а не только соседними. Confluent Schema Registry поддерживает все режимы (`BACKWARD`, `FORWARD`, `FULL`, `_TRANSITIVE`).
+> Greg Young — Versioning in an Event Sourced System
+
+### Q27: Что такое upcasting и когда его использовать?
+**A:** Upcasting — преобразование raw old event до десериализации: заполнить новое поле дефолтом, переименовать ключ, разбить старое поле на два, склеить два в одно. Применяется при строго типизированных событиях, когда weak-schema (Avro/Protobuf) не используется или нужна сложная миграция, которую сама Avro Schema Resolution не вытянет. Альтернативы: версионирование типа события (`OrderCreatedV1` / `OrderCreatedV2` как разные классы), параллельные поля с `@Deprecated` на время миграции.
+
+### Q28: Зачем нужны snapshots в Event Sourcing?
+**A:** Restore состояния агрегата = replay всех его событий с начала. При тысячах событий на агрегат replay становится медленным (linear scan). Snapshot — материализованное состояние агрегата после N-ного события, хранится отдельно. Restore = load snapshot + replay только tail после N. Trade-off: дополнительное место и invalidation snapshots при изменении структуры события vs скорость восстановления. Обычно snapshot берётся каждые 100–1000 событий.
+
+---
+
+## Functional Programming (Q29–Q32)
+
+### Q29: Что такое Higher-Order Function?
+**A:** Функция, которая принимает функцию как аргумент или возвращает функцию. Следствие first-class functions (функции — значения первого класса). В Java: `Stream.map(Function)`, `Function.andThen(Function)`, `Comparator.comparing(KeyExtractor)`, любая фабрика лямбд. Польза: композиция и абстракция over behaviour без наследования — вместо template method в иерархии классов передаём стратегию как функцию.
+
+### Q30: Зачем в Java 8 появились default методы?
+**A:** Чтобы эволюционировать `Collection` API без breaking change. Добавить `Collection.stream()` как abstract сломало бы все классы, реализующие `Collection` напрямую (включая чужой код в библиотеках). Default метод даёт реализацию прямо в интерфейсе, наследуется автоматически. Эта же фича включила functional-style утилиты: `Predicate.and/or`, `Function.compose/andThen`, `Comparator.thenComparing`. Diamond problem (два интерфейса с одинаковой сигнатурой default) — compile error, нужно явно override и можно делегировать через `InterfaceA.super.method()`. Java допустила multiple inheritance of behaviour, но не state.
+
+### Q31: Что такое Referential Transparency и зачем она нужна?
+**A:** Выражение referentially transparent, если его можно заменить результатом без изменения поведения программы. Эквивалентно: pure function + immutable inputs. Польза: компилятор/runtime могут мемоизировать, переупорядочивать, выполнять параллельно без data races; код проще рассуждать о нём (equational reasoning — подставлять равные на равные). Нарушают RT: `Random`, `System.currentTimeMillis`, любой IO, обращение к мутабельному shared state.
+
+### Q32: Поддерживает ли JVM Tail Call Optimization?
+**A:** Нет. Глубокая хвостовая рекурсия → `StackOverflowError`. Причины: верификатор байткода рассчитывает на честный стек, `SecurityManager` должен видеть полный stack trace, бинарная совместимость. Workarounds: переписать в цикл, trampoline pattern (вернуть `Thunk`, разворачивать в `while`), Kotlin `tailrec` (компилятор Kotlin сам превращает в цикл на уровне байткода — JVM ничего не знает). JEP 416 предлагал TCO — не принят.

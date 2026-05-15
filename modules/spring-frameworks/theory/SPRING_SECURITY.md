@@ -1,6 +1,6 @@
 # Spring Security
 
-> **JWT структура, OAuth2 потоки, OpenID Connect** — см. [`modules/system-design/theory/auth_security.md`](../../system-design/theory/auth_security.md).
+> **JWT структура, OAuth2 потоки, OpenID Connect, SAML 2.0, password storage** — см. [`modules/system-design/theory/identity_providers.md`](../../system-design/theory/identity_providers.md).
 
 ---
 

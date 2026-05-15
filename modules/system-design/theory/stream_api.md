@@ -202,6 +202,30 @@ long sum = LongStream.rangeClosed(1, 100_000_000L)
 
 ## Функциональные принципы
 
+### First-class functions
+
+Функции — значения первого класса: можно присвоить переменной, передать как аргумент, вернуть из функции. В Java 8 функции выражены через `@FunctionalInterface` (`Function`, `Predicate`, `Consumer`, ...).
+
+Под капотом: лямбда компилируется не в анонимный класс, а в `invokedynamic` + `LambdaMetafactory` — JVM лениво генерирует имплементацию при первом вызове. Меньше классов в метаспейсе, меньше аллокаций.
+
+```java
+Function<Integer, Integer> doubler = x -> x * 2;   // функция как значение
+list.forEach(doubler::apply);                       // передача как аргумент
+Function<Integer, Integer> factory() { return x -> x + 1; } // возврат функции
+```
+
+### Higher-Order Functions (HOF)
+
+HOF — функция, которая **принимает функцию** как аргумент или **возвращает функцию**. Следствие first-class functions.
+
+Примеры в Java:
+- `Stream.map(Function)`, `Stream.filter(Predicate)` — принимают функцию
+- `Function.andThen(Function)`, `Function.compose(Function)` — принимают и возвращают
+- `Comparator.comparing(KeyExtractor)` — возвращает Comparator
+- Любая фабрика лямбд
+
+Польза: композиция и абстракция over behaviour без наследования. Вместо иерархии классов с template method — функция, принимающая стратегию.
+
 ### Чистые функции (Pure Functions)
 
 Нет побочных эффектов, результат зависит только от аргументов:
@@ -212,6 +236,25 @@ int add(int a, int b) { return a + b; }
 // Нечистая: читает внешнее состояние
 int addWithTax(int amount) { return amount + TAX_RATE; } // TAX_RATE может измениться
 ```
+
+### Referential transparency
+
+Выражение **referentially transparent**, если его можно заменить результатом без изменения поведения программы. Формально: RT ≡ pure function + immutable inputs.
+
+```java
+// RT: f(2, 3) всегда 5 → можно заменить вызов на литерал 5
+int f(int a, int b) { return a + b; }
+
+// НЕ RT: результат зависит от внешнего времени
+long now() { return System.currentTimeMillis(); }
+```
+
+Польза:
+- Компилятор/runtime может **мемоизировать** (вычислить один раз и кешировать)
+- Можно **переупорядочивать** выражения и **выполнять параллельно** без data races
+- **Equational reasoning**: о программе можно рассуждать как о математических уравнениях, подставляя равные на равные
+
+Нарушают RT: `Random`, `System.currentTimeMillis`, любой IO, обращение к мутабельному shared state.
 
 ### Иммутабельность
 
@@ -233,6 +276,92 @@ Function<Integer, Integer> adder = x -> x + 10;
 Function<Integer, Integer> doubleThenAdd = doubler.andThen(adder); // (x*2)+10
 Function<Integer, Integer> addThenDouble = doubler.compose(adder);  // (x+10)*2
 ```
+
+Stream pipeline `.filter(...).map(...).collect(...)` — это композиция HOF под капотом: каждый оператор оборачивает предыдущий в новый Spliterator.
+
+### Currying и partial application
+
+**Currying** — преобразование `f(a, b, c)` в цепочку одноаргументных функций `f(a)(b)(c)`. На Java: `Function<A, Function<B, R>>` вместо `BiFunction<A, B, R>`.
+
+**Partial application** — фиксация части аргументов, чтобы получить функцию меньшей арности.
+
+```java
+// Каррированная функция сложения
+Function<Integer, Function<Integer, Integer>> curriedAdd = a -> b -> a + b;
+
+// Partial application: фиксируем первый аргумент
+Function<Integer, Integer> add5 = curriedAdd.apply(5);
+int result = add5.apply(3); // 8
+
+// Альтернатива через method reference
+BiFunction<Integer, Integer, Integer> add = Integer::sum;
+Function<Integer, Integer> add10 = x -> add.apply(10, x); // partial application
+```
+
+Где встречается: DSL builder'ы, конфигурируемые валидаторы, адаптация API под нужный интерфейс.
+
+### Tail recursion и JVM
+
+**Tail call** — рекурсивный вызов в позиции **последнего действия** функции (после него больше ничего не считается).
+
+```java
+// Tail call: после fact(n - 1, acc * n) больше ничего не делается
+int fact(int n, int acc) {
+    if (n <= 1) return acc;
+    return fact(n - 1, acc * n);
+}
+```
+
+В Scheme/Haskell компилятор делает **TCO (tail call optimization)**: вместо нового стек-фрейма переиспользует текущий → итерация без роста стека.
+
+**JVM НЕ оптимизирует TCO.** Глубокая хвостовая рекурсия → `StackOverflowError`. Причины:
+- Верификатор байткода рассчитывает на честный стек
+- `SecurityManager` должен видеть полный stack trace (security полагается на frame walk)
+- Бинарная совместимость существующих фреймворков
+
+Workarounds:
+- Переписать в цикл — всегда работает
+- **Trampoline pattern**: функция возвращает `Thunk<R>` (либо результат, либо «следующий вызов»), внешний цикл разворачивает
+- Kotlin `tailrec` — компилятор Kotlin сам превращает в `while`-цикл (на уровне байткода, JVM ничего не знает)
+
+JEP 416 предлагал TCO для JVM, но не принят.
+
+### История default методов (Java 8)
+
+**Проблема.** Java 7: `Collection<E>` — интерфейс с абстрактными методами. Чтобы добавить `Stream<E> stream()` как абстрактный метод, надо заставить все классы, реализующие `Collection` (включая чужой код в библиотеках), реализовать этот метод. Это breaking change для всей экосистемы.
+
+**Решение.** Default метод — реализация прямо в интерфейсе, наследуется автоматически. Существующие имплементаторы получают её бесплатно.
+
+```java
+public interface Collection<E> extends Iterable<E> {
+    default Stream<E> stream() {
+        return StreamSupport.stream(spliterator(), false);
+    }
+}
+```
+
+Это позволило эволюционировать Collection API без breaking change: `forEach`, `stream`, `spliterator`, `removeIf`, `parallelStream` — все добавлены как default.
+
+Та же фича включила functional-style утилиты:
+- `Predicate.and / or / negate`
+- `Function.compose / andThen`
+- `Comparator.thenComparing / reversed`
+
+**Diamond problem.** Класс реализует два интерфейса с одинаковой сигнатурой default метода — компилятор не выбирает за программиста, выдаёт ошибку. Надо явно переопределить и (опционально) делегировать:
+
+```java
+interface A { default String hi() { return "A"; } }
+interface B { default String hi() { return "B"; } }
+
+class C implements A, B {
+    @Override
+    public String hi() {
+        return A.super.hi() + B.super.hi();  // явное разрешение конфликта
+    }
+}
+```
+
+Java сознательно допустила **multiple inheritance of behaviour** (но не of state — поля в интерфейсах нельзя), и конфликт всегда разрешается программистом.
 
 ---
 

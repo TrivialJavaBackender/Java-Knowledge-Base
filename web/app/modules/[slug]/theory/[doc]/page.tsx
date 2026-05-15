@@ -55,7 +55,7 @@ export default async function TheoryPage({
       <MarkdownView source={theory.body} moduleSlug={slug} />
       <MermaidInit />
 
-      <nav className="flex items-center justify-between border-t border-border pt-4 text-sm">
+      <nav className="flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4 text-sm">
         {prev ? (
           <Link href={`/modules/${slug}/theory/${prev.slug}`} className="text-fg-muted hover:text-accent">
             ← {prev.title}
@@ -63,6 +63,7 @@ export default async function TheoryPage({
         ) : (
           <span />
         )}
+        <ToggleTheoryRead id={theory.id} initial={isRead} label="Прочитано" />
         {next ? (
           <Link href={`/modules/${slug}/theory/${next.slug}`} className="text-fg-muted hover:text-accent text-right">
             {next.title} →

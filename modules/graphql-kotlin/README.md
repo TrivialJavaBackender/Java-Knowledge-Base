@@ -3,7 +3,7 @@
 Площадка для практики GraphQL на стеке Kotlin + Expedia `graphql-kotlin` перед техническими собеседованиями.
 Покрывает SDL, резолверы, DataLoader (N+1), Apollo Federation.
 
-> JWT/OAuth2 в контексте защиты GraphQL endpoint’а — в `modules/system-design/theory/auth_security.md`.
+> JWT/OAuth2 в контексте защиты GraphQL endpoint’а — в `modules/system-design/theory/identity_providers.md`.
 > Spring Security филтр-чейн — в `modules/spring-frameworks/theory/SPRING_SECURITY.md`.
 > Здесь — только GraphQL-специфика.
 

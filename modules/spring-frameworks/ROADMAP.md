@@ -61,7 +61,7 @@
 
 📖 Теория: [theory/SPRING_SECURITY.md](theory/SPRING_SECURITY.md)
 
-> JWT/OAuth2 — см. [system-design/theory/auth_security.md](../system-design/theory/auth_security.md)
+> JWT/OAuth2/OIDC — см. [system-design/theory/identity_providers.md](../system-design/theory/identity_providers.md)
 
 - [ ] Filter Chain архитектура
 - [ ] SecurityContext и ThreadLocal

@@ -225,38 +225,7 @@ Volume mount: tmpfs, readOnly, не попадает в env
 
 ---
 
-## Хранение паролей пользователей
-
-### Почему нельзя SHA-256 (и даже SHA-512)
-
-Криптографические хэши — быстрые по дизайну. GPU выполняет миллиарды SHA-256 в секунду. При утечке БД атакующий перебирает все пароли из словаря за минуты.
-
-Правильные алгоритмы специально медленные: содержат настраиваемую "стоимость" (число итераций, объём памяти), которая делает перебор нерентабельным.
-
-| Алгоритм | Memory-hard | Рекомендован | Параметр сложности |
-|----------|-------------|-------------|---------------------|
-| MD5 / SHA-* | Нет | **Никогда** | — |
-| bcrypt | Нет | Да | cost (10–12) |
-| Argon2id | Да | **Лучший выбор** | memory, time, parallelism |
-| PBKDF2 | Нет | Да (FIPS) | iterations (≥ 600 000) |
-
-**Memory-hard** означает что для перебора нужно много RAM — GPU имеет быстрые ядра, но мало памяти на ядро, поэтому атака на GPU нерентабельна.
-
-**Соль** (случайные байты, уникальные для каждого пароля) решает проблему rainbow tables: даже одинаковые пароли дают разные хэши. bcrypt и Argon2 включают соль в сам хэш — хранить отдельно не нужно.
-
-```java
-// bcrypt: cost=12 ~300ms — достаточно медленно для перебора, приемлемо для логина
-PasswordEncoder encoder = new BCryptPasswordEncoder(12);
-String hash = encoder.encode("userpassword");
-// $2a$12$<22-char-salt><31-char-hash>
-
-boolean ok = encoder.matches("userpassword", hash);  // true
-
-// Ротация алгоритма без сброса паролей:
-// DelegatingPasswordEncoder хранит префикс {bcrypt}$2a$...
-// При следующем логине старый хэш заменяется на новый алгоритм автоматически
-PasswordEncoder delegating = PasswordEncoderFactories.createDelegatingPasswordEncoder();
-```
+> **Хранение паролей пользователей** (bcrypt, Argon2id, PBKDF2, salt, `DelegatingPasswordEncoder`) — см. [`identity_providers.md`](identity_providers.md#хранение-паролей-пользователей). Это in-app concern (часть аутентификации), а не secrets ops.
 
 ---
 
@@ -307,7 +276,6 @@ Pod:                /secrets/db_password (tmpfs, readOnly volume)
 | Logging credentials | Логи доступны широкому кругу, агрегируются |
 | Terraform state в git | Plain-text пароли в истории коммитов |
 | Один секрет для всех окружений | Компрометация prod при dev-утечке |
-| MD5/SHA хэши паролей | Brute-force за минуты при утечке БД |
 | K8s Secret без encryption at rest | etcd backup = все секреты открыты |
 | Long-lived static credentials | Утечка не обнаружена, эксплуатируется месяцами |
 
@@ -315,13 +283,7 @@ Pod:                /secrets/db_password (tmpfs, readOnly volume)
 
 ## Источники
 
-**Стандарты / RFC:**
-- [RFC 9106 — Argon2 Memory-Hard Function](https://datatracker.ietf.org/doc/html/rfc9106) — победитель Password Hashing Competition 2015.
-- [NIST SP 800-63B — Digital Identity Guidelines: Authentication](https://pages.nist.gov/800-63-3/sp800-63b.html) — текущие требования к хранению паролей и MFA.
-- [Provos & Mazières (1999) — «A Future-Adaptive Password Scheme» (USENIX)](https://www.usenix.org/legacy/events/usenix99/provos/provos_html/) — оригинал bcrypt.
-
 **Security cheatsheets:**
-- [OWASP Password Storage Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Password_Storage_Cheat_Sheet.html) — рекомендуемые алгоритмы и параметры (Argon2id `m=19MiB, t=2, p=1` и т.д.).
 - [OWASP Secrets Management Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Secrets_Management_Cheat_Sheet.html)
 - [OWASP Top 10 — A02:2021 Cryptographic Failures](https://owasp.org/Top10/A02_2021-Cryptographic_Failures/)
 

@@ -183,7 +183,7 @@ Composition валидирует: один и тот же тип должен б
 - **Изменение `@key`-полей** — breaking change. Нужна координация.
 - **Пагинация и cursor’ы** — через subgraphs работают плохо, если cursor встроен в один subgraph; обычно cursor нормализуют (Relay-style).
 - **DataLoader на router** — нет; DataLoader работает в каждом subgraph. Между subgraph’ами router сам батчит entity-запросы (по `__typename` + ключи).
-- **Auth** — обычно gateway/router пропускает `Authorization` header вниз. Подходы — см. `system-design/theory/auth_security.md`.
+- **Auth** — обычно gateway/router пропускает `Authorization` header вниз. Подходы — см. `system-design/theory/identity_providers.md`.
 
 ---
 

@@ -155,6 +155,113 @@ Tombstone: сообщение с `null`-значением удаляет клю
 
 ---
 
+## Schema Evolution и Schema Registry
+
+### Проблема
+
+Producer и Consumer релизятся независимо. Схема сообщения (event'а) меняется со временем — добавляются поля, переименовываются, разбиваются. В логе одновременно живут события **разных версий**, а consumer'ы тоже могут быть разных версий.
+
+```java
+// Версия 1
+record OrderCreated(UUID orderId, String item, int quantity) {}
+
+// Версия 2: добавили price
+record OrderCreated(UUID orderId, String item, int quantity, BigDecimal price) {}
+```
+
+Старые события в логе не имеют `price` — как читать их новым кодом? Старый consumer падает на новых событиях с `price`?
+
+### Backward Compatibility (обратная совместимость)
+
+**Новый код читает старые данные.**
+
+Правила:
+- Добавлять поля с дефолтным значением — OK
+- Удалять обязательные поля — нарушение
+- Переименовывать поля — нарушение
+- Менять тип поля — нарушение
+
+```java
+// Backward compatible: новое поле опционально
+record OrderCreated(UUID orderId, String item, int quantity,
+                    @Nullable BigDecimal price) {}  // null для старых событий
+```
+
+### Forward Compatibility (прямая совместимость)
+
+**Старый код читает новые данные.**
+
+Правила:
+- Старый код должен игнорировать неизвестные поля
+- Jackson по умолчанию **не** игнорирует — бросает `UnrecognizedPropertyException`
+- Решение: `@JsonIgnoreProperties(ignoreUnknown = true)` на всех event-классах
+
+```java
+@JsonIgnoreProperties(ignoreUnknown = true)
+record OrderCreated(UUID orderId, String item, int quantity) {}
+// Новое поле price в JSON → игнорируется старым кодом ✓
+```
+
+### Full / Transitive
+
+- **Full** = backward + forward одновременно (новый ↔ старый в обе стороны).
+- **Transitive** — совместимость между N версиями, а не только между соседними (v1 ↔ v5, не только v4 ↔ v5).
+
+### Стратегии версионирования
+
+**1. Upcasting** — трансформация raw event до десериализации:
+```java
+// EventStore читает raw bytes, применяет upcaster, потом десериализует
+class OrderCreatedUpcaster {
+    Map<String, Object> upcast(Map<String, Object> event, int fromVersion) {
+        if (fromVersion == 1) {
+            event.put("price", BigDecimal.ZERO); // дефолт для старых событий
+        }
+        return event;
+    }
+}
+```
+Применяется когда weak-schema (Avro/Protobuf) не используется или нужна сложная миграция (разбить старое поле на два, переименовать).
+
+**2. Weak schema (Avro, Protobuf)** — схема задаёт правила эволюции:
+
+- **Protobuf**: поля идентифицируются числами (field numbers), а не именами. Можно добавлять новые поля, нельзя менять номер существующего, нельзя переиспользовать удалённый номер. Имя поля менять можно (на wire только номер).
+- **Avro**: writer schema (использовалась при записи) + reader schema (ожидает читатель) → автоматическое преобразование через Schema Resolution. Поля без default → required, иначе → optional.
+
+**3. Параллельные поля** — старое и новое поле одновременно, постепенная миграция:
+```java
+record OrderCreated(UUID orderId, String item, int quantity,
+                    String currency,           // новое
+                    BigDecimal price,          // новое
+                    @Deprecated String amount) // старое, удалить в следующем релизе
+```
+
+**4. Версионирование типа события** — разные классы для разных версий:
+```java
+class OrderCreatedV1 { ... }
+class OrderCreatedV2 { ... }
+// EventStore хранит type = "OrderCreated", version = 2
+```
+Подход уживается с upcasting (V1 апкастится в V2 при чтении).
+
+### Confluent Schema Registry
+
+Централизованное хранение Avro / Protobuf / JSON Schema. При публикации в Kafka:
+1. Producer регистрирует схему в Registry → получает `schema-id`
+2. В payload отправляется `[schema-id (4 bytes)] + [serialized bytes]`
+3. Consumer читает schema-id → подтягивает writer schema → применяет resolution к своей reader schema
+
+Режимы совместимости (настраиваются на subject = topic-name):
+- `BACKWARD` — новая схема может читать данные, записанные старой (default)
+- `FORWARD` — старая схема может читать данные новой
+- `FULL` — оба направления
+- `NONE` — без проверок
+- Любой из них с суффиксом `_TRANSITIVE` — проверка против **всех** прошлых версий, не только последней
+
+**Контекст использования** — schema evolution особенно критична в Event Sourcing, где события в логе живут годами. См. [microservice_patterns.md → Event Sourcing](microservice_patterns.md#event-sourcing).
+
+---
+
 ## Producer настройки
 
 ```java
@@ -302,3 +409,8 @@ max.poll.interval.ms=300000      // макс время между poll() (до�
 - [Confluent Engineering Blog](https://www.confluent.io/blog/) — глубокие посты про exactly-once, KRaft, tiered storage.
 - [Jepsen — Kafka analyses](https://jepsen.io/analyses) — какие именно гарантии Kafka реально даёт под partitioning.
 - [Apache Kafka Improvement Proposals (KIPs)](https://cwiki.apache.org/confluence/display/KAFKA/Kafka+Improvement+Proposals) — все будущие изменения протокола.
+
+**Schema evolution:**
+- [Confluent — Schema Compatibility Types](https://docs.confluent.io/platform/current/schema-registry/avro.html#schema-evolution-and-compatibility) — `BACKWARD`, `FORWARD`, `FULL`, `TRANSITIVE`.
+- [Apache Avro — Schema Resolution](https://avro.apache.org/docs/1.11.1/specification/#schema-resolution)
+- [Protocol Buffers — Updating A Message Type](https://protobuf.dev/programming-guides/proto3/#updating)

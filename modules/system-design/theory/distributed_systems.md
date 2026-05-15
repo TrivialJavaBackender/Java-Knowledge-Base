@@ -1,5 +1,7 @@
 # Distributed Systems
 
+> **Scope**: фундаментальная теория и примитивы координации. Архитектурные паттерны (Outbox, CQRS, SAGA, API Gateway, Circuit Breaker, deployment) — см. [microservice_patterns.md](microservice_patterns.md).
+
 ## Distributed Lock (Redis / Redisson)
 
 In-memory `synchronized` не работает при нескольких инстансах. Нужен распределённый lock.
@@ -37,38 +39,9 @@ Server: ключа нет? → создать резервацию, сохран
 
 ---
 
-## Outbox Pattern
+## Архитектурные паттерны над этими примитивами
 
-**Проблема:** INSERT в БД и публикация события в Kafka — две операции. Сбой между ними = потеря события или дубль.
-
-```
-Без outbox:
-INSERT reservation; -- успех
-publish to Kafka;   -- сбой → событие потеряно
-
-С outbox:
-BEGIN;
-INSERT INTO reservations ...;
-INSERT INTO outbox_events (type='RESERVATION_CREATED', payload=...); -- в одной транзакции
-COMMIT; -- атомарно
-
--- Отдельный процесс читает outbox и публикует в Kafka (at-least-once)
-```
-
-Outbox + идемпотентный consumer = exactly-once семантика.
-
----
-
-## CQRS (Command Query Responsibility Segregation)
-
-Разделение на write-side (команды) и read-side (запросы).
-
-```
-Write side: POST /reservations → PostgreSQL (строгая консистентность, блокировки)
-Read side:  GET /availability  → Redis cache (денормализованный, быстро, eventual consistency)
-```
-
-Запись инвалидирует или обновляет кэш. Чтение никогда не идёт в основную БД.
+Outbox, CQRS, Event Sourcing, SAGA, Circuit Breaker и прочие архитектурные паттерны живут в [microservice_patterns.md](microservice_patterns.md). Этот файл — про **фундаментальные свойства** распределённых систем (порядок событий, консистентность, кворумы), а не про конкретные паттерны их применения.
 
 ---
 

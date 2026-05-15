@@ -22,7 +22,8 @@
 |------|--------|
 | Потоки, synchronized, volatile, JMM, локи, атомики, concurrent collections, executors, synchronizers, virtual threads | `concurrency` |
 | Database transactions/indexes, distributed systems, CAP, microservice patterns (Saga, Outbox, Circuit Breaker), testing | `system-design` |
-| Secrets management (Vault, K8s Secrets, Terraform+секреты, bcrypt/Argon2), OAuth2/OIDC/SAML концепты, IdP (Keycloak) | `system-design` |
+| JWT (структура/JWKS/revocation), OAuth2/OIDC/SAML концепты, IdP (Keycloak), password storage (bcrypt/Argon2) | `system-design` (`identity_providers.md`) |
+| Secrets ops: Vault, K8s Secrets, Terraform+секреты, SOPS, mTLS, envelope encryption | `system-design` (`secrets_management.md`) |
 | Docker, Kubernetes, Helm, Observability, Logging, Metrics | `infrastructure` |
 | Spring Core/DI/IoC, Spring Boot/Starters/Auto-Configuration, Spring MVC/REST, Spring Data JPA/Hibernate (включая все уровни кэша), Spring Security, Spring Cloud | `spring-frameworks` |
 | Kotlin coroutines: suspend, корутинные builders (launch/async/withContext/runBlocking), CoroutineScope/Context, Dispatchers, structured concurrency (coroutineScope/supervisorScope), cooperative cancellation, Flow, StateFlow/SharedFlow, Channel, suspend internals (CPS), runTest. **Virtual threads и `StructuredTaskScope` остаются в `concurrency`**. | `kotlin-coroutines` |
@@ -192,9 +193,8 @@ mvn exec:java -Dexec.mainClass="exercises.Ex01_CacheAsideBasicKt"
 - http_networking.md
 - solid_oop.md
 - stream_api.md
-- auth_security.md — JWT, OAuth2 basics
-- secrets_management.md — Vault, Terraform, K8s Secrets, bcrypt/Argon2, mTLS
-- identity_providers.md — OAuth2/OIDC/SAML концепты, Keycloak, federation
+- identity_providers.md — JWT (структура, JWKS, revocation), OAuth2 (PKCE, Client Credentials, Refresh rotation), OIDC, SAML 2.0, Keycloak (realms, brokering, federation), password storage (bcrypt/Argon2)
+- secrets_management.md — envelope encryption, Vault (Seal, auth methods, dynamic secrets), Terraform state, K8s Secrets, SOPS, mTLS
 - testing.md
 
 ### spring-frameworks (`modules/spring-frameworks/theory/`)

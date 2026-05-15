@@ -36,9 +36,8 @@
 | [theory/solid_oop.md](theory/solid_oop.md) | SOLID, DIP + Jackson, Event Sourcing schema evolution | ⬜ |
 | [theory/http_networking.md](theory/http_networking.md) | HTTP 1.1 vs 2.0, кэш, REST vs WS, шифрование, IPv4/IPv6 | ⬜ |
 | [theory/stream_api.md](theory/stream_api.md) | Stream API, functional interfaces, Optional, parallel streams | ⬜ |
-| [theory/auth_security.md](theory/auth_security.md) | JWT, OAuth2 — Spring Security перенесена в spring-frameworks | ⬜ |
-| [theory/secrets_management.md](theory/secrets_management.md) | Envelope encryption, bootstrap problem, Vault, Terraform+state, K8s Secrets, bcrypt/Argon2, mTLS | ⬜ |
-| [theory/identity_providers.md](theory/identity_providers.md) | OAuth2/OIDC концепты, PKCE, SAML 2.0, Keycloak, IdP federation, SSO схемы | ⬜ |
+| [theory/identity_providers.md](theory/identity_providers.md) | JWT (структура/JWKS/revocation), OAuth2 (PKCE, Client Credentials), OIDC, SAML 2.0, Keycloak, IdP federation, password storage (bcrypt/Argon2), архитектурные схемы | ⬜ |
+| [theory/secrets_management.md](theory/secrets_management.md) | Envelope encryption, bootstrap problem, Vault (Seal, auth methods, dynamic secrets), Terraform+state, K8s Secrets, SOPS, mTLS | ⬜ |
 | [theory/testing.md](theory/testing.md) | Пирамида тестов, JUnit, Mockito, performance, security testing | ⬜ |
 | [INTERVIEW_QUESTIONS.md](INTERVIEW_QUESTIONS.md) | Вопросы по system design | ⬜ |
 
