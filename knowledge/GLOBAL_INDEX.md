@@ -55,7 +55,7 @@ Canonical concept → owner file map. One concept, one owner. Other modules must
 - CoroutineContext → modules/kotlin-coroutines/theory/SCOPE_CONTEXT.md
 - ContinuationInterceptor → modules/kotlin-coroutines/theory/SCOPE_CONTEXT.md
 - structured concurrency → modules/kotlin-coroutines/theory/STRUCTURED_CONCURRENCY.md
-- coroutineScope → modules/kotlin-coroutines/theory/STRUCTURED_CONCURRENCY.md
+- coroutineScope (builder function) → modules/kotlin-coroutines/theory/STRUCTURED_CONCURRENCY.md
 - supervisorScope → modules/kotlin-coroutines/theory/STRUCTURED_CONCURRENCY.md
 - SupervisorJob → modules/kotlin-coroutines/theory/STRUCTURED_CONCURRENCY.md
 - cooperative cancellation → modules/kotlin-coroutines/theory/CANCELLATION_EXCEPTIONS.md
@@ -114,7 +114,7 @@ Canonical concept → owner file map. One concept, one owner. Other modules must
 - Redis Cluster → modules/caching-deep-dive/theory/REDIS.md
 - Lua scripting (Redis) → modules/caching-deep-dive/theory/REDIS.md
 - pipelining (Redis) → modules/caching-deep-dive/theory/REDIS.md
-- centralized vs replicated vs near-cache → modules/caching-deep-dive/theory/DISTRIBUTED_CACHING.md
+- caching topologies (centralized vs replicated) → modules/caching-deep-dive/theory/DISTRIBUTED_CACHING.md
 - consistent hashing → modules/caching-deep-dive/theory/DISTRIBUTED_CACHING.md
 - rendezvous hashing → modules/caching-deep-dive/theory/DISTRIBUTED_CACHING.md
 - near-cache → modules/caching-deep-dive/theory/DISTRIBUTED_CACHING.md
@@ -258,3 +258,4 @@ Concepts that legitimately appear in multiple modules — canonical owner listed
 | OAuth2 | system-design/identity_providers.md (protocol) | spring-frameworks/SPRING_SECURITY.md (implementation) |
 | Circuit Breaker | system-design/microservice_patterns.md (pattern) | spring-frameworks/SPRING_CLOUD.md (Resilience4j impl) |
 | CDC | caching-deep-dive/CONSISTENCY.md (cache invalidation) | system-design/distributed_systems.md (event streaming) |
+| CoroutineScope vs coroutineScope | kotlin-coroutines/SCOPE_CONTEXT.md (interface type) | kotlin-coroutines/STRUCTURED_CONCURRENCY.md (builder function) |

@@ -19,22 +19,6 @@ async function register(formData: FormData) {
   const passwordHash = await hashPassword(password);
   const user = await prisma.user.create({ data: { username, passwordHash } });
 
-  // Create dormant LeitnerStates for all auto-flashcards
-  const cards = await prisma.flashcard.findMany({
-    where: { source: 'AUTO' },
-    select: { id: true },
-  });
-  if (cards.length > 0) {
-    await prisma.leitnerState.createMany({
-      data: cards.map((c) => ({
-        flashcardId: c.id,
-        userId: user.id,
-        box: 1,
-        nextDueAt: new Date('2099-01-01'),
-      })),
-    });
-  }
-
   const token = await signSession(user.id);
   await setSessionCookie(token);
   redirect('/');

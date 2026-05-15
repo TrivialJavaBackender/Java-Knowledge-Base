@@ -38,13 +38,18 @@ export async function toggleQAKnown(qaId: number, value: boolean) {
   if (value) {
     const flashcard = await prisma.flashcard.findUnique({ where: { qaId } });
     if (flashcard) {
+      const tomorrow = startOfDay(addDays(new Date(), 1));
       const leitner = await prisma.leitnerState.findUnique({
         where: { userId_flashcardId: { userId, flashcardId: flashcard.id } },
       });
-      if (leitner && leitner.box === 1 && leitner.nextDueAt >= new Date('2098-01-01')) {
+      if (!leitner) {
+        await prisma.leitnerState.create({
+          data: { userId, flashcardId: flashcard.id, box: 1, nextDueAt: tomorrow },
+        });
+      } else if (leitner.box === 1 && leitner.nextDueAt >= new Date('2098-01-01')) {
         await prisma.leitnerState.update({
           where: { userId_flashcardId: { userId, flashcardId: flashcard.id } },
-          data: { nextDueAt: startOfDay(addDays(new Date(), 1)) },
+          data: { nextDueAt: tomorrow },
         });
       }
     }
@@ -56,10 +61,13 @@ export async function toggleQAKnown(qaId: number, value: boolean) {
 
 export async function reviewFlashcard(flashcardId: number, knewIt: boolean) {
   const userId = await requireUser();
-  const state = await prisma.leitnerState.findUnique({
-    where: { userId_flashcardId: { userId, flashcardId } },
-  });
-  if (!state) throw new Error('Leitner state not found');
+  const state =
+    (await prisma.leitnerState.findUnique({
+      where: { userId_flashcardId: { userId, flashcardId } },
+    })) ??
+    (await prisma.leitnerState.create({
+      data: { userId, flashcardId, box: 1, nextDueAt: new Date() },
+    }));
   const next = reviewCard({ box: state.box, streak: state.streak, lapses: state.lapses }, knewIt);
   await prisma.$transaction([
     prisma.leitnerState.update({
@@ -125,9 +133,10 @@ export async function archiveFlashcard(id: number, archived: boolean) {
     await prisma.flashcard.update({ where: { id, userId }, data: { archived } });
   } else {
     const dormant = new Date('2099-01-01');
-    await prisma.leitnerState.update({
+    await prisma.leitnerState.upsert({
       where: { userId_flashcardId: { userId, flashcardId: id } },
-      data: { nextDueAt: archived ? dormant : new Date() },
+      create: { userId, flashcardId: id, box: 1, nextDueAt: archived ? dormant : new Date() },
+      update: { nextDueAt: archived ? dormant : new Date() },
     });
   }
   revalidatePath('/flashcards/manage');
@@ -136,9 +145,10 @@ export async function archiveFlashcard(id: number, archived: boolean) {
 
 export async function resetLeitner(flashcardId: number) {
   const userId = await requireUser();
-  await prisma.leitnerState.update({
+  await prisma.leitnerState.upsert({
     where: { userId_flashcardId: { userId, flashcardId } },
-    data: { box: 1, streak: 0, nextDueAt: new Date() },
+    create: { userId, flashcardId, box: 1, nextDueAt: new Date() },
+    update: { box: 1, streak: 0, nextDueAt: new Date() },
   });
   revalidatePath('/flashcards/manage');
 }
