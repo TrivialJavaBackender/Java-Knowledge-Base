@@ -232,19 +232,92 @@ Canonical concept → owner file map. One concept, one owner. Other modules must
 
 - Docker (images/layers/registry) → modules/infrastructure/theory/DOCKER.md
 - container vs VM → modules/infrastructure/theory/DOCKER.md
+- Linux namespaces (PID/mount/network/IPC/UTS/user) → modules/infrastructure/theory/DOCKER.md
+- cgroups (v1/v2) → modules/infrastructure/theory/DOCKER.md
+- OverlayFS / UnionFS / copy-on-write (image layers) → modules/infrastructure/theory/DOCKER.md
+- BuildKit → modules/infrastructure/theory/DOCKER.md
+- multi-stage build → modules/infrastructure/theory/DOCKER.md
+- distroless image → modules/infrastructure/theory/DOCKER.md
+- OCI Image / Runtime spec → modules/infrastructure/theory/DOCKER.md
+- containerd / CRI-O / runc → modules/infrastructure/theory/DOCKER.md
+- multi-arch image (linux/amd64,linux/arm64) → modules/infrastructure/theory/DOCKER.md
+- rootless containers / Podman → modules/infrastructure/theory/DOCKER.md
+- PID 1 problem (tini, init in container) → modules/infrastructure/theory/DOCKER.md
 - Kubernetes control plane → modules/infrastructure/theory/KUBERNETES.md
+- reconciliation loop → modules/infrastructure/theory/KUBERNETES.md
+- declarative vs imperative (K8s) → modules/infrastructure/theory/KUBERNETES.md
+- etcd → modules/infrastructure/theory/KUBERNETES.md
+- kube-apiserver / kube-scheduler / kube-controller-manager → modules/infrastructure/theory/KUBERNETES.md
+- kube-proxy (iptables/IPVS/eBPF modes) → modules/infrastructure/theory/KUBERNETES.md
 - Pod / Deployment / Service / Ingress → modules/infrastructure/theory/KUBERNETES.md
+- ReplicaSet → modules/infrastructure/theory/KUBERNETES.md
+- StatefulSet → modules/infrastructure/theory/KUBERNETES.md
+- DaemonSet → modules/infrastructure/theory/KUBERNETES.md
+- Job / CronJob → modules/infrastructure/theory/KUBERNETES.md
+- pause container → modules/infrastructure/theory/KUBERNETES.md
+- init container / sidecar pattern → modules/infrastructure/theory/KUBERNETES.md
 - kubelet → modules/infrastructure/theory/KUBERNETES.md
+- liveness / readiness / startup probes → modules/infrastructure/theory/KUBERNETES.md
+- ConfigMap / Secret → modules/infrastructure/theory/KUBERNETES.md
+- requests / limits / QoS classes → modules/infrastructure/theory/KUBERNETES.md
+- OOMKilled → modules/infrastructure/theory/KUBERNETES.md
+- HPA / VPA / Cluster Autoscaler → modules/infrastructure/theory/KUBERNETES.md
+- EndpointSlices → modules/infrastructure/theory/KUBERNETES.md
+- CoreDNS → modules/infrastructure/theory/KUBERNETES.md
+- Gateway API → modules/infrastructure/theory/KUBERNETES.md
+- NetworkPolicy → modules/infrastructure/theory/KUBERNETES.md
+- PV / PVC / StorageClass / CSI → modules/infrastructure/theory/KUBERNETES.md
+- Taints / Tolerations / Affinity → modules/infrastructure/theory/KUBERNETES.md
+- TopologySpreadConstraints → modules/infrastructure/theory/KUBERNETES.md
 - Helm chart / values / release → modules/infrastructure/theory/HELM.md
 - Helm templating → modules/infrastructure/theory/HELM.md
+- Helm hooks (pre/post install/upgrade/rollback) → modules/infrastructure/theory/HELM.md
+- sub-chart / library chart / umbrella chart → modules/infrastructure/theory/HELM.md
+- Kustomize (alternative to Helm) → modules/infrastructure/theory/HELM.md
+- Argo CD / GitOps → modules/infrastructure/theory/HELM.md
 - Observability (three pillars) → modules/infrastructure/theory/OBSERVABILITY.md
+- monitoring vs observability → modules/infrastructure/theory/OBSERVABILITY.md
+- SLI / SLO / SLA → modules/infrastructure/theory/OBSERVABILITY.md
+- error budget → modules/infrastructure/theory/OBSERVABILITY.md
+- burn rate alerts → modules/infrastructure/theory/OBSERVABILITY.md
 - distributed tracing → modules/infrastructure/theory/OBSERVABILITY.md
+- trace / span → modules/infrastructure/theory/OBSERVABILITY.md
+- head-based / tail-based sampling → modules/infrastructure/theory/OBSERVABILITY.md
+- W3C TraceContext (traceparent / tracestate) → modules/infrastructure/theory/OBSERVABILITY.md
 - trace context propagation → modules/infrastructure/theory/OBSERVABILITY.md
-- Counter / Gauge / Histogram → modules/infrastructure/theory/METRICS.md
+- OpenTelemetry (SDK / API / Collector) → modules/infrastructure/theory/OBSERVABILITY.md
+- exemplars (Prometheus + trace_id) → modules/infrastructure/theory/OBSERVABILITY.md
+- wide events (Honeycomb-style) → modules/infrastructure/theory/OBSERVABILITY.md
+- Counter / Gauge / Histogram / Summary → modules/infrastructure/theory/METRICS.md
 - Prometheus → modules/infrastructure/theory/METRICS.md
+- push vs pull model (Prometheus vs StatsD) → modules/infrastructure/theory/METRICS.md
+- exposition format / OpenMetrics → modules/infrastructure/theory/METRICS.md
+- service discovery (kubernetes_sd, file_sd) → modules/infrastructure/theory/METRICS.md
+- PromQL (instant vector, range vector) → modules/infrastructure/theory/METRICS.md
+- rate() vs irate() → modules/infrastructure/theory/METRICS.md
+- histogram_quantile → modules/infrastructure/theory/METRICS.md
+- cardinality (Prometheus cardinality bomb) → modules/infrastructure/theory/METRICS.md
+- Micrometer (facade) → modules/infrastructure/theory/METRICS.md
+- recording rules / alerting rules → modules/infrastructure/theory/METRICS.md
+- Alertmanager → modules/infrastructure/theory/METRICS.md
+- RED / USE method / Four Golden Signals → modules/infrastructure/theory/METRICS.md
+- Thanos / Cortex / Mimir / VictoriaMetrics (long-term storage) → modules/infrastructure/theory/METRICS.md
 - structured logging (JSON) → modules/infrastructure/theory/LOGGING.md
+- 12-Factor stdout logging → modules/infrastructure/theory/LOGGING.md
 - log aggregation → modules/infrastructure/theory/LOGGING.md
+- MDC (Mapped Diagnostic Context) → modules/infrastructure/theory/LOGGING.md
+- correlation ID (X-Request-ID) → modules/infrastructure/theory/LOGGING.md
+- ELK vs Loki → modules/infrastructure/theory/LOGGING.md
+- log-and-throw anti-pattern → modules/infrastructure/theory/LOGGING.md
+- PII / GDPR / PCI-DSS / HIPAA (what not to log) → modules/infrastructure/theory/LOGGING.md
 - cloud regions / availability zones → modules/infrastructure/theory/CLOUD.md
+- IaaS / PaaS / SaaS / FaaS → modules/infrastructure/theory/CLOUD.md
+- HA vs DR (high availability vs disaster recovery) → modules/infrastructure/theory/CLOUD.md
+- RPO / RTO → modules/infrastructure/theory/CLOUD.md
+- managed DB / DBaaS → modules/infrastructure/theory/CLOUD.md
+- Infrastructure as Code / Terraform (state, drift, locking) → modules/infrastructure/theory/CLOUD.md
+- vendor lock-in → modules/infrastructure/theory/CLOUD.md
+- cloud-native patterns (stateless, immutable, externalised state) → modules/infrastructure/theory/CLOUD.md
 
 ---
 
