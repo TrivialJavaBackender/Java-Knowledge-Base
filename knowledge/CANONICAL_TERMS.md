@@ -68,6 +68,39 @@ Preferred terminology for this repository. Reuse these terms exactly to ensure c
 - **RPO** — Recovery Point Objective; how much data loss is acceptable
 - **RTO** — Recovery Time Objective; how long the system can be down
 
+### Java Core
+
+- **TLAB** — Thread-Local Allocation Buffer; per-thread bump-the-pointer allocation в Eden, без synchronization
+- **safepoint** — точка в bytecode/JIT-коде, где поток может быть безопасно остановлен GC/JFR/debugger; обычно вставляется в backward branches и returns
+- **write barrier** — runtime-hook на запись reference-поля, поддерживающий GC-метаданные (card table / SATB queue); **в GC контексте**, не путать с CPU memory barrier
+- **card table** — bitmap-структура, где card ≈ 512 байт heap; помечается грязной при write barrier
+- **SATB** — Snapshot-At-The-Beginning (G1 concurrent mark); барьер сохраняет старое значение перед перезаписью
+- **escape analysis** — JIT-анализ, определяющий выход объекта из метода/потока; включает scalar replacement, lock elision, lock coarsening
+- **deoptimization** — JIT откатывается в interpreter при нарушении speculative assumption (unstable_if, class_check, CHA invalidation)
+- **CHA** — Class Hierarchy Analysis; JIT анализ для inline виртуальных вызовов
+- **parent delegation** — стандартное правило `ClassLoader.loadClass`: спросить родителя до попытки загрузить самому
+- **type erasure** — generics стираются в bytecode до Object/upper-bound (compile-time only)
+- **bridge method** — synthetic метод, генерируемый компилятором для совместимости override + erasure (ACC_BRIDGE flag)
+- **PECS** — Producer-Extends, Consumer-Super (Bloch rule для wildcard generics)
+- **Compact Strings** — `String` хранит `byte[]` + coder (LATIN1/UTF16) с JEP 254
+- **StringConcatFactory** — bootstrap для `+` concatenation через invokedynamic (JEP 280)
+- **invokedynamic** — JVM-инструкция с lazy bootstrap call site; используется для lambda, string concat, pattern matching, record methods
+- **MethodHandle** — typed function pointer с linkage в runtime (`java.lang.invoke`)
+- **VarHandle** — typed accessor с access modes (plain/opaque/acquire-release/volatile/atomic ops); замена `Unsafe`/AtomicFieldUpdater
+- **LambdaMetafactory** — bootstrap для lambda; создаёт hidden class через `defineHiddenClass`
+- **JPMS** — Java Platform Module System (Java 9+)
+- **Helpful NPE** — JVM-флаг `-XX:+ShowCodeDetailsInExceptionMessages` (default 14+), показывает какое выражение было null
+- **record** — final immutable nominal tuple с canonical constructor и auto-generated equals/hashCode/toString (JEP 395)
+- **sealed class** — закрытая иерархия с `permits`; subclass должен быть final / sealed / non-sealed (JEP 409)
+- **pattern matching** — flow-scoping binding в `instanceof` (JEP 394), `switch` (JEP 441), record patterns (JEP 440)
+- **text block** — multi-line string literal `"""..."""` с common-leading-whitespace stripping (JEP 378)
+- **FFM API** — Foreign Function & Memory API (stable Java 22, JEP 454); замена JNI и `Unsafe`
+- **MemorySegment** — typed view над off-heap (или onto heap) memory; lifetime через Arena
+- **Arena** — lifetime scope для FFM allocations; confined / shared / auto / global
+- **Vector API** — SIMD operations в pure Java; использует AVX-2/AVX-512/NEON intrinsics в JIT
+- **GraalVM Native Image** — AOT-компиляция Java → standalone executable (closed-world assumption)
+- **gadget chain** — цепочка существующих в classpath классов, чьи `readObject` дают RCE при deserialization
+
 ## Avoid
 
 | Use instead | Do NOT use |
@@ -98,3 +131,17 @@ Preferred terminology for this repository. Reuse these terms exactly to ensure c
 | RPO / RTO | "recovery point", "recovery time" (use the acronyms in headings/indexes) |
 | structured logging | "JSON logging" (structured is preferred — JSON is a format choice) |
 | correlation ID | "request ID" (acceptable as alias; prefer correlation ID when discussing pattern) |
+| TLAB | "thread-local heap", "per-thread eden region" (TLAB is the canonical term) |
+| write barrier (GC) | не путать с CPU memory barrier — в GC контексте это runtime hook на reference write |
+| type erasure | "generic erasure", "erased generics" |
+| Compact Strings | "compressed strings" (это другой VM-флаг времён JRockit, путаница) |
+| StringConcatFactory | "string concat invokedynamic factory" (use the canonical class name) |
+| JPMS | "Jigsaw" (это codename проекта, JPMS — canonical) |
+| record | "data class" (это Kotlin термин; для Java — record) |
+| VarHandle | "atomic handle" (использовать VarHandle) |
+| MethodHandle | "method pointer", "method reference" (last термин уже занят `::`) |
+| FFM API | "Panama API" (Panama — overall project, FFM — конкретный API) |
+| Helpful NPE | "informative NPE", "detailed NPE" (canonical — Helpful) |
+| gadget chain | "deserialization chain", "exploit chain" (gadget chain — устоявшийся термин в security) |
+| GraalVM Native Image | "Graal native build", "ahead-of-time image" (use the canonical product name) |
+| pattern matching | "pattern match" (matching — gerund form) |

@@ -137,6 +137,101 @@ Canonical concept → owner file map. One concept, one owner. Other modules must
 - hot key → modules/caching-deep-dive/theory/ANTI_PATTERNS.md
 - big key → modules/caching-deep-dive/theory/ANTI_PATTERNS.md
 
+## Java Core
+
+- Garbage Collection algorithms (Serial/Parallel/CMS/G1/ZGC/Shenandoah/Epsilon) → modules/java-core/theory/GARBAGE_COLLECTION.md
+- generational hypothesis / Eden / Survivor / Old / Metaspace → modules/java-core/theory/GARBAGE_COLLECTION.md
+- TLAB (Thread-Local Allocation Buffer) → modules/java-core/theory/GARBAGE_COLLECTION.md
+- write barrier (GC) / card table / remembered set → modules/java-core/theory/GARBAGE_COLLECTION.md
+- SATB vs incremental update → modules/java-core/theory/GARBAGE_COLLECTION.md
+- tri-color invariant → modules/java-core/theory/GARBAGE_COLLECTION.md
+- safepoint → modules/java-core/theory/GARBAGE_COLLECTION.md
+- STW (Stop-The-World) → modules/java-core/theory/GARBAGE_COLLECTION.md
+- Cleaner / reference types (Soft/Weak/Phantom) → modules/java-core/theory/GARBAGE_COLLECTION.md
+- JVM heap layout → modules/java-core/theory/JVM_MEMORY_AREAS.md
+- Metaspace / Compressed Class Space → modules/java-core/theory/JVM_MEMORY_AREAS.md
+- Code Cache → modules/java-core/theory/JVM_MEMORY_AREAS.md
+- thread stack / `-Xss` → modules/java-core/theory/JVM_MEMORY_AREAS.md
+- direct ByteBuffer / off-heap memory → modules/java-core/theory/JVM_MEMORY_AREAS.md
+- Native Memory Tracking (NMT) → modules/java-core/theory/JVM_MEMORY_AREAS.md
+- MaxRAMPercentage / UseContainerSupport → modules/java-core/theory/JVM_MEMORY_AREAS.md
+- ClassLoader hierarchy (Bootstrap/Platform/App/Custom) → modules/java-core/theory/CLASS_LOADERS.md
+- parent delegation → modules/java-core/theory/CLASS_LOADERS.md
+- class loading lifecycle (loading/linking/initialization) → modules/java-core/theory/CLASS_LOADERS.md
+- ClassNotFoundException vs NoClassDefFoundError → modules/java-core/theory/CLASS_LOADERS.md
+- classloader leak → modules/java-core/theory/CLASS_LOADERS.md
+- ServiceLoader (SPI) → modules/java-core/theory/CLASS_LOADERS.md
+- ModuleLayer → modules/java-core/theory/CLASS_LOADERS.md
+- HotSpot JIT pipeline (Interpreter / C1 / C2) → modules/java-core/theory/JIT_COMPILATION.md
+- tiered compilation → modules/java-core/theory/JIT_COMPILATION.md
+- escape analysis → modules/java-core/theory/JIT_COMPILATION.md
+- scalar replacement → modules/java-core/theory/JIT_COMPILATION.md
+- lock elision / lock coarsening → modules/java-core/theory/JIT_COMPILATION.md
+- deoptimization → modules/java-core/theory/JIT_COMPILATION.md
+- CHA (Class Hierarchy Analysis) → modules/java-core/theory/JIT_COMPILATION.md
+- GraalVM / Graal compiler / JVMCI → modules/java-core/theory/JIT_COMPILATION.md
+- GraalVM Native Image / AOT → modules/java-core/theory/JIT_COMPILATION.md
+- polymorphic call site (mono/bi/megamorphic) → modules/java-core/theory/JIT_COMPILATION.md
+- String pool / String.intern() → modules/java-core/theory/STRING_INTERNALS.md
+- Compact Strings (JEP 254) → modules/java-core/theory/STRING_INTERNALS.md
+- StringConcatFactory (JEP 280) → modules/java-core/theory/STRING_INTERNALS.md
+- JVM class file format / constant pool → modules/java-core/theory/BYTECODE_INVOKEDYNAMIC.md
+- JVM bytecode (opcodes) → modules/java-core/theory/BYTECODE_INVOKEDYNAMIC.md
+- invokedynamic → modules/java-core/theory/BYTECODE_INVOKEDYNAMIC.md
+- MethodHandle → modules/java-core/theory/BYTECODE_INVOKEDYNAMIC.md
+- LambdaMetafactory → modules/java-core/theory/BYTECODE_INVOKEDYNAMIC.md
+- hidden classes (JEP 371) → modules/java-core/theory/BYTECODE_INVOKEDYNAMIC.md
+- Java Reflection API → modules/java-core/theory/REFLECTION_HANDLES.md
+- setAccessible / `--add-opens` → modules/java-core/theory/REFLECTION_HANDLES.md
+- VarHandle / access modes → modules/java-core/theory/REFLECTION_HANDLES.md
+- AtomicFieldUpdater (legacy) → modules/java-core/theory/REFLECTION_HANDLES.md
+- annotation processing (compile-time) → modules/java-core/theory/REFLECTION_HANDLES.md
+- JPMS / Java Platform Module System → modules/java-core/theory/JPMS_MODULES.md
+- module-info.java → modules/java-core/theory/JPMS_MODULES.md
+- requires / requires transitive / requires static → modules/java-core/theory/JPMS_MODULES.md
+- exports / opens (qualified) → modules/java-core/theory/JPMS_MODULES.md
+- named / automatic / unnamed module → modules/java-core/theory/JPMS_MODULES.md
+- jlink / jdeps → modules/java-core/theory/JPMS_MODULES.md
+- type erasure → modules/java-core/theory/GENERICS_ERASURE.md
+- bridge method (synthetic) → modules/java-core/theory/GENERICS_ERASURE.md
+- PECS (Producer-Extends, Consumer-Super) → modules/java-core/theory/GENERICS_ERASURE.md
+- wildcard capture conversion → modules/java-core/theory/GENERICS_ERASURE.md
+- reifiable vs non-reifiable types → modules/java-core/theory/GENERICS_ERASURE.md
+- F-bounded polymorphism → modules/java-core/theory/GENERICS_ERASURE.md
+- super-type token (TypeReference) → modules/java-core/theory/GENERICS_ERASURE.md
+- equals/hashCode contract → modules/java-core/theory/EQUALS_HASHCODE_COMPARABLE.md
+- Comparable vs Comparator → modules/java-core/theory/EQUALS_HASHCODE_COMPARABLE.md
+- Comparator API (comparing/thenComparing/nullsFirst) → modules/java-core/theory/EQUALS_HASHCODE_COMPARABLE.md
+- TreeMap inconsistent with equals → modules/java-core/theory/EQUALS_HASHCODE_COMPARABLE.md
+- Throwable.fillInStackTrace → modules/java-core/theory/EXCEPTION_INTERNALS.md
+- try-with-resources / addSuppressed → modules/java-core/theory/EXCEPTION_INTERNALS.md
+- AutoCloseable vs Closeable → modules/java-core/theory/EXCEPTION_INTERNALS.md
+- checked vs unchecked exceptions → modules/java-core/theory/EXCEPTION_INTERNALS.md
+- OmitStackTraceInFastThrow → modules/java-core/theory/EXCEPTION_INTERNALS.md
+- Helpful NullPointerException (JEP 358) → modules/java-core/theory/EXCEPTION_INTERNALS.md
+- sealed exception hierarchy → modules/java-core/theory/EXCEPTION_INTERNALS.md
+- Records (JEP 395) → modules/java-core/theory/MODERN_JAVA_FEATURES.md
+- Sealed classes/interfaces (JEP 409) → modules/java-core/theory/MODERN_JAVA_FEATURES.md
+- pattern matching for instanceof → modules/java-core/theory/MODERN_JAVA_FEATURES.md
+- pattern matching for switch (JEP 441) → modules/java-core/theory/MODERN_JAVA_FEATURES.md
+- record patterns (JEP 440) → modules/java-core/theory/MODERN_JAVA_FEATURES.md
+- unnamed pattern `_` → modules/java-core/theory/MODERN_JAVA_FEATURES.md
+- text blocks (JEP 378) → modules/java-core/theory/MODERN_JAVA_FEATURES.md
+- `var` local-variable type inference (JEP 286) → modules/java-core/theory/MODERN_JAVA_FEATURES.md
+- switch expression (JEP 361) → modules/java-core/theory/MODERN_JAVA_FEATURES.md
+- Foreign Function & Memory API (FFM, JEP 454) → modules/java-core/theory/FOREIGN_MEMORY_VECTOR.md
+- Arena (confined/shared/auto/global) → modules/java-core/theory/FOREIGN_MEMORY_VECTOR.md
+- MemorySegment / ValueLayout / MemoryLayout → modules/java-core/theory/FOREIGN_MEMORY_VECTOR.md
+- Foreign Linker (downcall/upcall) → modules/java-core/theory/FOREIGN_MEMORY_VECTOR.md
+- Vector API (SIMD) → modules/java-core/theory/FOREIGN_MEMORY_VECTOR.md
+- Java Serialization (Serializable) → modules/java-core/theory/SERIALIZATION.md
+- serialVersionUID → modules/java-core/theory/SERIALIZATION.md
+- writeObject / readObject / writeReplace / readResolve → modules/java-core/theory/SERIALIZATION.md
+- serialization proxy pattern → modules/java-core/theory/SERIALIZATION.md
+- gadget chain (deserialization vulnerability) → modules/java-core/theory/SERIALIZATION.md
+- JEP 290 / JEP 415 serialization filter → modules/java-core/theory/SERIALIZATION.md
+- Externalizable → modules/java-core/theory/SERIALIZATION.md
+
 ## System Design
 
 - ACID → modules/system-design/theory/database_transactions.md
@@ -332,3 +427,10 @@ Concepts that legitimately appear in multiple modules — canonical owner listed
 | Circuit Breaker | system-design/microservice_patterns.md (pattern) | spring-frameworks/SPRING_CLOUD.md (Resilience4j impl) |
 | CDC | caching-deep-dive/CONSISTENCY.md (cache invalidation) | system-design/distributed_systems.md (event streaming) |
 | CoroutineScope vs coroutineScope | kotlin-coroutines/SCOPE_CONTEXT.md (interface type) | kotlin-coroutines/STRUCTURED_CONCURRENCY.md (builder function) |
+| JMM | concurrency/THREADS_BASICS.md (happens-before, volatile, synchronized) | java-core/JMM_REFERENCE.md (cross-ref only) |
+| VarHandle | java-core/REFLECTION_HANDLES.md (API + access modes) | concurrency/ATOMIC_CAS.md (atomic operations использование) |
+| ClassLoader leak | java-core/CLASS_LOADERS.md (mechanism + diagnostic) | spring-frameworks/SPRING_BOOT.md (DevTools hot-reload contexts) |
+| lock elision / lock coarsening | java-core/JIT_COMPILATION.md (JIT optimization) | concurrency/LOCKS.md (synchronized semantics) |
+| write barrier | java-core/GARBAGE_COLLECTION.md (GC card table / SATB) | (CPU memory barrier — отдельная тема, в concurrency не покрыта) |
+| ByteBuffer (direct) / off-heap | java-core/JVM_MEMORY_AREAS.md (allocation model) | java-core/FOREIGN_MEMORY_VECTOR.md (modern replacement) |
+| Reflection (perf cost) | java-core/REFLECTION_HANDLES.md | spring-frameworks/SPRING_CORE_DI.md (DI internals использование) |

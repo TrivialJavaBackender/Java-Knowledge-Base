@@ -19,4 +19,5 @@ export const MODULES: ModuleConfig[] = [
   { slug: 'system-design',      title: 'System Design',        order: 5, qaFormat: 'qa-bold' },
   { slug: 'caching-deep-dive',  title: 'Caching Deep Dive',    order: 6, qaFormat: 'heading-as-q' },
   { slug: 'infrastructure',     title: 'Infrastructure',       order: 7, qaFormat: 'qa-bold' },
+  { slug: 'java-core',          title: 'Java Core (Deep)',     order: 8, qaFormat: 'qa-bold' },
 ];

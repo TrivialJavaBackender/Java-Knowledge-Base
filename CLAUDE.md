@@ -13,6 +13,7 @@
 | `kotlin-coroutines` | `modules/kotlin-coroutines/` | Kotlin Coroutines (suspend, Flow, Channel, structured concurrency) |
 | `graphql-kotlin` | `modules/graphql-kotlin/` | GraphQL (Expedia graphql-kotlin, DataLoader, Federation) |
 | `caching-deep-dive` | `modules/caching-deep-dive/` | Кэширование (CPU→JVM→Caffeine→Redis→CDN) |
+| `java-core` | `modules/java-core/` | Java Core deep dive (GC, JIT, ClassLoaders, JPMS, bytecode, modern features) |
 
 ## Правило теории — NO OVERLAP
 
@@ -29,6 +30,7 @@
 | Kotlin coroutines: suspend, корутинные builders (launch/async/withContext/runBlocking), CoroutineScope/Context, Dispatchers, structured concurrency (coroutineScope/supervisorScope), cooperative cancellation, Flow, StateFlow/SharedFlow, Channel, suspend internals (CPS), runTest. **Virtual threads и `StructuredTaskScope` остаются в `concurrency`**. | `kotlin-coroutines` |
 | GraphQL: SDL/типы, queries/mutations/subscriptions, резолверы, graphql-kotlin (code-first, Spring Boot интеграция, custom scalars, `GraphQLContext`), DataLoader (N+1, batching/caching), Apollo Federation/subgraphs/`@key`/entity resolvers. **Защита GraphQL endpoint’а (JWT/OAuth2/Spring Security)** остаётся в `system-design` / `spring-frameworks`. | `graphql-kotlin` |
 | Кэширование как явление: иерархия кэшей (CPU/page cache/JVM/distributed/CDN), cache patterns (cache-aside, read-through, write-through/back, refresh-ahead), eviction algorithms (LRU/LFU/W-TinyLFU/ARC/2Q), Caffeine, Redis (структуры/persistence/cluster/Lua), distributed caching (centralized/replicated/near-cache, sharding, consistent hashing), HTTP/CDN кэш (Cache-Control, ETag, Vary, purge vs versioned URLs), консистентность (double-write, invalidation, CDC, versioned keys), cache anti-patterns (stampede, penetration, breakdown, avalanche, hot/big keys). **Hibernate L1/L2/Query кэш** остаётся в `spring-frameworks`. | `caching-deep-dive` |
+| JVM internals: GC (Serial/G1/ZGC/Shenandoah/Epsilon), JVM memory areas (heap/metaspace/code cache/native/direct), Class Loaders (parent delegation, JPMS, leaks), JIT (C1/C2/tiered/escape analysis/deopt/GraalVM/Native Image), String pool/intern/compact strings/StringConcatFactory, bytecode + invokedynamic + MethodHandle/LambdaMetafactory, Reflection / MethodHandle / VarHandle (access modes), JPMS (modules/requires/exports/opens/jlink/jdeps), Type erasure & bridge methods & PECS, equals/hashCode/Comparable contracts, Exception internals (fillInStackTrace, try-with-resources, Helpful NPE), Records/Sealed/Pattern matching/Text blocks/`var`, FFM API (Arena/MemorySegment/Linker) & Vector API, Java Serialization (Serializable/gadget chains/JEP 290/415). **JMM, virtual threads, locks, atomics → `concurrency`**; **Hibernate caches, Spring AOP/IoC → `spring-frameworks`**; **JVM observability → `infrastructure`**. | `java-core` |
 
 **При добавлении теории** — всегда проверяй, не принадлежит ли тема уже другому модулю.
 Если перекрытие есть — теория должна остаться в «исходном» модуле, а в новом — дать ссылку.
@@ -169,6 +171,10 @@ mvn compile
 mvn exec:java -Dexec.mainClass="exercises.Ex01_CacheAsideBasicKt"
 ```
 
+### java-core
+
+Чисто теоретический модуль — нет `pom.xml`, нет упражнений. Изучается через теорию + INTERVIEW_QUESTIONS.md + flashcards в web app.
+
 ---
 
 ## Структура теории по модулям
@@ -237,6 +243,23 @@ mvn exec:java -Dexec.mainClass="exercises.Ex01_CacheAsideBasicKt"
 - CONSISTENCY.md — double-write problem (4 порядка), TTL eventual, event-driven, CDC, versioned keys, stale-while-revalidate, read-after-write
 - HTTP_CDN_CACHE.md — Cache-Control directives, ETag/If-None-Match, Last-Modified, Vary, CDN pull/push, purge vs versioned URLs
 - ANTI_PATTERNS.md — cache stampede, penetration, breakdown, avalanche, hot/big keys, кэш над кэшом
+
+### java-core (`modules/java-core/theory/`)
+- GARBAGE_COLLECTION.md — GC algorithms (Serial/Parallel/CMS/G1/ZGC/Shenandoah/Epsilon), generations, TLAB, write barriers, card table, SATB vs incremental update, safepoints, reference types (Soft/Weak/Phantom), Cleaner
+- JVM_MEMORY_AREAS.md — heap layout, Metaspace + Compressed Class Space, Code Cache, thread stacks (`-Xss`), direct ByteBuffer / Unsafe / FFM, Native Memory Tracking, container sizing (MaxRAMPercentage)
+- CLASS_LOADERS.md — Bootstrap/Platform/App, parent delegation, lifecycle (loading→linking→init), `ClassNotFoundException` vs `NoClassDefFoundError`, classloader leaks (Tomcat redeploy), ServiceLoader, ModuleLayer
+- JIT_COMPILATION.md — Interpreter→C1→C2, tiered compilation (levels 0–4), escape analysis (scalar replacement, lock elision), deoptimization, JVMCI, GraalVM, Native Image (AOT), polymorphic call sites
+- STRING_INTERNALS.md — String pool, intern(), compact strings (JEP 254 byte[]+coder), StringConcatFactory (JEP 280 invokedynamic), substring 7u6 fix, charset/encoding
+- BYTECODE_INVOKEDYNAMIC.md — class file format, constant pool, stack-based VM, invoke* opcodes, invokedynamic (JEP 292) bootstrap method/CallSite, MethodHandle, LambdaMetafactory, hidden classes
+- REFLECTION_HANDLES.md — Reflection cost, `setAccessible`, JPMS strong encapsulation, MethodHandle (invokeExact/invoke/combinators), VarHandle (5 access modes: plain/opaque/acquire-release/volatile/atomic ops), AtomicXxxFieldUpdater (legacy)
+- JPMS_MODULES.md — module-info (requires/transitive/static, exports/qualified, opens, uses/provides), named/automatic/unnamed modules, module path vs classpath, jlink, jdeps, migration patterns
+- GENERICS_ERASURE.md — type erasure (compile-time only), bridge methods (synthetic), wildcards (extends/super/?), PECS, capture conversion, reifiable vs non-reifiable, super-type tokens (Gafter trick)
+- EQUALS_HASHCODE_COMPARABLE.md — контракты (reflex/symm/trans/consistent/null), согласованность hashCode, TreeMap pitfall (BigDecimal), modern Comparator API, Records auto-equals
+- EXCEPTION_INTERNALS.md — Throwable hierarchy, fillInStackTrace cost, `OmitStackTraceInFastThrow`, Helpful NPE (JEP 358), try-with-resources + suppressed (addSuppressed), sealed exception hierarchies
+- MODERN_JAVA_FEATURES.md — Records (JEP 395), Sealed (JEP 409), Pattern matching (instanceof 16+/switch 21/record patterns 21/_ 22), Text blocks (15+), `var` (10+), LTS-обзор 8→25
+- FOREIGN_MEMORY_VECTOR.md — FFM API (Arena confined/shared/auto, MemorySegment, ValueLayout, Linker downcall/upcall) — замена JNI/Unsafe; Vector API (SPECIES_PREFERRED, masked ops, SIMD)
+- SERIALIZATION.md — Serializable, serialVersionUID, writeObject/readObject, writeReplace/readResolve, serialization proxy pattern, gadget chains (Commons Collections), JEP 290/415 filter, альтернативы (JSON/Protobuf)
+- JMM_REFERENCE.md — cross-reference only; JMM canonical в `concurrency/THREADS_BASICS.md`
 
 ---
 
