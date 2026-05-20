@@ -208,6 +208,68 @@
 
 ---
 
+## 10. Applied Concurrency Patterns
+
+Перенесено из `system-design` (правило NO OVERLAP): прикладные паттерны для упражнений `applied/{reservations,bank,cache,orderbook,scheduler,ratelimiter}/`.
+
+### Q33: В чём разница между pessimistic и optimistic locking?
+**A:** Pessimistic предполагает конфликты и блокирует ресурс заранее (`synchronized`, `ReentrantLock`) — простая логика, retry не нужен, но throughput ограничен сериализацией. Optimistic считает конфликты редкими: операция выполняется без блокировки, при коммите проверяется версия (`AtomicStampedReference`, version-поле в БД). Высокий throughput при низком contention, но обязательна retry-логика, и при высоком contention деградирует из-за частых rollback'ов.
+> JCP §15.3
+
+### Q34: Что такое TOCTOU и как его исправить?
+**A:** Time-Of-Check Time-Of-Use — между проверкой условия и действием другой поток успел изменить состояние. Классический пример: `if (seats > 0) book()` — между `if` и `book` другой поток мог занять последнее место. Исправление: check и act выполняются атомарно под единой блокировкой (`synchronized(lock) { if (seats>0) book(); }`) или через CAS / compute-операции `ConcurrentHashMap` (`compute`, `computeIfPresent`).
+
+### Q35: Как организовать гранулярные локи per-resource без deadlock?
+**A:** `ConcurrentHashMap.computeIfAbsent(id, k -> new Object())` для создания per-id лок-объектов — `computeIfAbsent` атомарен, два потока не создадут два разных лока для одного ключа. При захвате нескольких локов всегда брать их в стабильном порядке (например, по возрастанию ID): `var first = id1.compareTo(id2) < 0 ? id1 : id2`. Нарушение порядка → циклическая зависимость → deadlock.
+> JCP §10.1.2 («Lock Ordering»)
+
+### Q36: Нужна ли retry-логика внутри synchronized блока с optimistic locking?
+**A:** Нет. Pessimistic блокировка исключает конкурентный доступ, поэтому `OptimisticLockException` внутри `synchronized` невозможен — retry становится мёртвым кодом. Смешивать стратегии нельзя: либо pessimistic (`synchronized` без retry), либо optimistic (без `synchronized`, с retry снаружи). Смесь даёт ложное впечатление надёжности и усложняет рассуждения о корректности.
+
+### Q37: Как реализовать idempotency для HTTP-операций через double-checked locking?
+**A:** Алгоритм: (1) быстрая проверка кэша результатов без блокировки по idempotency-ключу; (2) если не найдено — захватить per-key лок через `computeIfAbsent`; (3) внутри лока **повторная** проверка кэша (другой поток мог записать пока мы ждали лок); (4) выполнить операцию и сохранить результат; (5) при необходимости очистить лок-объект. Idempotency-ключи и бизнес-данные хранятся в разных Map, чтобы TTL и eviction не пересекались.
+> Stripe API — Idempotency Keys
+
+### Q38: Когда использовать ReadWriteLock вместо synchronized?
+**A:** Когда операций чтения **существенно** больше, чем записи, и критические секции длинные. `ReadWriteLock` позволяет нескольким читателям работать одновременно, блокируя только при записи. Бесполезен при коротких критических секциях (overhead acquire/release выше выгоды) и при balance 50/50 (write-lock starves читателей). Для read-heavy с очень короткими секциями — `StampedLock` с `tryOptimisticRead()` ещё быстрее: читаем без блокировки, валидируем stamp в конце.
+> JCP §13.3
+
+### Q39: Как сделать thread-safe LRU-кэш?
+**A:** Два подхода: (1) `synchronized` оборачивает весь кэш — просто, но не масштабируется при высокой нагрузке; (2) `ReentrantReadWriteLock` — read lock на `get` (только если get не обновляет порядок!), write lock на `put` и eviction. Проблема: классический LRU обновляет порядок при `get` — значит нужен write lock даже для чтения, и преимущество ReadWriteLock теряется. Альтернатива: использовать готовый Caffeine (W-TinyLFU) или `ConcurrentLinkedDeque` + `ConcurrentHashMap` с дополнительной синхронизацией для составных операций.
+
+### Q40: В чём проблема с `computeIfAbsent` при рекурсивных вычислениях в ConcurrentHashMap?
+**A:** `ConcurrentHashMap.computeIfAbsent` блокирует bucket на время выполнения mapping-функции. Если внутри mapping-функции снова обратиться к этому же ключу (или к другому ключу в том же bucket'е) через любой compute-метод — deadlock или `IllegalStateException` (JDK 9+ детектирует reentrant modification). Решение: вычислить значение **вне** `computeIfAbsent`, затем `putIfAbsent`. Или использовать другую структуру (`Caffeine`).
+> JDK-8161372
+
+### Q41: Cache stampede — что это и как предотвратить?
+**A:** При истечении TTL популярного ключа все ждущие потоки одновременно идут в БД → N параллельных идентичных запросов → каскадный сбой. Митигации: (1) **single-flight** — только один поток вычисляет, остальные ждут результат (per-key lock + future); (2) **probabilistic early expiration** — обновлять до истечения с вероятностью, растущей по мере приближения к TTL (XFetch); (3) **stale-while-revalidate** — возвращать устаревшее значение пока фоновый поток обновляет. Подробнее — `modules/caching-deep-dive/theory/ANTI_PATTERNS.md`.
+
+### Q42: Как избежать memory leak в кэше с per-key локами?
+**A:** `ConcurrentHashMap<Key, Lock>` накапливает локи без очистки → утечка пропорционально количеству ключей. Решения: (1) **Guava `Striped<Lock>`** — фиксированный массив N локов, ключ → `hash(key) % N`; коллизии возможны, но память константна; (2) **WeakReference**-значения — GC удаляет лок, когда нет внешних ссылок; (3) явная очистка через `remove(key)` после критической секции (при условии что nobody else holds the reference); (4) `Caffeine` с `expireAfterAccess` для самих локов.
+
+### Q43: Как работает Token Bucket rate limiter?
+**A:** Bucket ёмкостью `N` токенов, пополняется со скоростью `R` токенов/сек. Каждый запрос потребляет 1 токен; если токенов нет — отказ или ожидание. Реализация (lazy refill): хранить `lastRefillTime` и `tokens`; при каждом запросе вычислить `elapsed = now - lastRefill`, `tokens = min(capacity, tokens + elapsed * rate)`, обновить `lastRefillTime`. Атомарно через `synchronized` или `AtomicReference<State>` с CAS-loop. Позволяет burst до `N` запросов, после — rate-limited.
+
+### Q44: Token Bucket vs Leaky Bucket vs Fixed Window vs Sliding Window?
+**A:**
+- **Fixed Window** — счётчик сбрасывается каждую секунду. Проблема: 2× burst на границе окон (1000 req в последний ms окна + 1000 в первый ms следующего).
+- **Sliding Window** — точнее, но дорого: хранить timestamps всех запросов (или sliding window counter с интерполяцией).
+- **Leaky Bucket** — очередь с фиксированной скоростью «утечки» (обработки). Сглаживает burst, но задерживает запросы (latency).
+- **Token Bucket** — разрешает burst до ёмкости bucket'а, затем rate-limited. Баланс простоты и точности; де-факто стандарт (AWS, Stripe).
+
+### Q45: Как реализовать distributed rate limiter?
+**A:** Redis + Lua-скрипт обеспечивает атомарность check-then-act без гонок. Для fixed window: `INCR` + `EXPIRE` в одном Lua-блоке. Для sliding window: `ZADD timestamp` + `ZREMRANGEBYSCORE` (удалить старее окна) + `ZCARD` (текущее число). Альтернативы: Redis RedLock для распределённых локов (с известными caveat'ами Martin Kleppmann), Hazelcast `IAtomicLong`, или централизованный rate-limit сервис (API Gateway, Envoy `local_ratelimit` + `global_ratelimit`).
+> Stripe Engineering — Scaling your API with rate limiters
+
+### Q46: Как сделать атомарный snapshot concurrent структуры?
+**A:** Без блокировки атомарный snapshot произвольной структуры **невозможен**. Варианты: (1) **read lock** на весь snapshot — простой, но блокирует записи; (2) **CopyOnWriteArrayList** / **CopyOnWriteArraySet** — итератор всегда snapshot на момент создания (дорогая запись); (3) **MVCC** — каждое изменение создаёт новую версию, readers работают со старой (`ConcurrentSkipListMap` даёт weakly-consistent итератор, но не atomic snapshot); (4) ImmutableMap с volatile reference и copy-on-write на верхнем уровне.
+
+### Q47: Почему `size()` у ConcurrentLinkedQueue — O(n)?
+**A:** CLQ — non-blocking lock-free очередь на CAS, она **не хранит** счётчик размера. Поддерживать атомарный счётчик потребовало бы CAS на каждый enqueue/dequeue — дополнительная contention-точка, обнуляющая преимущество lock-free. Поэтому `size()` итерирует всю очередь, что O(n) и даёт лишь приблизительный результат под нагрузкой. Если нужен O(1) размер — храните `AtomicInteger` отдельно или используйте `LinkedBlockingQueue` (у неё `size()` = O(1) ценой блокировки на push/pop).
+> JD ConcurrentLinkedQueue
+
+---
+
 ## Шпаргалка: топ-10 тем по частоте на собеседованиях
 
 1. `synchronized` vs `ReentrantLock` (Q2, Q28)

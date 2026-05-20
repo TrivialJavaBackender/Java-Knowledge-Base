@@ -2,13 +2,15 @@
 
 ## Структура
 
-Репо содержит три независимых модуля в папке `modules/`:
+Репо содержит независимые модули в папке `modules/`:
 
 | Модуль | Путь | Тема |
 |--------|------|------|
-| `concurrency` | `modules/concurrency/` | Java Concurrency (Kotlin + JUC) |
-| `system-design` | `modules/system-design/` | System Design (Java, применение паттернов) |
-| `infrastructure` | `modules/infrastructure/` | Docker, K8s, Helm, Observability, Logging, Metrics |
+| `concurrency` | `modules/concurrency/` | Java Concurrency (Kotlin + JUC) + applied practice (java exercises) |
+| `system-design` | `modules/system-design/` | System Design Interview Prep (теория, design problems) |
+| `databases` | `modules/databases/` | Транзакции, индексы, типы БД, storage engines, replication, sharding |
+| `software-engineering` | `modules/software-engineering/` | SOLID/OOP, Stream API + FP principles, testing practices |
+| `infrastructure` | `modules/infrastructure/` | Docker, K8s, Helm, Observability, Logging, Metrics, Secrets/Vault/mTLS |
 | `spring-frameworks` | `modules/spring-frameworks/` | Spring Core/Boot/MVC/Data/Security/Cloud |
 | `kotlin-coroutines` | `modules/kotlin-coroutines/` | Kotlin Coroutines (suspend, Flow, Channel, structured concurrency) |
 | `graphql-kotlin` | `modules/graphql-kotlin/` | GraphQL (Expedia graphql-kotlin, DataLoader, Federation) |
@@ -21,11 +23,13 @@
 
 | Тема | Модуль |
 |------|--------|
-| Потоки, synchronized, volatile, JMM, локи, атомики, concurrent collections, executors, synchronizers, virtual threads | `concurrency` |
-| Database transactions/indexes, distributed systems, CAP, microservice patterns (Saga, Outbox, Circuit Breaker), testing | `system-design` |
-| JWT (структура/JWKS/revocation), OAuth2/OIDC/SAML концепты, IdP (Keycloak), password storage (bcrypt/Argon2) | `system-design` (`identity_providers.md`) |
-| Secrets ops: Vault, K8s Secrets, Terraform+секреты, SOPS, mTLS, envelope encryption | `system-design` (`secrets_management.md`) |
-| Docker, Kubernetes, Helm, Observability, Logging, Metrics | `infrastructure` |
+| Потоки, synchronized, volatile, JMM, локи, атомики, concurrent collections, executors, synchronizers, virtual threads + applied practice (reservations/bank/cache/orderbook/scheduler/ratelimiter) | `concurrency` |
+| Database transactions/indexes/types, storage engines (LSM vs B-tree, WAL), replication (leader-follower/multi-leader/leaderless), sharding (consistent hashing, hot-key), CDC | `databases` |
+| Distributed systems primitives (CAP/PACELC/quorum/Lamport/vector clocks), microservice patterns (Saga, Outbox, Circuit Breaker, CQRS, Event Sourcing), Kafka, scaling fundamentals (DNS/CDN/LB/RP/latency numbers), interview framework, design problems, consensus (Raft/Paxos), probabilistic structures (Bloom/CMS/HLL), geospatial indexing (geohash/S2/H3/quadtree), reliability patterns (backoff/DLQ/hedged), communication patterns (long polling/SSE/WebSocket/webhooks), multi-region/CRDT, modern AI serving (vector DB/RAG) | `system-design` |
+| JWT (структура/JWKS/revocation), OAuth2/OIDC/SAML концепты, IdP (Keycloak), password storage (bcrypt/Argon2) — application-level auth design | `system-design` (`identity_providers.md`) |
+| Secrets ops: Vault, K8s Secrets, Terraform+секреты, SOPS, mTLS, envelope encryption | `infrastructure` (`SECRETS.md`) |
+| SOLID, OOP design patterns (Adapter etc.), Stream API + FP principles (HOF, RT, immutability, currying, TCO), testing pyramid + JUnit/Mockito + TestContainers + contract/performance/security/chaos/mutation testing | `software-engineering` |
+| Docker, Kubernetes, Helm, Observability, Logging, Metrics, Cloud (IaC/RPO/RTO) | `infrastructure` |
 | Spring Core/DI/IoC, Spring Boot/Starters/Auto-Configuration, Spring MVC/REST, Spring Data JPA/Hibernate (включая все уровни кэша), Spring Security, Spring Cloud | `spring-frameworks` |
 | Kotlin coroutines: suspend, корутинные builders (launch/async/withContext/runBlocking), CoroutineScope/Context, Dispatchers, structured concurrency (coroutineScope/supervisorScope), cooperative cancellation, Flow, StateFlow/SharedFlow, Channel, suspend internals (CPS), runTest. **Virtual threads и `StructuredTaskScope` остаются в `concurrency`**. | `kotlin-coroutines` |
 | GraphQL: SDL/типы, queries/mutations/subscriptions, резолверы, graphql-kotlin (code-first, Spring Boot интеграция, custom scalars, `GraphQLContext`), DataLoader (N+1, batching/caching), Apollo Federation/subgraphs/`@key`/entity resolvers. **Защита GraphQL endpoint’а (JWT/OAuth2/Spring Security)** остаётся в `system-design` / `spring-frameworks`. | `graphql-kotlin` |
@@ -87,12 +91,16 @@
 5. Code review: корректность code-first схемы (nullability, типы), правильность резолверов и suspend-сигнатур, **батчинг через DataLoader без `runBlocking`**, обработка ошибок (partial response, `DataFetcherExceptionHandler`), federation-директивы (`@key`/`@external`), anti-паттерны (utечки контекста, глобальные DataLoader’ы, blocking call’ы в реактивном пайплайне)
 6. Помечай ✅ в `modules/graphql-kotlin/PROGRESS.md` только без серьёзных замечаний
 
-**Для `system-design` (Java-классы):**
-1. Прочитай нужный класс в `modules/system-design/src/main/java/by/pavel/`
+**Для `system-design` (теоретический модуль, без упражнений):**
+- Прочитай нужный файл теории в `modules/system-design/theory/` или design-problem в `modules/system-design/design_problems/`
+- Помечай ✅ в `modules/system-design/PROGRESS.md` после прохождения
+
+**Для applied-concurrency упражнений (Java, ранее в system-design):**
+1. Прочитай нужный класс в `modules/concurrency/src/main/java/applied/{reservations,bank,cache,orderbook,scheduler,ratelimiter}/`
 2. Проверь реализацию
-3. Скомпилируй и запусти тесты: `cd modules/system-design && mvn test -Dtest=ClassName`
+3. Скомпилируй и запусти тесты: `cd modules/concurrency && mvn test -Dtest=ClassName`
 4. Проведи code review: thread safety, locking strategy, корректность
-5. Помечай ✅ в `modules/system-design/PROGRESS.md` только без серьёзных замечаний
+5. Помечай ✅ в `modules/concurrency/PROGRESS.md`
 
 **Для `infrastructure` (конфиги, YAML, PromQL):**
 1. Прочитай файлы упражнения в `modules/infrastructure/exercises/`
@@ -135,12 +143,24 @@ mvn compile
 mvn exec:java -Dexec.mainClass="exercises.Ex01_ThreadBasicsKt"
 ```
 
-### system-design (Java)
+### system-design
+
+Чисто теоретический модуль — нет `pom.xml`, нет упражнений. Изучается через теорию (включая `design_problems/`) + INTERVIEW_QUESTIONS.md + flashcards в web app.
+
+### databases
+
+Чисто теоретический модуль — без `pom.xml`. Транзакции, индексы, storage engines, репликация, шардирование.
+
+### software-engineering
+
+Чисто теоретический модуль — без `pom.xml`. SOLID, Stream API + FP, testing practices.
+
+### applied-concurrency (Java, ранее system-design)
 ```bash
-cd modules/system-design
-mvn compile
-mvn test
+cd modules/concurrency
 mvn test -Dtest=BankServiceTest
+mvn test -Dtest=ReservationServiceTest
+# и другие в applied/ пакете
 ```
 
 ### infrastructure (Spring Boot)
@@ -190,18 +210,26 @@ mvn exec:java -Dexec.mainClass="exercises.Ex01_CacheAsideBasicKt"
 - VIRTUAL_THREADS.md — Модуль 8
 
 ### system-design (`modules/system-design/theory/`)
-- database_transactions.md
-- database_indexes.md
-- databases_types.md
-- distributed_systems.md
-- microservice_patterns.md
-- kafka.md
-- http_networking.md
-- solid_oop.md
-- stream_api.md
-- identity_providers.md — JWT (структура, JWKS, revocation), OAuth2 (PKCE, Client Credentials, Refresh rotation), OIDC, SAML 2.0, Keycloak (realms, brokering, federation), password storage (bcrypt/Argon2)
-- secrets_management.md — envelope encryption, Vault (Seal, auth methods, dynamic secrets), Terraform state, K8s Secrets, SOPS, mTLS
-- testing.md
+- distributed_systems.md — CAP/PACELC, Lamport/vector clocks, quorum, distributed lock, idempotency, consistency spectrum
+- microservice_patterns.md — Saga, Outbox, Circuit Breaker, CQRS, Event Sourcing, API Gateway, deployment strategies
+- kafka.md — topics/partitions/consumer groups, At-Most/Least/Exactly-Once, Schema Registry, ISR, KRaft
+- http_networking.md — HTTP 1.1/2/3/QUIC, WebSocket, TLS 1.3, REST/gRPC
+- identity_providers.md — JWT, OAuth2 (PKCE/Client Credentials/Refresh rotation), OIDC, SAML 2.0, Keycloak (realms, brokering, federation), password storage (bcrypt/Argon2)
+- (новое в плане расширения) fundamentals/, interview/, distributed/, reliability/, algorithms/, communication/, streaming/, security/, modern/
+- design_problems/ — 14 классических design problems (URL shortener, news feed, Uber, Netflix etc.)
+
+### databases (`modules/databases/theory/`)
+- TRANSACTIONS.md — ACID, isolation levels, MVCC, EXCLUDE constraint, FOR UPDATE, SSI, savepoints
+- INDEXES.md — B-tree/Hash/GIN/GiST/BRIN/partial/expression/pg_trgm, EXPLAIN ANALYZE
+- DATABASE_TYPES.md — RDBMS/NoSQL families, OLTP/OLAP/HTAP, Redis structures overview, ORM patterns, N+1
+- STORAGE_ENGINES.md — LSM-tree vs B-tree, WAL, compaction strategies, RocksDB/InnoDB
+- REPLICATION.md — leader-follower / multi-leader / leaderless, sync/async, replication lag, failover, CDC (Debezium)
+- SHARDING.md — range/hash/directory, consistent hashing, rendezvous, resharding, hot-key mitigations
+
+### software-engineering (`modules/software-engineering/theory/`)
+- SOLID_OOP.md — SRP/OCP/LSP/ISP/DIP + Adapter (Jackson example)
+- STREAM_API_FP.md — Stream API, Collectors, Optional, parallel streams + FP (HOF, RT, immutability, currying, TCO + JVM)
+- TESTING.md — Pyramid, JUnit/Mockito, TestContainers, perf (k6/Gatling), security (SAST/DAST), chaos, mutation, contract
 
 ### spring-frameworks (`modules/spring-frameworks/theory/`)
 - SPRING_CORE_DI.md — IoC, DI, Bean Scopes, AOP, GoF паттерны
@@ -214,6 +242,8 @@ mvn exec:java -Dexec.mainClass="exercises.Ex01_CacheAsideBasicKt"
 ### infrastructure (`modules/infrastructure/theory/`)
 - DOCKER.md, KUBERNETES.md, HELM.md
 - OBSERVABILITY.md, LOGGING.md, METRICS.md
+- CLOUD.md — IaC/Terraform, RPO/RTO, HA vs DR, multi-AZ
+- SECRETS.md — Vault (Seal/Unseal, dynamic secrets), envelope encryption, K8s Secrets + ESO, SOPS, Terraform state, mTLS
 
 ### kotlin-coroutines (`modules/kotlin-coroutines/theory/`)
 - BASICS.md — suspend, launch/async/runBlocking/withContext, Job

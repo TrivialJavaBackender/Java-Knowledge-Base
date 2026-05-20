@@ -520,7 +520,7 @@ spec:
 
 ### 9.2. За пределами Secret: реальный secrets management
 
-Для серьёзного хранения секретов используются специализированные системы, описанные подробно в [`system-design/theory/secrets_management.md`](../../system-design/theory/secrets_management.md). Короткий список:
+Для серьёзного хранения секретов используются специализированные системы, описанные подробно в [`SECRETS.md`](SECRETS.md). Короткий список:
 
 - **HashiCorp Vault** — централизованное хранение, dynamic secrets, аудит, leasing. Интеграция с K8s через Vault Agent Injector.
 - **Sealed Secrets** (Bitnami) — Secret, зашифрованный публичным ключом, безопасно лежит в Git. Расшифровывается в кластере при apply.
@@ -924,7 +924,7 @@ topologySpreadConstraints:
 | Stateful данные в writable layer Pod'а | Теряются при перезапуске | PVC / external БД |
 | Нет PodAntiAffinity для replicas | Один drain ноды = весь сервис лёг | Anti-affinity по hostname или zone |
 | Pull-from-Docker-Hub в production | Rate limit Docker Hub, hit на старте всех нод | Локальный mirror / private registry |
-| Secrets в plain text в Git | Утечка | Vault / Sealed Secrets / SOPS ([secrets_management.md](../../system-design/theory/secrets_management.md)) |
+| Secrets в plain text в Git | Утечка | Vault / Sealed Secrets / SOPS ([SECRETS.md](SECRETS.md)) |
 | Хардкод environment в image | Каждое окружение требует отдельный image | ConfigMap / Secret для конфигурации |
 | Нет ResourceQuota в namespace | Один сервис «съел» весь кластер | Quota на CPU/memory/Pod count |
 | Один namespace на всё | RBAC невозможен; конфликты имён | Разделение по окружениям/командам |

@@ -46,7 +46,7 @@
 - Single endpoint for both liveness and readiness probes → cascading restarts under load (Henning Jacobs warning)
 - `latest` tag in Deployment → non-deterministic rollout (different images on different nodes)
 - Log without trace ID → cannot correlate logs across services for a single request
-- Helm values secrets in plain YAML → use Vault, Sealed Secrets, or External Secrets Operator ([system-design/secrets_management.md](../system-design/theory/secrets_management.md))
+- Helm values secrets in plain YAML → use Vault, Sealed Secrets, or External Secrets Operator (see [SECRETS.md](theory/SECRETS.md))
 - High-cardinality Prometheus labels (`user_id`, full URL) → Prometheus OOM
 - Logging PII/credentials → GDPR/PCI/HIPAA violation (Cloudbleed 2017 example)
 - Sticky sessions → broken statelessness; use external session store (Redis)

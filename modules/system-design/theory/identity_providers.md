@@ -557,7 +557,7 @@ Employee открывает внутренний портал
 >
 > **Distributed Tracing:** [`modules/infrastructure/theory/OBSERVABILITY.md`](../../infrastructure/theory/OBSERVABILITY.md) — trace context propagation (`traceparent`, `tracestate`) обычно проходит через тот же gateway, что и Authorization header.
 >
-> **Secrets/Vault/mTLS:** [`secrets_management.md`](secrets_management.md) — ops-уровень: где хранить client_secret, как доставить private key до AS, mTLS между сервисами.
+> **Secrets/Vault/mTLS:** [`infrastructure/SECRETS.md`](../../infrastructure/theory/SECRETS.md) — ops-уровень: где хранить client_secret, как доставить private key до AS, mTLS между сервисами.
 
 ---
 

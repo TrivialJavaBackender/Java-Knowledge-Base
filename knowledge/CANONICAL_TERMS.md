@@ -68,6 +68,60 @@ Preferred terminology for this repository. Reuse these terms exactly to ensure c
 - **RPO** — Recovery Point Objective; how much data loss is acceptable
 - **RTO** — Recovery Time Objective; how long the system can be down
 
+### System Design
+
+- **PACELC** — at Partition: Availability or Consistency? Else (normal): Latency or Consistency? (Abadi 2010, extends CAP)
+- **HNSW** — Hierarchical Navigable Small World (ANN algorithm for vector search; default in many vector DBs)
+- **HLL** — HyperLogLog (approximate count distinct in ~12 KB)
+- **CMS** — Count-Min Sketch (approximate frequency estimation)
+- **H3** — Uber's hexagonal hierarchical geospatial indexing (use H3 not "hex grid")
+- **S2** — Google's spherical geometry library (use S2 not "S2 geometry")
+- **W3C TraceContext** — already in Infrastructure section, used here too
+- **fan-out on write** vs **fan-out on read** — feed generation strategies; не «push fanout» / «pull fanout»
+- **retry storm** — cascading retries amplifying load (use this, не «retry cascade»)
+- **hedged request** — duplicate request after p95 to reduce p99 (Tail at Scale, Dean & Barroso)
+- **load shedding** — intentional request rejection under overload (use «load shedding» не «backpressure» — different concepts)
+- **fencing token** — monotonic token preventing stale leader writes (NOT «epoch token»)
+- **TrueTime** — Google Spanner's synchronized clocks API (capitalized)
+- **MapReduce** — Google's batch processing paradigm (capitalize first M and R)
+- **CRDT** — Conflict-free Replicated Data Type (use acronym in headings)
+- **RAG** — Retrieval-Augmented Generation (use acronym, not «retrieval augmented»)
+- **ANN** — Approximate Nearest Neighbor (in context of vector search)
+- **idempotency key** — client-generated unique key для retry safety (use «idempotency key», NOT «request ID»)
+- **Saga choreography vs orchestration** — pattern variants; не «event-driven saga» (too vague)
+
+### Databases
+
+- **MVCC** — Multi-Version Concurrency Control; tuple versioning via xmin/xmax
+- **SSI** — Serializable Snapshot Isolation (PostgreSQL, Cahill 2008); detects rw-dependencies
+- **write skew** — anomaly where individual transactions are correct but together violate invariant
+- **LSM-tree** — Log-Structured Merge-tree (O'Neil 1996); memtable + SSTable + compaction
+- **WAL** — Write-Ahead Log; durability + atomicity primitive
+- **LCS / STCS / TWCS** — Leveled / Size-Tiered / Time-Window Compaction Strategy
+- **read-your-writes** — consistency model: user sees own writes (one of Adya spectrum)
+- **monotonic reads** — consistency: reads don't go back in time
+- **hot key** — single cache key receiving disproportionate traffic (also used for DB partitions)
+- **hot partition** — shard receiving disproportionate load; mitigations: request coalescing, key splitting, sticky sharding
+- **celebrity problem** — class of hot key/partition driven by user popularity (Justin Bieber tweets)
+- **rendezvous hashing** — Highest Random Weight (HRW); alternative to consistent hashing
+- **N+1 problem** — 1 list query + N item queries due to missing batching; canonical theory in databases/DATABASE_TYPES.md
+- **CDC** — Change Data Capture; Debezium-style streaming of DB changes
+
+### Software Engineering
+
+- **SOLID** — SRP / OCP / LSP / ISP / DIP (canonical acronym order)
+- **LSP** — Liskov Substitution Principle; subtype contract preservation
+- **DIP** — Dependency Inversion Principle (depend on abstractions); distinct from DI (technique)
+- **referential transparency** — expression can be replaced by its value without changing program behaviour
+- **higher-order function (HOF)** — accepts or returns a function
+- **first-class functions** — functions as values (assignable, passable, returnable)
+- **default method (Java)** — interface method with implementation (JEP 126, Java 8); enables Collection API evolution
+- **tail call optimization (TCO)** — NOT supported by JVM; workarounds: loop, trampoline, Kotlin `tailrec`
+- **testing pyramid** — many unit / some integration / few E2E (Cohn). Inverse = "ice cream cone" antipattern
+- **mutation testing** — introduce code mutations; measure if tests catch them; PIT tool
+- **contract testing** — consumer-driven contracts (Pact); replaces brittle E2E for microservices
+- **SAST / DAST** — Static / Dynamic Application Security Testing
+
 ### Java Core
 
 - **TLAB** — Thread-Local Allocation Buffer; per-thread bump-the-pointer allocation в Eden, без synchronization

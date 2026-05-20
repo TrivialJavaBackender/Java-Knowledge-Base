@@ -409,7 +409,7 @@ public record User(long id, String email) implements Serializable {
 ## Related
 
 - Records и canonical constructor → [`MODERN_JAVA_FEATURES.md`](MODERN_JAVA_FEATURES.md)
-- Secrets management и encrypted storage → [`modules/system-design/theory/secrets_management.md`](../../system-design/theory/secrets_management.md)
+- Secrets management и encrypted storage → [`modules/infrastructure/theory/SECRETS.md`](../../infrastructure/theory/SECRETS.md)
 - Object invariants и constructor → [`EQUALS_HASHCODE_COMPARABLE.md`](EQUALS_HASHCODE_COMPARABLE.md)
 - ClassLoader и `Class.forName` в deserialization → [`CLASS_LOADERS.md`](CLASS_LOADERS.md)
 

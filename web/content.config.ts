@@ -12,12 +12,14 @@ export interface ModuleConfig {
 }
 
 export const MODULES: ModuleConfig[] = [
-  { slug: 'concurrency',        title: 'Java Concurrency',     order: 1, qaFormat: 'qa-bold' },
-  { slug: 'kotlin-coroutines',  title: 'Kotlin Coroutines',    order: 2, qaFormat: 'qa-bold' },
-  { slug: 'graphql-kotlin',     title: 'GraphQL (Kotlin)',     order: 3, qaFormat: 'qa-bold' },
-  { slug: 'spring-frameworks',  title: 'Spring Frameworks',    order: 4, qaFormat: 'q-asterisk' },
-  { slug: 'system-design',      title: 'System Design',        order: 5, qaFormat: 'qa-bold' },
-  { slug: 'caching-deep-dive',  title: 'Caching Deep Dive',    order: 6, qaFormat: 'heading-as-q' },
-  { slug: 'infrastructure',     title: 'Infrastructure',       order: 7, qaFormat: 'qa-bold' },
-  { slug: 'java-core',          title: 'Java Core (Deep)',     order: 8, qaFormat: 'qa-bold' },
+  { slug: 'concurrency',          title: 'Java Concurrency',     order: 1, qaFormat: 'qa-bold' },
+  { slug: 'kotlin-coroutines',    title: 'Kotlin Coroutines',    order: 2, qaFormat: 'qa-bold' },
+  { slug: 'graphql-kotlin',       title: 'GraphQL (Kotlin)',     order: 3, qaFormat: 'qa-bold' },
+  { slug: 'spring-frameworks',    title: 'Spring Frameworks',    order: 4, qaFormat: 'q-asterisk' },
+  { slug: 'system-design',        title: 'System Design',        order: 5, qaFormat: 'qa-bold' },
+  { slug: 'databases',            title: 'Databases',            order: 6, qaFormat: 'qa-bold' },
+  { slug: 'caching-deep-dive',    title: 'Caching Deep Dive',    order: 7, qaFormat: 'heading-as-q' },
+  { slug: 'infrastructure',       title: 'Infrastructure',       order: 8, qaFormat: 'qa-bold' },
+  { slug: 'java-core',            title: 'Java Core (Deep)',     order: 9, qaFormat: 'qa-bold' },
+  { slug: 'software-engineering', title: 'Software Engineering', order: 10, qaFormat: 'qa-bold' },
 ];

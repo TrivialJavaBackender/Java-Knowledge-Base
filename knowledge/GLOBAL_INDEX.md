@@ -232,48 +232,207 @@ Canonical concept → owner file map. One concept, one owner. Other modules must
 - JEP 290 / JEP 415 serialization filter → modules/java-core/theory/SERIALIZATION.md
 - Externalizable → modules/java-core/theory/SERIALIZATION.md
 
+## Databases
+
+- ACID → modules/databases/theory/TRANSACTIONS.md
+- isolation levels (READ COMMITTED / REPEATABLE READ / SERIALIZABLE) → modules/databases/theory/TRANSACTIONS.md
+- MVCC → modules/databases/theory/TRANSACTIONS.md
+- write skew / phantom read / lost update / dirty read → modules/databases/theory/TRANSACTIONS.md
+- SSI (Serializable Snapshot Isolation) → modules/databases/theory/TRANSACTIONS.md
+- EXCLUDE constraint → modules/databases/theory/TRANSACTIONS.md
+- FOR UPDATE / SKIP LOCKED → modules/databases/theory/TRANSACTIONS.md
+- B-tree index → modules/databases/theory/INDEXES.md
+- Hash / GIN / GiST / BRIN index → modules/databases/theory/INDEXES.md
+- index-only scan / covering index → modules/databases/theory/INDEXES.md
+- partial index / expression index → modules/databases/theory/INDEXES.md
+- pg_trgm (trigram, similarity search) → modules/databases/theory/INDEXES.md
+- EXPLAIN ANALYZE → modules/databases/theory/INDEXES.md
+- RDBMS vs NoSQL → modules/databases/theory/DATABASE_TYPES.md
+- OLTP vs OLAP vs HTAP → modules/databases/theory/DATABASE_TYPES.md
+- columnar storage → modules/databases/theory/DATABASE_TYPES.md
+- Redis data structures (deep) → modules/caching-deep-dive/theory/REDIS.md (canonical); brief overview in modules/databases/theory/DATABASE_TYPES.md
+- ORM patterns (Active Record / Data Mapper / Identity Map / Unit of Work) → modules/databases/theory/DATABASE_TYPES.md
+- N+1 problem (JPA context) → modules/databases/theory/DATABASE_TYPES.md (theory) + modules/spring-frameworks/theory/SPRING_DATA_JPA.md (Hibernate implementation)
+- LazyInitializationException → modules/databases/theory/DATABASE_TYPES.md
+- LSM-tree vs B-tree → modules/databases/theory/STORAGE_ENGINES.md
+- WAL (Write-Ahead Log) → modules/databases/theory/STORAGE_ENGINES.md
+- compaction strategies (LCS, STCS, TWCS) → modules/databases/theory/STORAGE_ENGINES.md
+- RocksDB (embedded engine) → modules/databases/theory/STORAGE_ENGINES.md
+- InnoDB clustered index vs PostgreSQL heap → modules/databases/theory/STORAGE_ENGINES.md
+- single-leader / multi-leader / leaderless replication → modules/databases/theory/REPLICATION.md
+- sync vs async replication → modules/databases/theory/REPLICATION.md
+- replication lag / read-your-writes / monotonic reads → modules/databases/theory/REPLICATION.md
+- failover (manual / automatic / split-brain) → modules/databases/theory/REPLICATION.md
+- CDC (Change Data Capture, Debezium) → modules/databases/theory/REPLICATION.md (canonical for DB perspective); also referenced in modules/caching-deep-dive/theory/CONSISTENCY.md (cache invalidation) and modules/system-design/theory/microservice_patterns.md (Outbox alternative)
+- range vs hash vs directory sharding → modules/databases/theory/SHARDING.md
+- consistent hashing (DB sharding context) → modules/databases/theory/SHARDING.md (cross-ref to caching-deep-dive/DISTRIBUTED_CACHING.md)
+- rendezvous hashing (HRW) → modules/databases/theory/SHARDING.md
+- resharding (dual-write, CDC-based, Vitess-style) → modules/databases/theory/SHARDING.md
+- hot key / celebrity user mitigations → modules/databases/theory/SHARDING.md
+
 ## System Design
 
-- ACID → modules/system-design/theory/database_transactions.md
-- isolation levels (READ COMMITTED / REPEATABLE READ / SERIALIZABLE) → modules/system-design/theory/database_transactions.md
-- distributed transactions / 2PC → modules/system-design/theory/database_transactions.md
-- B-tree index → modules/system-design/theory/database_indexes.md
-- MVCC → modules/system-design/theory/database_indexes.md
-- index-only scan → modules/system-design/theory/database_indexes.md
-- RDBMS vs NoSQL → modules/system-design/theory/databases_types.md
+- distributed transactions / 2PC → modules/system-design/theory/microservice_patterns.md
 - CAP theorem → modules/system-design/theory/distributed_systems.md
+- PACELC → modules/system-design/theory/distributed_systems.md
+- Lamport / vector clocks → modules/system-design/theory/distributed_systems.md
+- quorum (R + W > N) → modules/system-design/theory/distributed_systems.md
 - distributed locks → modules/system-design/theory/distributed_systems.md
+- idempotency key → modules/system-design/theory/distributed_systems.md
 - Saga pattern → modules/system-design/theory/microservice_patterns.md
 - Outbox pattern → modules/system-design/theory/microservice_patterns.md
 - Circuit Breaker pattern → modules/system-design/theory/microservice_patterns.md
 - Strangler Fig → modules/system-design/theory/microservice_patterns.md
+- API Gateway → modules/system-design/theory/microservice_patterns.md
+- Service Discovery → modules/system-design/theory/microservice_patterns.md
+- Bulkhead → modules/system-design/theory/microservice_patterns.md
 - Kafka (topics/partitions/consumer groups) → modules/system-design/theory/kafka.md
 - Kafka replication / ISR → modules/system-design/theory/kafka.md
+- exactly-once / idempotent producer / transactional producer → modules/system-design/theory/kafka.md
+- log compaction → modules/system-design/theory/kafka.md
+- schema evolution → modules/system-design/theory/kafka.md
+- backward / forward compatibility → modules/system-design/theory/kafka.md
+- upcasting → modules/system-design/theory/kafka.md
+- Schema Registry / Avro / Protobuf → modules/system-design/theory/kafka.md
+- KRaft → modules/system-design/theory/kafka.md
+- event sourcing → modules/system-design/theory/microservice_patterns.md
+- event store / snapshot (event sourcing) → modules/system-design/theory/microservice_patterns.md
+- CQRS → modules/system-design/theory/microservice_patterns.md
 - JWT → modules/system-design/theory/identity_providers.md
 - OAuth2 (protocol concepts) → modules/system-design/theory/identity_providers.md
 - OIDC (protocol concepts) → modules/system-design/theory/identity_providers.md
 - SAML 2.0 → modules/system-design/theory/identity_providers.md
 - Keycloak / IdP → modules/system-design/theory/identity_providers.md
 - bcrypt / Argon2 (password hashing) → modules/system-design/theory/identity_providers.md
-- Vault → modules/system-design/theory/secrets_management.md
-- envelope encryption → modules/system-design/theory/secrets_management.md
-- mTLS / TLS termination → modules/system-design/theory/secrets_management.md
-- SOLID principles → modules/system-design/theory/solid_oop.md
-- Stream API (Java) → modules/system-design/theory/stream_api.md
-- testing pyramid (Unit/Integration/E2E) → modules/system-design/theory/testing.md
 - HTTP/TCP/DNS fundamentals → modules/system-design/theory/http_networking.md
-- event sourcing → modules/system-design/theory/microservice_patterns.md
-- event store / snapshot (event sourcing) → modules/system-design/theory/microservice_patterns.md
-- schema evolution → modules/system-design/theory/kafka.md
-- backward / forward compatibility → modules/system-design/theory/kafka.md
-- upcasting → modules/system-design/theory/kafka.md
-- Schema Registry / Avro / Protobuf → modules/system-design/theory/kafka.md
-- higher-order function (HOF) → modules/system-design/theory/stream_api.md
-- first-class functions → modules/system-design/theory/stream_api.md
-- referential transparency → modules/system-design/theory/stream_api.md
-- currying / partial application → modules/system-design/theory/stream_api.md
-- default method (Java) → modules/system-design/theory/stream_api.md
-- tail recursion / TCO → modules/system-design/theory/stream_api.md
+- HTTP/2 / HTTP/3 / QUIC → modules/system-design/theory/http_networking.md
+- WebSocket protocol → modules/system-design/theory/http_networking.md
+- TLS 1.3 → modules/system-design/theory/http_networking.md
+
+### Scaling fundamentals
+
+- vertical / horizontal scaling → modules/system-design/theory/SCALING.md
+- DNS (record types, GeoDNS, DNSSEC) → modules/system-design/theory/DNS.md
+- CDN (pull/push, edge cache, signed URLs, multi-CDN) → modules/system-design/theory/CDN.md
+- load balancer (L4/L7, algorithms, anycast) → modules/system-design/theory/LOAD_BALANCER.md
+- reverse proxy (Nginx/HAProxy/Envoy/Traefik) → modules/system-design/theory/REVERSE_PROXY.md
+- latency numbers (Jeff Dean) → modules/system-design/theory/LATENCY_NUMBERS.md
+- Universal Scalability Law (USL, Gunther) → modules/system-design/theory/LATENCY_NUMBERS.md
+- capacity estimation / back-of-envelope → modules/system-design/theory/CAPACITY_ESTIMATION.md
+- powers of two table → modules/system-design/theory/CAPACITY_ESTIMATION.md
+- interview framework (SD interview methodology) → modules/system-design/theory/INTERVIEW_FRAMEWORK.md
+
+### Distributed primitives (advanced)
+
+- Raft consensus → modules/system-design/theory/CONSENSUS.md
+- Paxos / Multi-Paxos → modules/system-design/theory/CONSENSUS.md
+- ZAB (ZooKeeper Atomic Broadcast) → modules/system-design/theory/CONSENSUS.md
+- FLP impossibility → modules/system-design/theory/CONSENSUS.md
+- leader election (Bully / Raft-based / ZK ephemeral znodes / lease-based) → modules/system-design/theory/LEADER_ELECTION.md
+- fencing token → modules/system-design/theory/LEADER_ELECTION.md
+- STONITH (split-brain prevention) → modules/system-design/theory/LEADER_ELECTION.md
+- gossip protocol (SWIM, anti-entropy) → modules/system-design/theory/GOSSIP_PROTOCOL.md
+- CRDT (G-Counter, PN-Counter, OR-Set, LWW-Register) → modules/system-design/theory/CRDT.md
+- multi-region architecture (active-active, active-passive, Spanner-like) → modules/system-design/theory/MULTI_REGION.md
+- TrueTime (Google Spanner) → modules/system-design/theory/MULTI_REGION.md
+
+### Reliability patterns
+
+- exponential backoff + full jitter (AWS recipe) → modules/system-design/theory/RELIABILITY_PATTERNS.md
+- retry storm / retry budget → modules/system-design/theory/RELIABILITY_PATTERNS.md
+- hedged requests (Tail at Scale, Dean & Barroso) → modules/system-design/theory/RELIABILITY_PATTERNS.md
+- DLQ (Dead Letter Queue) → modules/system-design/theory/RELIABILITY_PATTERNS.md
+- load shedding → modules/system-design/theory/RELIABILITY_PATTERNS.md
+- adaptive concurrency (Netflix concurrency-limits) → modules/system-design/theory/RELIABILITY_PATTERNS.md
+- graceful degradation → modules/system-design/theory/RELIABILITY_PATTERNS.md
+- error budget burn rate alerts → modules/infrastructure/theory/OBSERVABILITY.md (canonical), modules/system-design/theory/RELIABILITY_PATTERNS.md (reference)
+
+### Algorithms для SD
+
+- Bloom filter / Counting Bloom / Cuckoo filter → modules/system-design/theory/PROBABILISTIC_STRUCTURES.md
+- Count-Min Sketch → modules/system-design/theory/PROBABILISTIC_STRUCTURES.md
+- HyperLogLog (approximate count distinct) → modules/system-design/theory/PROBABILISTIC_STRUCTURES.md
+- Top-K (Misra-Gries, Space-Saving) → modules/system-design/theory/PROBABILISTIC_STRUCTURES.md
+- Geohash → modules/system-design/theory/GEOSPATIAL.md
+- S2 (Google) → modules/system-design/theory/GEOSPATIAL.md
+- H3 (Uber, hexagonal) → modules/system-design/theory/GEOSPATIAL.md
+- Quadtree / R-tree → modules/system-design/theory/GEOSPATIAL.md
+- Trie (prefix tree, autocomplete) → modules/system-design/theory/TRIE.md
+- Patricia / Radix tree → modules/system-design/theory/TRIE.md
+- inverted index (Lucene/Elasticsearch fundamentals) → modules/system-design/theory/INVERTED_INDEX.md
+- BM25 ranking → modules/system-design/theory/INVERTED_INDEX.md
+- Merkle tree (anti-entropy, SPV proofs) → modules/system-design/theory/MERKLE_TREE.md
+
+### Communication patterns
+
+- long polling vs SSE vs WebSocket vs gRPC streaming → modules/system-design/theory/COMMUNICATION_PATTERNS.md
+- backpressure (Reactive Streams) → modules/system-design/theory/COMMUNICATION_PATTERNS.md
+- webhooks (HMAC signing, idempotency, retry) → modules/system-design/theory/WEBHOOKS.md
+
+### Streaming / Modern
+
+- MapReduce → modules/system-design/theory/STREAM_PROCESSING.md
+- Spark (RDD, Catalyst, Structured Streaming) → modules/system-design/theory/STREAM_PROCESSING.md
+- Flink (event-time, watermarks, exactly-once) → modules/system-design/theory/STREAM_PROCESSING.md
+- Lambda vs Kappa architecture → modules/system-design/theory/STREAM_PROCESSING.md
+- stream-table duality → modules/system-design/theory/STREAM_PROCESSING.md
+- ML model serving (online vs batch inference) → modules/system-design/theory/ML_SERVING.md
+- feature store (Feast, Tecton) → modules/system-design/theory/ML_SERVING.md
+- shadow deployment / canary (ML) → modules/system-design/theory/ML_SERVING.md
+- vector database (pgvector, Pinecone, Weaviate, Milvus) → modules/system-design/theory/VECTOR_DBS_RAG.md
+- ANN (HNSW, IVF, PQ) → modules/system-design/theory/VECTOR_DBS_RAG.md
+- RAG (Retrieval-Augmented Generation) → modules/system-design/theory/VECTOR_DBS_RAG.md
+- embedding models → modules/system-design/theory/VECTOR_DBS_RAG.md
+
+### Security beyond auth
+
+- DDoS protection (volumetric, protocol, application) → modules/system-design/theory/DDOS_WAF.md
+- SYN cookies → modules/system-design/theory/DDOS_WAF.md
+- WAF (OWASP CRS, ModSecurity, Cloudflare/AWS WAF) → modules/system-design/theory/DDOS_WAF.md
+- bot management → modules/system-design/theory/DDOS_WAF.md
+- CORS / CSRF / CSP (SD context) → modules/system-design/theory/DDOS_WAF.md
+- Zero Trust / BeyondCorp → modules/system-design/theory/DDOS_WAF.md
+
+### Design Problems (templates)
+
+- URL shortener (TinyURL/bit.ly) → modules/system-design/theory/DESIGN_01_URL_SHORTENER.md
+- news feed (Twitter/Instagram) → modules/system-design/theory/DESIGN_02_NEWS_FEED.md
+- chat messenger (WhatsApp/Slack) → modules/system-design/theory/DESIGN_03_CHAT_MESSENGER.md
+- ride sharing (Uber/Lyft) → modules/system-design/theory/DESIGN_04_RIDE_SHARING.md
+- video streaming (Netflix/YouTube) → modules/system-design/theory/DESIGN_05_VIDEO_STREAMING.md
+- file storage (Dropbox/Google Drive) → modules/system-design/theory/DESIGN_06_FILE_STORAGE.md
+- distributed rate limiter → modules/system-design/theory/DESIGN_07_RATE_LIMITER.md
+- distributed cache → modules/system-design/theory/DESIGN_08_DISTRIBUTED_CACHE.md
+- notification system → modules/system-design/theory/DESIGN_09_NOTIFICATION_SYSTEM.md
+- search autocomplete → modules/system-design/theory/DESIGN_10_SEARCH_AUTOCOMPLETE.md
+- web crawler → modules/system-design/theory/DESIGN_11_WEB_CRAWLER.md
+- KV store (Dynamo-style) → modules/system-design/theory/DESIGN_12_KV_STORE.md
+- payment ledger / double-entry bookkeeping → modules/system-design/theory/DESIGN_13_PAYMENT_LEDGER.md
+- leaderboard (Redis ZSET) → modules/system-design/theory/DESIGN_14_LEADERBOARD.md
+
+## Software Engineering
+
+- SOLID principles → modules/software-engineering/theory/SOLID_OOP.md
+- Adapter pattern (Jackson example) → modules/software-engineering/theory/SOLID_OOP.md
+- Stream API (Java) → modules/software-engineering/theory/STREAM_API_FP.md
+- Collectors / teeing → modules/software-engineering/theory/STREAM_API_FP.md
+- Optional usage patterns → modules/software-engineering/theory/STREAM_API_FP.md
+- higher-order function (HOF) → modules/software-engineering/theory/STREAM_API_FP.md
+- first-class functions → modules/software-engineering/theory/STREAM_API_FP.md
+- referential transparency → modules/software-engineering/theory/STREAM_API_FP.md
+- pure functions / immutability → modules/software-engineering/theory/STREAM_API_FP.md
+- currying / partial application → modules/software-engineering/theory/STREAM_API_FP.md
+- default method (Java) → modules/software-engineering/theory/STREAM_API_FP.md
+- tail recursion / TCO → modules/software-engineering/theory/STREAM_API_FP.md
+- testing pyramid (Unit/Integration/E2E) → modules/software-engineering/theory/TESTING.md
+- JUnit 5 → modules/software-engineering/theory/TESTING.md
+- Mockito (mock/stub/spy/captor) → modules/software-engineering/theory/TESTING.md
+- TestContainers → modules/software-engineering/theory/TESTING.md
+- contract testing (Pact) → modules/software-engineering/theory/TESTING.md
+- performance testing (k6/Gatling/JMeter) → modules/software-engineering/theory/TESTING.md
+- SAST / DAST / pentest → modules/software-engineering/theory/TESTING.md
+- chaos engineering → modules/software-engineering/theory/TESTING.md (introduction); deep practical patterns in modules/system-design/theory/distributed_systems.md (real-world failures) and modules/infrastructure/ (K8s chaos)
+- mutation testing (PIT) → modules/software-engineering/theory/TESTING.md
 
 ## Spring
 
@@ -413,6 +572,13 @@ Canonical concept → owner file map. One concept, one owner. Other modules must
 - Infrastructure as Code / Terraform (state, drift, locking) → modules/infrastructure/theory/CLOUD.md
 - vendor lock-in → modules/infrastructure/theory/CLOUD.md
 - cloud-native patterns (stateless, immutable, externalised state) → modules/infrastructure/theory/CLOUD.md
+- Vault (Seal/Unseal, auth methods, dynamic secrets) → modules/infrastructure/theory/SECRETS.md
+- envelope encryption (KEK + DEK) → modules/infrastructure/theory/SECRETS.md
+- bootstrap problem (IAM, SA token, AppRole) → modules/infrastructure/theory/SECRETS.md
+- SOPS (encrypted-secrets-in-git) → modules/infrastructure/theory/SECRETS.md
+- mTLS / TLS termination → modules/infrastructure/theory/SECRETS.md
+- K8s Secrets (encryption at rest, ESO, Sealed Secrets) → modules/infrastructure/theory/SECRETS.md
+- Terraform state encryption → modules/infrastructure/theory/SECRETS.md
 
 ---
 
@@ -422,10 +588,12 @@ Concepts that legitimately appear in multiple modules — canonical owner listed
 
 | Concept | Canonical Owner | Secondary Reference |
 |---------|----------------|---------------------|
-| N+1 problem | graphql-kotlin/DATALOADER_NPLUS1.md (GraphQL context) | spring-frameworks/SPRING_DATA_JPA.md (JPA context) |
+| N+1 problem (canonical theory) | databases/DATABASE_TYPES.md | graphql-kotlin/DATALOADER_NPLUS1.md (GraphQL context) · spring-frameworks/SPRING_DATA_JPA.md (Hibernate impl) |
 | OAuth2 | system-design/identity_providers.md (protocol) | spring-frameworks/SPRING_SECURITY.md (implementation) |
 | Circuit Breaker | system-design/microservice_patterns.md (pattern) | spring-frameworks/SPRING_CLOUD.md (Resilience4j impl) |
-| CDC | caching-deep-dive/CONSISTENCY.md (cache invalidation) | system-design/distributed_systems.md (event streaming) |
+| CDC | databases/REPLICATION.md (DB perspective + Debezium) | caching-deep-dive/CONSISTENCY.md (cache invalidation) · system-design/microservice_patterns.md (Outbox alternative) |
+| consistent hashing | caching-deep-dive/DISTRIBUTED_CACHING.md (cache distribution) | databases/SHARDING.md (DB sharding context) |
+| Redis (deep) | caching-deep-dive/REDIS.md | databases/DATABASE_TYPES.md (high-level KV overview) |
 | CoroutineScope vs coroutineScope | kotlin-coroutines/SCOPE_CONTEXT.md (interface type) | kotlin-coroutines/STRUCTURED_CONCURRENCY.md (builder function) |
 | JMM | concurrency/THREADS_BASICS.md (happens-before, volatile, synchronized) | java-core/JMM_REFERENCE.md (cross-ref only) |
 | VarHandle | java-core/REFLECTION_HANDLES.md (API + access modes) | concurrency/ATOMIC_CAS.md (atomic operations использование) |

@@ -1,116 +1,109 @@
 # System Design — Roadmap
 
-Применение паттернов многопоточности к реальным задачам backend-разработки.
-Теория concurrency живёт в `modules/concurrency/`. Здесь — практика и смежные темы.
+Порядок прохождения: **Foundations → Interview Framework → Distributed primitives → Reliability → Algorithms → Communication → Modern → Design Problems**. Перенесённые упражнения по applied concurrency — в [`modules/concurrency/`](../concurrency/).
 
 ---
 
-## Порядок прохождения
+## Модуль 1 — Foundations (обязательно)
 
-| Приоритет | Модуль | Частота на собесах |
-|-----------|--------|--------------------|
-| 1 | Pessimistic Locking in Practice | ★★★★★ |
-| 2 | Optimistic Locking in Practice  | ★★★★★ |
-| 3 | Database Theory                 | ★★★★★ |
-| 4 | Lock-Free Data Structures       | ★★★★☆ |
-| 5 | Rate Limiting & Scheduling      | ★★★★☆ |
-| 6 | Distributed Systems & Microservices | ★★★☆☆ |
-| 7 | Testing                         | ★★★☆☆ |
-
----
-
-## Модуль 1: Pessimistic Locking in Practice
-
-📖 Теория concurrency: [modules/concurrency/theory/LOCKS.md](../concurrency/theory/LOCKS.md)
-
-- [ ] TOCTOU — check-then-act под единой блокировкой
-- [ ] Гранулярные локи per-resource (ConcurrentHashMap + computeIfAbsent)
-- [ ] Порядок захвата локов при нескольких ресурсах (deadlock prevention)
-
-**Упражнение:**
-- [ ] [reservations/ReservationService.java](src/main/java/by/pavel/reservations/ReservationService.java) — бронирование стола без race condition
-
-**Тест:** `mvn test -pl . -Dtest=ReservationServiceTest`
+📖 Теория:
+- [theory/SCALING.md](theory/SCALING.md) — vertical/horizontal scaling, stateless vs stateful
+- [theory/DNS.md](theory/DNS.md) — DNS record types, TTL, GeoDNS, DNSSEC
+- [theory/CDN.md](theory/CDN.md) — push vs pull, signed URLs, multi-CDN
+- [theory/LOAD_BALANCER.md](theory/LOAD_BALANCER.md) — L4 vs L7, алгоритмы, sticky sessions, anycast
+- [theory/REVERSE_PROXY.md](theory/REVERSE_PROXY.md) — Nginx/HAProxy/Envoy/Traefik
+- [theory/LATENCY_NUMBERS.md](theory/LATENCY_NUMBERS.md) — Jeff Dean's table + USL
+- [theory/CAPACITY_ESTIMATION.md](theory/CAPACITY_ESTIMATION.md) — back-of-envelope estimation
+- [theory/http_networking.md](theory/http_networking.md) — HTTP/2/3, TLS, WebSocket basics
 
 ---
 
-## Модуль 2: Optimistic Locking in Practice
+## Модуль 2 — Interview Framework
 
-📖 Теория concurrency: [modules/concurrency/theory/PROBLEMS.md](../concurrency/theory/PROBLEMS.md)
+📖 [theory/INTERVIEW_FRAMEWORK.md](theory/INTERVIEW_FRAMEWORK.md) — пошаговый алгоритм для SD-интервью.
 
-- [ ] Версионирование записей (version field)
-- [ ] Retry-логика при конфликте
-- [ ] Нельзя смешивать optimistic + pessimistic в одном блоке
-- [ ] Double-checked locking для идемпотентности
-
-**Упражнение:**
-- [ ] [bank/BankServiceImpl.java](src/main/java/by/pavel/bank/BankServiceImpl.java) — перевод средств с optimistic locking и idempotency
-
-**Тест:** `mvn test -pl . -Dtest=BankServiceTest`
+- [ ] Functional vs non-functional requirements
+- [ ] Capacity estimation на интервью
+- [ ] API design first
+- [ ] High-level architecture
+- [ ] Trade-off framework
 
 ---
 
-## Модуль 3: Lock-Free Data Structures
+## Модуль 3 — Distributed Primitives
 
-📖 Теория concurrency: [modules/concurrency/theory/ATOMIC_CAS.md](../concurrency/theory/ATOMIC_CAS.md)
-
-- [ ] Thread-safe LRU Cache — ReadWriteLock vs ConcurrentHashMap
-- [ ] Concurrent Order Book — атомарный snapshot, ConcurrentSkipListMap
-- [ ] Балансировка чтений и записей в high-throughput структурах
-
-**Упражнения:**
-- [ ] [cache/LRUCache.java](src/main/java/by/pavel/cache/LRUCache.java) — LRU-кэш с TTL, thread-safe
-- [ ] [orderbook/OrderBookService.java](src/main/java/by/pavel/orderbook/OrderBookService.java) — биржевой стакан с атомарным снимком
-
-**Тесты:** `mvn test -pl . -Dtest="CacheTest,OrderBookTest"`
+📖 Теория:
+- [theory/distributed_systems.md](theory/distributed_systems.md) — CAP, PACELC, Lamport, quorum, consistency spectrum
+- [theory/CONSENSUS.md](theory/CONSENSUS.md) — Raft, Paxos, ZAB
+- [theory/LEADER_ELECTION.md](theory/LEADER_ELECTION.md) — Bully, Raft, ZK, lease-based
+- [theory/GOSSIP_PROTOCOL.md](theory/GOSSIP_PROTOCOL.md) — SWIM, anti-entropy
+- [theory/CRDT.md](theory/CRDT.md) — G-Counter, PN-Counter, OR-Set, LWW-Register
+- [theory/MULTI_REGION.md](theory/MULTI_REGION.md) — active-active, active-passive, Spanner-like
 
 ---
 
-## Модуль 4: Rate Limiting & Scheduling
+## Модуль 4 — Microservice Patterns
 
-📖 Теория concurrency: [modules/concurrency/theory/EXECUTORS_FUTURES.md](../concurrency/theory/EXECUTORS_FUTURES.md)
-
-- [ ] Token Bucket алгоритм — атомарные операции, время
-- [ ] Task Scheduler — ScheduledExecutorService, приоритеты
-- [ ] Корректное завершение (shutdown, await termination)
-
-**Упражнения:**
-- [ ] [ratelimiter/TokenBucketRateLimiter.java](src/main/java/by/pavel/ratelimiter/TokenBucketRateLimiter.java)
-- [ ] [scheduler/SimpleTaskScheduler.java](src/main/java/by/pavel/scheduler/SimpleTaskScheduler.java)
-
-**Тесты:** `mvn test -pl . -Dtest="RateLimiterTest,TaskSchedulerTest"`
+📖 Теория:
+- [theory/microservice_patterns.md](theory/microservice_patterns.md) — Saga, Outbox, Circuit Breaker, CQRS, Event Sourcing, deployment strategies
+- [theory/kafka.md](theory/kafka.md) — Kafka deep (partitions, exactly-once, ISR, KRaft)
+- [theory/RELIABILITY_PATTERNS.md](theory/RELIABILITY_PATTERNS.md) — retry/jitter/DLQ/hedged/load shedding
 
 ---
 
-## Модуль 5: Database Theory
+## Модуль 5 — Algorithms для SD
 
-📖 Теория: [theory/database_transactions.md](theory/database_transactions.md) | [theory/database_indexes.md](theory/database_indexes.md)
-
-- [ ] Аномалии: dirty read, non-repeatable read, phantom read, lost update
-- [ ] Уровни изоляции: READ UNCOMMITTED → SERIALIZABLE
-- [ ] Оптимистическая блокировка на уровне БД (SELECT FOR UPDATE, version column)
-- [ ] Индексы: B-Tree, Hash, покрывающие, когда индекс не помогает
-- [ ] EXPLAIN ANALYZE — чтение плана запроса
-
----
-
-## Модуль 6: Distributed Systems & Microservices
-
-📖 Теория: [theory/distributed_systems.md](theory/distributed_systems.md) | [theory/microservice_patterns.md](theory/microservice_patterns.md)
-
-- [ ] CAP теорема — CP vs AP системы
-- [ ] Eventual consistency, strong consistency
-- [ ] Паттерны: Saga, Outbox, Circuit Breaker, Bulkhead, Retry
-- [ ] Idempotency в распределённых системах
+📖 Теория:
+- [theory/PROBABILISTIC_STRUCTURES.md](theory/PROBABILISTIC_STRUCTURES.md) — Bloom, CMS, HyperLogLog
+- [theory/GEOSPATIAL.md](theory/GEOSPATIAL.md) — Geohash, S2, H3, Quadtree, R-tree
+- [theory/TRIE.md](theory/TRIE.md) — prefix tree для autocomplete
+- [theory/INVERTED_INDEX.md](theory/INVERTED_INDEX.md) — search engine fundamentals (Lucene/ES)
+- [theory/MERKLE_TREE.md](theory/MERKLE_TREE.md) — anti-entropy, SPV proofs
 
 ---
 
-## Модуль 7: Testing
+## Модуль 6 — Communication
 
-📖 Теория: [theory/testing.md](theory/testing.md)
+📖 Теория:
+- [theory/COMMUNICATION_PATTERNS.md](theory/COMMUNICATION_PATTERNS.md) — long polling vs SSE vs WebSocket vs gRPC streaming
+- [theory/WEBHOOKS.md](theory/WEBHOOKS.md) — HMAC signing, idempotency, retry policies
 
-- [ ] Тестирование конкурентного кода — race condition воспроизведение
-- [ ] CountDownLatch в тестах
-- [ ] Stress-тесты и проверка инвариантов под нагрузкой
+---
 
-**Все тесты:** `mvn test`
+## Модуль 7 — Security
+
+📖 Теория:
+- [theory/identity_providers.md](theory/identity_providers.md) — JWT, OAuth2, OIDC, SAML, Keycloak
+- [theory/DDOS_WAF.md](theory/DDOS_WAF.md) — DDoS mitigation, WAF, Zero Trust
+
+---
+
+## Модуль 8 — Streaming & Modern
+
+📖 Теория:
+- [theory/STREAM_PROCESSING.md](theory/STREAM_PROCESSING.md) — MapReduce, Spark, Flink, Lambda vs Kappa
+- [theory/ML_SERVING.md](theory/ML_SERVING.md) — online vs batch inference, feature stores
+- [theory/VECTOR_DBS_RAG.md](theory/VECTOR_DBS_RAG.md) — vector databases, ANN, RAG
+
+---
+
+## Модуль 9 — Design Problems (14 классических)
+
+📖 Format: Requirements → Estimation → API → Architecture → Deep dive → Trade-offs.
+
+| # | Problem | Главные концепты |
+|---|---------|------------------|
+| 01 | [URL Shortener](theory/DESIGN_01_URL_SHORTENER.md) | base62, KGS, cache, redirect latency |
+| 02 | [News Feed](theory/DESIGN_02_NEWS_FEED.md) | fan-out on write vs read, celebrity problem |
+| 03 | [Chat Messenger](theory/DESIGN_03_CHAT_MESSENGER.md) | WebSocket, presence, push, E2E |
+| 04 | [Ride Sharing](theory/DESIGN_04_RIDE_SHARING.md) | H3 hexagonal indexing, surge, dispatch |
+| 05 | [Video Streaming](theory/DESIGN_05_VIDEO_STREAMING.md) | HLS/DASH, adaptive bitrate, CDN |
+| 06 | [File Storage](theory/DESIGN_06_FILE_STORAGE.md) | chunking, dedup, sync, CDC chunking |
+| 07 | [Rate Limiter](theory/DESIGN_07_RATE_LIMITER.md) | token bucket, sliding window, Redis Lua |
+| 08 | [Distributed Cache](theory/DESIGN_08_DISTRIBUTED_CACHE.md) | consistent hashing, hot key, replication |
+| 09 | [Notification System](theory/DESIGN_09_NOTIFICATION_SYSTEM.md) | multi-channel, retry, DLQ, scheduling |
+| 10 | [Search Autocomplete](theory/DESIGN_10_SEARCH_AUTOCOMPLETE.md) | Trie с top-K, real-time refresh |
+| 11 | [Web Crawler](theory/DESIGN_11_WEB_CRAWLER.md) | URL frontier, politeness, dedup, robots.txt |
+| 12 | [KV Store](theory/DESIGN_12_KV_STORE.md) | Dynamo, vnodes, quorum, anti-entropy |
+| 13 | [Payment Ledger](theory/DESIGN_13_PAYMENT_LEDGER.md) | double-entry, idempotency, Saga, compliance |
+| 14 | [Leaderboard](theory/DESIGN_14_LEADERBOARD.md) | Redis ZSET, tie-breaking, sharding, top-K |

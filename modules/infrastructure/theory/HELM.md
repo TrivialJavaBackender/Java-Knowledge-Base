@@ -676,7 +676,7 @@ helm get all myapp-prod
 | Многослойный `_helpers.tpl` на 500 строк | Невозможно найти определение | Разбить на `_labels.tpl`, `_names.tpl` |
 | `--set image.tag=...` без хранения в values | Через 3 upgrade забыли, что задавали | Хранить ВСЕ values в Git |
 | Не использовать `--atomic` в CI | Полусломанный кластер при failed upgrade | `--atomic --wait` всегда |
-| Хранить Secret в values.yaml в Git | Утечка паролей | Sealed Secrets / Vault / External Secrets ([см. system-design/secrets_management.md](../../system-design/theory/secrets_management.md)) |
+| Хранить Secret в values.yaml в Git | Утечка паролей | Sealed Secrets / Vault / External Secrets ([см. SECRETS.md](SECRETS.md)) |
 | `helm upgrade --reuse-values` без понимания | Тяжёлый conflict при изменении defaults в chart | Явные `-f values-prod.yaml` |
 | Не пинить chart version | Bitnami обновил chart breaking-way → production упал | В CI всегда `--version X.Y.Z` |
 | Изменение namespace в шаблоне без `.Release.Namespace` | Resources создаются не там | `{{ .Release.Namespace }}` |

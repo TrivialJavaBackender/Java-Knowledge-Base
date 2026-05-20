@@ -78,3 +78,20 @@
 - [ ] Ex28: Prometheus config (scrape + alerting rules)
 - [ ] Ex29: Grafana dashboard (JSON)
 - [ ] Ex30: PromQL запросы (10 штук)
+
+---
+
+## Модуль 7 — Secrets & Encryption (ops side)
+
+**Теория:** [theory/SECRETS.md](theory/SECRETS.md)
+
+- [ ] Прочитать теорию
+- [ ] Понять envelope encryption (KEK + DEK) и почему KMS делает только небольшие операции
+- [ ] Bootstrap problem: где лежит первый секрет (IAM role, K8s SA token, AppRole)
+- [ ] Vault: Seal/Unseal Shamir, auth methods, dynamic secrets, leases
+- [ ] Terraform state: encryption at rest, sensitive variables, never plain secret in state
+- [ ] K8s Secrets vs External Secrets Operator vs Sealed Secrets vs Vault Agent
+- [ ] SOPS — зашифрованные секреты в git с KMS
+- [ ] mTLS — service-to-service identity, service mesh integration
+
+> Application-level auth (JWT/OAuth2/OIDC/SAML) — в [`modules/system-design/theory/identity_providers.md`](../system-design/theory/identity_providers.md). Spring Security implementation — в [`modules/spring-frameworks/theory/SPRING_SECURITY.md`](../spring-frameworks/theory/SPRING_SECURITY.md).
