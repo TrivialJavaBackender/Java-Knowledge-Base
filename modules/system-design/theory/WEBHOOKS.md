@@ -1,118 +1,118 @@
 # Webhooks
+Асинхронные HTTP-уведомления между серверами. «Когда происходит событие X, отправь POST на этот URL». Стандартный способ B2B-интеграции (Stripe, GitHub, Slack, Twilio).
 
-Server-to-server async HTTP notifications. «Когда событие X происходит, POST на этот URL». Standard для B2B integration (Stripe, GitHub, Slack, Twilio).
-
-> **Scope**: design webhook **provider** (sender) и **consumer** (receiver). Async event basics — см. [COMMUNICATION_PATTERNS.md](COMMUNICATION_PATTERNS.md).
+> **Область:** проектирование отправителя и получателя webhook. Общие основы асинхронных событий — см. [COMMUNICATION_PATTERNS.md](COMMUNICATION_PATTERNS.md).
 
 ---
 
-## Anatomy
+## Устройство
 
-### As provider (you send)
+### В роли отправителя (вы шлёте webhook)
 
 ```
-Customer registers webhook URL: https://customer.app/api/webhooks/our-events
+Клиент регистрирует URL: https://customer.app/api/webhooks/our-events
 
-Event happens in your system:
-  → enqueue webhook delivery job
-  → worker:
-    POST customer's URL
-    body: { event_type, event_id, timestamp, data }
-    headers:
+В вашей системе происходит событие:
+  → задача доставки webhook ставится в очередь
+  → обработчик:
+    POST на URL клиента
+    тело: { event_type, event_id, timestamp, data }
+    заголовки:
       User-Agent: YourApp-Webhook
       X-YourApp-Signature: <HMAC-SHA256>
       X-YourApp-Timestamp: <unix>
       Content-Type: application/json
 
-  Customer's server: respond 2xx
-    if 200-299 → success, mark delivered
-    if 4xx → permanent failure, alert customer
-    if 5xx / timeout → retry with backoff
+  Сервер клиента отвечает 2xx:
+    200–299 → успех, помечаем как доставленный
+    4xx → постоянный сбой, уведомляем клиента
+    5xx / таймаут → повтор с экспоненциальной задержкой
 ```
 
-### As consumer (you receive)
+### В роли получателя (вы принимаете webhook)
 
 ```python
 @app.post("/webhooks/stripe")
 def stripe_webhook(request):
-    # 1. Verify signature
+    # 1. Проверка подписи
     if not verify_signature(request.body, request.headers["Stripe-Signature"]):
         return 401
-    
-    # 2. Parse and validate
+
+    # 2. Разбор и валидация
     event = json.loads(request.body)
-    
-    # 3. Idempotency check (process each event ID once)
+
+    # 3. Проверка идемпотентности (каждый event_id обрабатываем один раз)
     if redis.get(f"processed:{event['id']}"):
-        return 200  # already processed, idempotent ack
-    
-    # 4. Process (preferably enqueue, не process inline)
+        return 200  # уже обработано, идемпотентное подтверждение
+
+    # 4. Обработка (предпочтительно — в очередь, не inline)
     process_event_async(event)
-    
-    # 5. Mark processed
+
+    # 5. Отметка об обработке
     redis.setex(f"processed:{event['id']}", ttl=7*24*3600, value="1")
-    
+
     return 200
 ```
 
 ---
 
-## Design considerations (as provider)
+## Соображения для отправителя
 
-### Delivery guarantees
+### Гарантии доставки
 
-**At-least-once** — стандарт. Network может потерять response, мы retry → consumer должен быть idempotent.
+**At-least-once (не менее одного раза)** — стандарт. Сеть может потерять ответ, мы повторяем → получатель должен быть идемпотентен.
 
-**Не делайте exactly-once provider-side** — невозможно без cooperation от consumer (consumer должен dedup).
+**Не пытайтесь сделать exactly-once на стороне отправителя** — это невозможно без сотрудничества с получателем (получатель должен сам дедуплицировать).
 
-### Retry policy
+### Политика повторов
 
-Standard pattern: exponential backoff с jitter.
+Стандартный приём: экспоненциальная задержка с разбросом (jitter).
 
-| Retry | Delay (с) | Cumulative |
-|-------|----------|-----------|
-| 1 | 0 | 0 sec |
-| 2 | 60 | 1 min |
-| 3 | 300 | 6 min |
-| 4 | 1800 | 36 min |
-| 5 | 3600 | 1.6 h |
-| 6 | 10800 | 4.6 h |
-| 7 | 36000 | 14.6 h |
-| 8 | 86400 | 1.6 d |
-| 9 | 172800 | 3.6 d |
+| Попытка | Задержка (с) | Накопленное время |
+|---------|--------------|-------------------|
+| 1 | 0 | 0 с |
+| 2 | 60 | 1 мин |
+| 3 | 300 | 6 мин |
+| 4 | 1800 | 36 мин |
+| 5 | 3600 | 1,6 ч |
+| 6 | 10800 | 4,6 ч |
+| 7 | 36000 | 14,6 ч |
+| 8 | 86400 | 1,6 сут |
+| 9 | 172800 | 3,6 сут |
 
-Stripe: 3 days total, ~9 retries.
-GitHub: 8 hours total.
-Slack: 3 hours.
+Stripe: ~3 суток, около 9 повторов.
+GitHub: 8 часов.
+Slack: 3 часа.
 
-**Implementation:** message queue с visibility timeout / delayed delivery.
+**Реализация:** очередь сообщений с отложенной доставкой (visibility timeout / delayed delivery).
 
 ```
 SQS:
-  send message с DelaySeconds (для backoff)
-  
+  отправить сообщение с DelaySeconds (для экспоненциальной задержки)
+
 Kafka:
-  scheduler topic + consumer schedules next retry by re-publishing
+  отдельный топик-планировщик; потребитель переотправляет сообщение
+  с задержкой следующей попытки
 ```
 
-### Signing (security)
+### Подпись (безопасность)
 
-**HMAC-SHA256** signature header:
+Заголовок с подписью **HMAC-SHA256**:
 
 ```python
-# Provider:
-secret = customer.webhook_secret  # generated at registration
+# Отправитель:
+secret = customer.webhook_secret  # выдаётся при регистрации
 signature = hmac.new(secret, body, sha256).hexdigest()
 request.headers["X-Signature"] = f"sha256={signature}"
 
-# Consumer:
+# Получатель:
 expected = hmac.new(secret, body, sha256).hexdigest()
 received = request.headers["X-Signature"].split("=")[1]
 if not constant_time_compare(expected, received):
     return 401
 ```
 
-**Anti-replay:** include timestamp в headers, reject if > 5 min old:
+**Защита от повтора:** включаем метку времени в заголовки, отклоняем сообщения старше 5 минут:
 
 ```python
 timestamp = int(request.headers["X-Timestamp"])
@@ -120,179 +120,180 @@ if abs(time.now() - timestamp) > 300:
     return 401
 ```
 
-Sign `timestamp + "." + body`, не just body — иначе attacker может resend old signed message.
+Подписываем `timestamp + "." + body`, а не просто тело — иначе злоумышленник сможет повторно отправить старое подписанное сообщение.
 
-### Failure handling
+### Обработка сбоев
 
-- **Track delivery attempts** в DB (event_id, customer_id, attempts, last_response, status)
-- **Dashboard** for customers — view delivery status, manually retry
-- **Notification** на permanent failure (4xx, или max retries exceeded)
-- **Auto-disable** webhook если все attempts fail (configurable)
+- **Учёт попыток доставки** в БД (event_id, customer_id, attempts, last_response, status)
+- **Панель** для клиентов — статус доставки, ручной повтор
+- **Алерт** при постоянном сбое (4xx или превышение максимума попыток)
+- **Автоотключение** webhook, если все попытки безуспешны (настраивается)
 
-### Rate limiting
+### Ограничение скорости
 
-Don't overwhelm slow consumer. Limit deliveries per consumer:
-- Max 10 concurrent requests
-- Max 100 req/sec
-- If consumer slow → queue grows; alert customer
+Не перегружайте медленного получателя. Лимитируем доставку на одного потребителя:
+- не более 10 одновременных запросов;
+- не более 100 запросов в секунду;
+- если получатель тормозит → очередь растёт; уведомляем клиента.
 
-### Test mode
+### Тестовый режим
 
-Provide endpoint для customer test webhook integration. Send synthetic event при command.
+Предоставьте API, чтобы клиент мог проверить интеграцию. По команде отправляется синтетическое событие.
 
 ```
 POST /api/webhooks/test
   body: { url: "...", event_type: "test" }
-  → your service sends test webhook
+  → сервис отправляет тестовый webhook
 ```
 
 ---
 
-## Design considerations (as consumer)
+## Соображения для получателя
 
-### Idempotency
+### Идемпотентность
 
-**Critical.** Provider retries → expect to receive same event multiple times.
-
-```
-Each webhook event has unique ID. Track processed IDs (Redis с TTL = retention period).
-
-If event_id seen → return 200 без re-processing.
-```
-
-### Process async
-
-**Don't process inline** in webhook handler. Long processing → provider times out → retries (duplicate work + customer thinks it failed).
+**Критично.** Отправитель повторяет доставку → ожидайте получить одно и то же событие несколько раз.
 
 ```
-Pattern:
-  POST handler:
-    1. Verify signature
-    2. Enqueue к internal queue
-    3. Return 200 (within 1-2 seconds)
-  
-  Background worker:
-    1. Pull from queue
-    2. Actually process (can take seconds-minutes)
-    3. Update DB
-    4. Send response (if your business needs)
+У каждого события — уникальный ID. Храните обработанные ID
+(Redis с TTL, равным окну хранения у отправителя).
+
+Если event_id уже встречался → возвращаем 200 без повторной обработки.
 ```
 
-### Signature verification before parsing
+### Асинхронная обработка
 
-Verify HMAC **before** trusting body content. Otherwise attacker can send malformed body that crashes parser.
+**Не обрабатывайте inline** прямо в обработчике webhook. Долгая обработка → отправитель ловит таймаут → повторяет (двойная работа + клиент думает, что произошёл сбой).
 
-### Response semantics
+```
+Шаблон:
+  POST-обработчик:
+    1. Проверка подписи
+    2. Постановка в внутреннюю очередь
+    3. Возврат 200 (за 1–2 секунды)
 
-Most providers:
-- **2xx** → success, no retry
-- **4xx** → permanent failure, may disable webhook
-- **5xx / timeout** → temporary, retry
+  Фоновый обработчик:
+    1. Чтение из очереди
+    2. Реальная обработка (может занять секунды-минуты)
+    3. Обновление БД
+    4. Отправка ответа (если нужно бизнесу)
+```
 
-→ Be careful с `400 Bad Request`: provider может permanently disable webhook (Stripe does after sustained failures). Return 5xx if your service is temporarily down.
+### Проверка подписи до разбора тела
 
-### Logging / observability
+Проверяем HMAC **до** доверия содержимому. Иначе злоумышленник может прислать кривое тело, на котором упадёт парсер.
 
-Log every webhook receipt with event_id, timestamp, processing duration. Crucial for debugging «когда был event N?» (provider claims sent, you say not received).
+### Семантика ответа
+
+Большинство отправителей:
+- **2xx** → успех, повторов нет;
+- **4xx** → постоянный сбой, webhook могут отключить;
+- **5xx / таймаут** → временный сбой, повторят.
+
+→ Аккуратно с `400 Bad Request`: отправитель может навсегда отключить webhook (Stripe так делает после серии сбоев). Если ваш сервис временно недоступен — возвращайте 5xx.
+
+### Логирование и наблюдаемость
+
+Логируйте каждый принятый webhook: event_id, метка времени, длительность обработки. Жизненно важно для разбора «когда было событие N?» (отправитель утверждает, что прислал, вы — что не получили).
 
 ---
 
-## Patterns
+## Шаблоны
 
-### Webhook + reverse API
+### Webhook + обратный API
 
-Provider exposes `GET /events/since/{cursor}` — fallback polling when webhooks unreliable. Consumer can rebuild state if missed webhooks.
+Отправитель предоставляет `GET /events/since/{cursor}` — резервный механизм опроса, когда webhook не приходят. Получатель может восстановить состояние, если пропустил события.
 
-### Webhook fan-out
+### Веерная рассылка (fan-out)
 
-Customer config: «route this event to URL A, URL B, URL C». Provider sends N parallel webhooks.
+Настройки клиента: «маршрутизировать это событие на URL A, URL B, URL C». Отправитель шлёт N параллельных webhook.
 
-### Webhook chain
+### Цепочка webhook
 
-GitHub action triggers webhook → CI service → another webhook → Slack notification. Composable.
+GitHub action → webhook → CI-сервис → ещё один webhook → уведомление в Slack. Композитный приём.
 
-### Webhook + queue + worker
+### Webhook + очередь + обработчик
 
 ```
-Provider → POST your endpoint
-  → SQS queue
-  → worker pool (separate scaling)
-  → process
+Отправитель → POST на ваш endpoint
+  → SQS-очередь
+  → пул обработчиков (масштабируется отдельно)
+  → обработка
 ```
 
-→ Decouples webhook receipt rate от processing rate.
+→ Развязка скорости приёма и скорости обработки.
 
 ---
 
-## Anti-patterns
+## Анти-шаблоны
 
 ### Синхронная тяжёлая обработка
 
-Webhook-handler делает запросы в БД, вызовы внешних API, шлёт email — прямо внутри HTTP-запроса. Timeout → provider ретраит → каскад.
+Обработчик webhook делает запросы в БД, вызовы внешних API, отправляет email — прямо внутри HTTP-запроса. Таймаут → отправитель повторяет → каскад.
 
-→ **Всегда async после проверки подписи.**
+→ **Всегда асинхронно после проверки подписи.**
 
-### Доверие источнику без verification
+### Доверие источнику без проверки подписи
 
-Любой может прислать POST на ваш `/webhooks/stripe` без проверки подписи. Реальный атакующий может подделать события.
+Любой может прислать POST на `/webhooks/stripe` без проверки. Реальный злоумышленник сможет подделать события.
 
 ### Нет идемпотентности
 
-Обработка дубликата → дублирование побочных эффектов (двойной charge, два email).
+Обработка дубликата → дублирование побочных эффектов (двойное списание, два письма).
 
 ### Игнорирование порядка доставки
 
-Webhook'и **не гарантированно** приходят по порядку (сеть, параллельные retry). Не закладывайтесь, что «событие A всегда раньше B». Используйте event timestamps + state machines.
+Webhook **не гарантированно** приходят по порядку (сеть, параллельные повторы). Не закладывайтесь, что «событие A всегда раньше B». Используйте метки времени событий и конечные автоматы.
 
-### Захардкоженные URL'ы
+### Жёстко зашитые URL
 
-URL webhook'ов делать конфигурируемыми (БД / env). Легко ротировать, тестировать, дебажить.
+URL получателей webhook делайте настраиваемыми (БД или переменные окружения). Их легко ротировать, тестировать, дебажить.
 
 ### Нет мониторинга
 
-«Сколько webhook'ов упало сегодня?» — без метрик неясно. Трекать: receipt rate, длительность обработки, failure rate, depth очереди.
+«Сколько webhook упало сегодня?» — без метрик не понять. Снимать: скорость приёма, длительность обработки, долю сбоев, глубину очереди.
 
 ---
 
-## Real-world implementations
+## Реализации в продакшене
 
 ### Stripe
 
-- Idempotency via event ID
-- HMAC SHA256 signature
-- Retry 3 days, 9 attempts
-- Dashboard для customer debugging
-- Webhook events: 100+ types (payment, subscription, refund, dispute)
+- Идемпотентность по event ID
+- Подпись HMAC SHA256
+- Повторы 3 суток, до 9 попыток
+- Панель для отладки клиентами
+- Типы событий: 100+ (payment, subscription, refund, dispute)
 
 ### GitHub
 
-- HMAC SHA256 (separate secret per repo)
-- Retry 8 hours
-- Webhook events: push, PR, issue, release, etc.
-- Web UI: see recent deliveries with full request/response
+- HMAC SHA256 (отдельный секрет на репозиторий)
+- Повторы 8 часов
+- События: push, PR, issue, release и др.
+- Веб-интерфейс с историей последних доставок и полным запросом/ответом
 
 ### Slack Events API
 
-- Real-time message events
-- Auth via request signing
-- 3 retry attempts within 3 hours
+- События сообщений в реальном времени
+- Аутентификация через подпись запроса
+- До 3 повторов в течение 3 часов
 
 ### Twilio
 
-- SMS / call status changes
-- Retry over 24 hours
+- Изменение статуса SMS или звонка
+- Повторы в течение 24 часов
 
 ### Shopify
 
-- 19 retry attempts over 48 hours
-- HMAC with shop-specific secret
-- Webhooks for orders, customers, inventory
+- До 19 повторов в течение 48 часов
+- HMAC с секретом конкретного магазина
+- События: заказы, клиенты, складские остатки
 
 ---
 
 ## Источники
 
-- [Stripe Webhooks Documentation](https://stripe.com/docs/webhooks) — best practice reference
+- [Stripe Webhooks Documentation](https://stripe.com/docs/webhooks) — справочник лучших практик
 - [GitHub Webhooks](https://docs.github.com/en/webhooks)
 - [Slack Events API](https://api.slack.com/apis/connections/events-api)
 - [Standard Webhooks (community spec, 2022)](https://github.com/standard-webhooks/standard-webhooks)

@@ -1,49 +1,49 @@
-# Stream Processing
+# Потоковая обработка
 
-Обработка непрерывных потоков данных в реальном времени: MapReduce → Spark → Flink → Kafka Streams. Архитектурные паттерны: Lambda vs Kappa, stream-table duality, event-time vs processing-time.
+Обработка непрерывных потоков данных в реальном времени: MapReduce → Spark → Flink → Kafka Streams. Архитектурные шаблоны: Lambda против Kappa, дуальность потока и таблицы, время события против времени обработки.
 
-> **Scope:** концепции stream processing. Kafka как broker — в [`kafka.md`](kafka.md). CDC и репликация — в [`databases/REPLICATION.md`](../../databases/theory/REPLICATION.md).
+> **Область:** концепции потоковой обработки. Kafka как брокер — в [`kafka.md`](kafka.md). CDC и репликация — в [`databases/REPLICATION.md`](../../databases/theory/REPLICATION.md).
 
 ---
 
 ## MapReduce (концептуальная основа)
 
-Google, 2004 — парадигмальный сдвиг для batch-обработки.
+Google, 2004 — парадигмальный сдвиг для пакетной обработки.
 
 ```
-INPUT  → MAP (k1, v1) → list((k2, v2))
-                              ↓ shuffle (group by k2)
-       → REDUCE (k2, list(v2)) → list((k3, v3)) → OUTPUT
+ВХОД  → MAP (k1, v1) → list((k2, v2))
+                              ↓ shuffle (группировка по k2)
+       → REDUCE (k2, list(v2)) → list((k3, v3)) → ВЫХОД
 ```
 
-**Пример word count:**
+**Пример: подсчёт слов:**
 ```
 MAP("hello world hello") → [(hello,1), (world,1), (hello,1)]
 SHUFFLE → (hello, [1,1]), (world, [1])
 REDUCE → (hello, 2), (world, 1)
 ```
 
-**Hadoop** — open source MapReduce + HDFS. Batch (часы–дни). Сейчас уже legacy — вытеснен Spark / Flink.
+**Hadoop** — open source MapReduce + HDFS. Пакетная обработка (часы–дни). Сейчас уже унаследованный стек — вытеснен Spark / Flink.
 
 ---
 
 ## Spark
 
-Apache Spark (UC Berkeley, 2010) — обобщение MapReduce с in-memory-вычислениями и lazy DAG.
+Apache Spark (UC Berkeley, 2010) — обобщение MapReduce с вычислениями в памяти и ленивым DAG.
 
 ### RDD (Resilient Distributed Dataset)
 
-Иммутабельная partitioned-коллекция. Вычисления через transformations + actions.
+Неизменяемая партиционированная коллекция. Вычисления через преобразования + действия.
 
 ```python
 rdd = sc.textFile("s3://logs/2024/*.log")
-errors = rdd.filter(lambda line: "ERROR" in line)  # lazy transformation
-count = errors.count()                              # action — запускает выполнение
+errors = rdd.filter(lambda line: "ERROR" in line)  # ленивое преобразование
+count = errors.count()                              # действие — запускает выполнение
 ```
 
 ### DataFrame / Dataset
 
-Высокоуровневые API со схемой. Catalyst optimizer строит более эффективный execution plan.
+Высокоуровневые API со схемой. Catalyst optimizer строит более эффективный план выполнения.
 
 ```python
 df = spark.read.parquet("s3://events/")
@@ -52,60 +52,60 @@ result = df.filter(df.severity == "ERROR").groupBy("service").count()
 
 ### Shuffle
 
-Группировка / join требуют shuffle — пересылку данных между узлами по `hash(key)`. Самая дорогая операция в Spark. Минимизировать: broadcast joins, pre-partitioning.
+Группировка и join требуют shuffle — пересылку данных между узлами по `hash(key)`. Самая дорогая операция в Spark. Минимизируем: broadcast join, предварительное партиционирование.
 
 ### Spark Streaming → Structured Streaming
 
-- **Spark Streaming** (legacy) — micro-batch (1–30 сек). API DStream.
-- **Structured Streaming** (рекомендуется) — тот же DataFrame API + continuous processing.
+- **Spark Streaming** (унаследованный) — микропакетная обработка (1–30 с). API DStream.
+- **Structured Streaming** (рекомендуется) — тот же DataFrame API + непрерывная обработка.
 
-### Use cases
+### Сценарии
 
-- ETL-пайплайны (S3 → трансформации → DWH)
-- ML-пайплайны (Spark MLlib)
-- Batch и near-real-time аналитика
-- **Pinterest, Netflix, Uber** — крупные пользователи Spark
+- ETL-пайплайны (S3 → преобразования → DWH);
+- ML-пайплайны (Spark MLlib);
+- Пакетная и почти-реального-времени аналитика;
+- **Pinterest, Netflix, Uber** — крупные пользователи Spark.
 
 ---
 
 ## Flink
 
-Apache Flink — **настоящий streaming** (per-event, не micro-batch). Лучше для low-latency и exactly-once.
+Apache Flink — **настоящая потоковая обработка** (по событию, а не микропакет). Лучше для низкой задержки и режима exactly-once.
 
 ### Ключевые особенности
 
-- **Event time vs processing time** — обработка по времени **события**, не по времени прихода (для late events / out-of-order)
-- **Watermarks** — эвристика «событий старше X больше не будет»
-- **State** — keyed state на ключ (counter, list, map)
-- **Exactly-once** — через checkpointing + 2PC с sinks
+- **Время события против времени обработки** — обработка по времени **события**, а не по времени прихода (для опоздавших и неупорядоченных событий).
+- **Водяные знаки (watermarks)** — эвристика «событий старше X больше не будет».
+- **Состояние** — состояние по ключу (счётчик, список, словарь).
+- **Exactly-once** — через контрольные точки + двухфазная фиксация (2PC) с приёмниками.
 
-### Watermarks
+### Водяные знаки
 
 ```
-События приходят с timestamps:
+События приходят с метками времени:
   t=1, t=3, t=2 (не по порядку), t=5, t=4 (опоздавшее)
 
-Watermark = «все события старше T мы уже видели»:
-  после t=5 watermark двигается до T=3 (допустимое опоздание 2 сек)
-  → окно [0, 3] закрывается, эмитим результат
+Водяной знак = «все события старше T мы уже видели»:
+  после t=5 водяной знак двигается до T=3 (допустимое опоздание 2 с)
+  → окно [0, 3] закрывается, отдаём результат
 
   приходит t=4:
-    если настроен allowed_lateness — событие принимается, результат обновляется
+    если настроено допустимое опоздание (allowed_lateness) — событие принимается, результат обновляется
     иначе — отбрасывается
 ```
 
-### Use cases
+### Сценарии
 
-- **Uber** — real-time pricing
-- **Netflix** — Mantis (на Flink) для operational monitoring
-- **Alibaba** — аналитика Singles' Day
-- **Lyft** — real-time matching
+- **Uber** — ценообразование в реальном времени;
+- **Netflix** — Mantis (на Flink) для операционного мониторинга;
+- **Alibaba** — аналитика Singles' Day;
+- **Lyft** — сопоставление в реальном времени.
 
 ---
 
 ## Kafka Streams
 
-Библиотека (не отдельный кластер) поверх Kafka. Java/Kotlin-приложение + Streams DSL.
+Библиотека (не отдельный кластер) поверх Kafka. Приложение на Java/Kotlin + DSL Streams.
 
 ```kotlin
 val builder = StreamsBuilder()
@@ -117,186 +117,186 @@ builder.stream<String, String>("orders")
     .to("customer-paid-count")
 ```
 
-### State stores
+### Хранилища состояния
 
-Embedded RocksDB per task. Состояние сохраняется через **changelog topic** (репликация в Kafka).
+Встроенный RocksDB на каждую задачу. Состояние сохраняется через **топик с журналом изменений (changelog topic)** — репликация в Kafka.
 
 ### Преимущества
 
-- ✓ Простота — нет отдельного кластера
-- ✓ Тесная интеграция с Kafka (exactly-once через transactional producer)
-- ✓ Stateful processing
-- ✗ Только Kafka как source / sink
-- ✗ Беднее функционально, чем Flink
+- ✓ Простота — нет отдельного кластера;
+- ✓ Тесная интеграция с Kafka (exactly-once через транзакционный producer);
+- ✓ Обработка с состоянием;
+- ✗ Только Kafka в качестве источника и приёмника;
+- ✗ Функционально беднее, чем Flink.
 
 ### Сравнение
 
 | | Spark | Flink | Kafka Streams |
 |---|---|---|---|
-| Модель | Micro-batch (Structured Streaming) / batch | True streaming | True streaming |
-| Latency | Секунды | Миллисекунды | Миллисекунды |
-| Cluster | Spark cluster (Mesos / YARN / K8s) | Flink cluster | Библиотека в приложении (без отдельного кластера) |
-| Source / Sink | Любые (S3, JDBC, Kafka, …) | Любые | Только Kafka |
-| State | Spark backend | Flink state backends (RocksDB) | RocksDB + Kafka changelog |
+| Модель | Микропакеты (Structured Streaming) / пакеты | Настоящая потоковая | Настоящая потоковая |
+| Задержка | Секунды | Миллисекунды | Миллисекунды |
+| Кластер | Кластер Spark (Mesos / YARN / K8s) | Кластер Flink | Библиотека в приложении (без отдельного кластера) |
+| Источник / приёмник | Любые (S3, JDBC, Kafka, …) | Любые | Только Kafka |
+| Состояние | Бэкенд Spark | Бэкенды состояния Flink (RocksDB) | RocksDB + Kafka changelog |
 | Exactly-once | В Structured Streaming — да | Нативно | Нативно |
-| Window time | И event time, и processing time | Оба | Оба |
+| Время окна | И время события, и время обработки | Оба | Оба |
 
 ---
 
-## Stream vs Batch
+## Поток против пакета
 
-| | Batch | Stream |
+| | Пакетная обработка | Потоковая |
 |---|---|---|
-| Latency | Часы | Секунды–миллисекунды |
-| Данные | Конечные, ограниченные | Бесконечные, unbounded |
-| Re-runs | Просто | Сложно (состояние, время) |
-| Use case | DWH ETL, отчёты | Real-time alerts, dashboards |
+| Задержка | Часы | Секунды–миллисекунды |
+| Данные | Конечные, ограниченные | Бесконечные, неограниченные |
+| Повторные прогоны | Просто | Сложно (состояние, время) |
+| Сценарии | ETL в DWH, отчёты | Алерты и панели реального времени |
 | Инструменты | Spark, Hadoop, dbt | Flink, Kafka Streams, Storm |
 
-### Когда хватает batch
+### Когда хватает пакета
 
-- Отчёты, аналитика «вчера / прошлая неделя»
-- Тяжёлые join'ы на огромных датасетах
-- Обучение ML-моделей (не serving)
+- Отчёты, аналитика «вчера / прошлая неделя»;
+- Тяжёлые join на огромных датасетах;
+- Обучение ML-моделей (не обслуживание).
 
-### Когда нужен stream
+### Когда нужен поток
 
-- Fraud detection (per-transaction)
-- Real-time bidding (ads)
-- Live dashboards
-- IoT-события
-- Алёрты
+- Обнаружение мошенничества (на каждую транзакцию);
+- Рекламные аукционы реального времени;
+- Живые панели;
+- IoT-события;
+- Алерты.
 
 ---
 
-## Lambda Architecture
+## Архитектура Lambda
 
-Сочетание batch + stream ради точности и скорости.
+Сочетание пакетной и потоковой обработки ради точности и скорости.
 
 ```
-Source (Kafka)
-   ├──→ Speed layer (stream, приближённое) → Serving (recent)
-   └──→ Batch layer (Spark, точное)        → Serving (исторические)
+Источник (Kafka)
+   ├──→ Скоростной слой (поток, приближённо) → Обслуживание (свежие данные)
+   └──→ Пакетный слой (Spark, точно)         → Обслуживание (исторические)
 
-Query: union speed + batch
+Запрос: объединение скоростного и пакетного слоёв
 ```
 
-- ✓ Лучшее из двух миров: свежее + точное историческое
-- ✗ **Дублирование кода** (batch и streaming-версии одной логики)
-- ✗ Сложность поддержки
+- ✓ Лучшее из двух миров: свежее + точное историческое;
+- ✗ **Дублирование кода** (пакетная и потоковая версии одной логики);
+- ✗ Сложность поддержки.
 
 Использовалась в Twitter, Netflix (исторически). Сейчас часто заменяется на Kappa.
 
 ---
 
-## Kappa Architecture
+## Архитектура Kappa
 
-Только stream. Stream-задача может reprocess'ить с начала Kafka log.
+Только поток. Потоковая задача может переобрабатывать с начала журнала Kafka.
 
 ```
-Source (Kafka, infinite retention)
+Источник (Kafka, бесконечное хранение)
    ↓
-Stream processing (Flink)
+Потоковая обработка (Flink)
    ↓
-Serving
+Обслуживание
 
-Reprocessing: перезапустить streaming job с offset 0
+Переобработка: перезапустить потоковую задачу со смещения 0
 ```
 
-- ✓ Один codebase
-- ✓ Проще
-- ✗ Reprocess с offset 0 при багфиксе может занять часы
+- ✓ Одна кодовая база;
+- ✓ Проще;
+- ✗ Переобработка со смещения 0 при исправлении ошибки может занять часы.
 
 Jay Kreps (CEO Confluent) предложил Kappa в 2014.
 
 ---
 
-## Stream-Table Duality
+## Дуальность потока и таблицы
 
-Базовое наблюдение: **stream ↔ table** взаимно конвертируемы.
+Базовое наблюдение: **поток ↔ таблица** взаимно конвертируемы.
 
 ```
-Stream событий → накопить → Table (state)
-Table → лог изменений → Stream (CDC)
+Поток событий → накопить → таблица (состояние)
+Таблица → журнал изменений → поток (CDC)
 ```
 
 Следствия:
-- Materialized views = аггрегация поверх stream
-- База данных = compacted log
-- CDC (Debezium) превращает writes в БД в stream-события
+- Материализованные представления = агрегация поверх потока;
+- База данных = сжатый журнал;
+- CDC (Debezium) превращает записи в БД в потоковые события.
 
 Подробно: статья Jay Kreps «The Log» (must-read).
 
 ---
 
-## Window операций
+## Оконные операции
 
-В streaming агрегации делаются над **временными окнами**.
+В потоковой обработке агрегации делаются над **временными окнами**.
 
-### Tumbling windows
+### Падающие окна (tumbling)
 
 Фиксированные, не пересекающиеся.
 
 ```
-[0–60 сек] [60–120 сек] [120–180 сек] ...
+[0–60 с] [60–120 с] [120–180 с] ...
 ```
 
-Use case: счётчики в минуту.
+Сценарий: счётчики в минуту.
 
-### Hopping (sliding) windows
+### Скользящие окна (hopping / sliding)
 
 Пересекающиеся, фиксированный размер + шаг.
 
 ```
-[0–60 сек], [10–70 сек], [20–80 сек], … (size=60, hop=10)
+[0–60 с], [10–70 с], [20–80 с], … (size=60, hop=10)
 ```
 
-Use case: rolling-среднее за минуту, обновляется каждые 10 секунд.
+Сценарий: скользящее среднее за минуту, обновляется каждые 10 с.
 
-### Session windows
+### Сессионные окна
 
-Динамические — группировка событий, близких по времени (gap < threshold).
+Динамические — группировка событий, близких по времени (промежуток < порога).
 
 ```
-события: 0, 5, 10, … (gap=30 сек) …, 45, 50, 55, …
-sessions: [0, 5, 10], [45, 50, 55]
+события: 0, 5, 10, … (промежуток=30 с) …, 45, 50, 55, …
+сессии: [0, 5, 10], [45, 50, 55]
 ```
 
-Use case: анализ сессий пользователей.
+Сценарий: анализ пользовательских сессий.
 
-### Global window
+### Глобальное окно
 
-Все события в одном окне (требует кастомного trigger).
+Все события в одном окне (требует пользовательского триггера).
 
 ---
 
-## State management
+## Управление состоянием
 
-Stream processing — stateful. Состояние per key:
+Потоковая обработка — с состоянием. Состояние на ключ:
 
-- **Counter** — count событий per user
-- **List** — последние события per user
-- **Map** — feature store
+- **Счётчик** — количество событий на пользователя;
+- **Список** — последние события на пользователя;
+- **Словарь** — feature store.
 
 Где хранится состояние:
-- **Embedded RocksDB** — Flink, Kafka Streams. Локальный SSD, репликация через Kafka changelog
-- **Внешнее хранилище** — Redis, Cassandra (медленнее, но shared)
+- **Встроенный RocksDB** — Flink, Kafka Streams. Локальный SSD, репликация через журнал изменений Kafka;
+- **Внешнее хранилище** — Redis, Cassandra (медленнее, но общее).
 
-**Checkpoints** — периодический снапшот всего состояния для recovery после crash. Flink делает асинхронные checkpoints через алгоритм Чэнди — Лэмпорта.
+**Контрольные точки (checkpoints)** — периодический снапшот всего состояния для восстановления после сбоя. Flink делает асинхронные контрольные точки по алгоритму Чэнди — Лэмпорта.
 
 ---
 
-## Exactly-once в streaming
+## Exactly-once в потоковой обработке
 
-Сложнее, чем в batch. Требует:
-1. Идемпотентного чтения source (offset'ы tracked)
-2. Идемпотентной записи в sink (transactional или idempotent operations)
-3. Атомарного checkpoint между ними
-4. На рестарте — продолжить с последнего checkpoint и replay'ить tail
+Сложнее, чем в пакетной. Требует:
+1. Идемпотентного чтения из источника (смещения сохраняются);
+2. Идемпотентной записи в приёмник (транзакционные или идемпотентные операции);
+3. Атомарной контрольной точки между ними;
+4. На рестарте — продолжать с последней контрольной точки и переигрывать хвост.
 
-**Kafka Streams + Kafka sink:** нативный exactly-once через transactional producer.
+**Kafka Streams + приёмник Kafka:** нативный exactly-once через транзакционный producer.
 
-**Flink + внешний sink** (Postgres, Elasticsearch): требуется либо 2-phase commit sink, либо idempotent (UPSERT по ключу) запись.
+**Flink + внешний приёмник** (Postgres, Elasticsearch): требуется либо приёмник с двухфазной фиксацией, либо идемпотентная запись (UPSERT по ключу).
 
 ---
 

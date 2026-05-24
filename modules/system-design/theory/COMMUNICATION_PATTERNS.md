@@ -1,63 +1,63 @@
-# Communication Patterns
+# Шаблоны коммуникации
 
-Способы доставки данных от сервера клиенту: push (notification), long polling, SSE, WebSocket, gRPC streaming. Trade-off между latency, сложностью и стоимостью инфраструктуры.
+Способы доставки данных от сервера клиенту: push-уведомления, длинный опрос (long polling), SSE, WebSocket, потоковая передача gRPC. Компромисс между задержкой, сложностью и стоимостью инфраструктуры.
 
 ---
 
 ## Сравнительная таблица
 
-| Pattern | Направление | Persistent connection | Latency | Подходит для |
-|---------|-------------|----------------------|---------|--------------|
-| **Short polling** | Client → Server (req/resp) | Нет | Интервал опроса | Простые обновления, batch-сценарии |
-| **Long polling** | Client ↔ Server (held resp) | На время ожидания | Близко к real-time | Переход к real-time без отдельной инфраструктуры |
-| **SSE** | Server → Client (one-way) | Да (HTTP) | Real-time | Notifications, логи, news feed |
-| **WebSocket** | Bidirectional | Да | Real-time | Chat, игры, collaborative editing |
-| **gRPC streaming** | Bidirectional (HTTP/2) | Да | Real-time | Internal-сервисы, типизированные контракты |
-| **Webhooks** | Server → внешний Server | Нет (одноразовый HTTP) | Async | B2B-интеграция, асинхронные события |
+| Шаблон | Направление | Постоянное соединение | Задержка | Подходит для |
+|--------|-------------|------------------------|----------|--------------|
+| **Короткий опрос (short polling)** | Клиент → сервер (запрос/ответ) | Нет | Интервал опроса | Простые обновления, пакетные сценарии |
+| **Длинный опрос (long polling)** | Клиент ↔ сервер (удержание ответа) | На время ожидания | Близко к реальному времени | Переход к реальному времени без отдельной инфраструктуры |
+| **SSE** | Сервер → клиент (односторонний) | Да (HTTP) | Реальное время | Уведомления, логи, ленты |
+| **WebSocket** | Двунаправленное | Да | Реальное время | Чат, игры, совместное редактирование |
+| **Потоковая передача gRPC** | Двунаправленное (HTTP/2) | Да | Реальное время | Внутренние сервисы, типизированные контракты |
+| **Webhooks** | Сервер → внешний сервер | Нет (одноразовый HTTP) | Асинхронно | B2B-интеграция, асинхронные события |
 
 ---
 
-## Short Polling
+## Короткий опрос (short polling)
 
 Клиент периодически делает GET; сервер возвращает данные, если они есть.
 
 ```
-Client: GET /messages?since=12345     → 200 [] (нет нового)
-        wait 5 sec
-Client: GET /messages?since=12345     → 200 [{...}] (есть!)
+Клиент: GET /messages?since=12345     → 200 [] (нового нет)
+        ожидание 5 с
+Клиент: GET /messages?since=12345     → 200 [{...}] (есть!)
 ```
 
 - ✓ Простая модель, работает на любом HTTP-сервере
-- ✓ Stateless на стороне сервера
-- ✗ **Latency** = интервал опроса (типично 5–30 сек)
+- ✓ Сервер без состояния
+- ✗ **Задержка** = интервалу опроса (обычно 5–30 с)
 - ✗ Пустые запросы, когда данных нет
 - ✗ Нагрузка на сервер даже при отсутствии событий
 
-**Когда уместно:** обновления редкие, небольшая задержка приемлема (RSS, обновление дашборда).
+**Когда уместно:** обновления редкие, небольшая задержка приемлема (RSS, обновление панели).
 
 ---
 
-## Long Polling
+## Длинный опрос (long polling)
 
-Клиент делает GET; сервер **держит соединение открытым** пока не появится новое сообщение (или не сработает timeout).
+Клиент делает GET; сервер **держит соединение открытым** пока не появится новое сообщение (или не сработает таймаут).
 
 ```
-Client: GET /messages?since=12345
-Server: (ожидает... проверяет очередь каждые 100 мс или по внутреннему событию)
-Server: (приходит сообщение) → 200 [{msg}]
+Клиент: GET /messages?since=12345
+Сервер: (ожидает... проверяет очередь каждые 100 мс или по внутреннему событию)
+Сервер: (приходит сообщение) → 200 [{msg}]
 
 Клиент сразу переоткрывает запрос:
-Client: GET /messages?since=12346     → (ожидает)
+Клиент: GET /messages?since=12346     → (ожидает)
 ```
 
-- ✓ Доставка близко к real-time (миллисекунды после события)
-- ✓ Стандартный HTTP — проходит через proxy и firewall
+- ✓ Доставка близко к реальному времени (миллисекунды после события)
+- ✓ Стандартный HTTP — проходит через прокси и фаерволы
 - ✓ Не требует специальной инфраструктуры
 - ✗ Сервер держит одно соединение на клиента (расход ресурсов)
-- ✗ Overhead на переоткрытие каждые N секунд (server-side timeout)
+- ✗ Оверхед на переоткрытие каждые N секунд (таймаут на стороне сервера)
 - ✗ Тяжелее масштабировать — сервер должен поддерживать много одновременных соединений
 
-**Когда уместно:** приложение почти real-time, но WebSocket-инфраструктуру разворачивать не хочется.
+**Когда уместно:** приложение почти в реальном времени, но WebSocket-инфраструктуру разворачивать не хочется.
 
 Исторически использовали: Facebook Messenger, Gmail.
 
@@ -65,12 +65,12 @@ Client: GET /messages?since=12346     → (ожидает)
 
 ## Server-Sent Events (SSE)
 
-Сервер держит **одно длинное HTTP-соединение** и шлёт данные в формате `text/event-stream`. **One-way** (server → client).
+Сервер держит **одно длинное HTTP-соединение** и шлёт данные в формате `text/event-stream`. **Односторонний канал** (сервер → клиент).
 
 ```
-Client: GET /events
+Клиент: GET /events
         Accept: text/event-stream
-Server: HTTP/1.1 200 OK
+Сервер: HTTP/1.1 200 OK
         Content-Type: text/event-stream
         Cache-Control: no-cache
         Connection: keep-alive
@@ -87,143 +87,143 @@ events.onmessage = (e) => console.log(e.data);
 events.addEventListener('typing', (e) => ...);
 ```
 
-- ✓ **Стандартный HTTP** — проходит через CDN, proxy, firewall
-- ✓ Auto-reconnect встроен в браузер
+- ✓ **Стандартный HTTP** — проходит через CDN, прокси, фаерволы
+- ✓ Автоматическое переподключение встроено в браузер
 - ✓ Простой текстовый протокол
-- ✗ **One-way** — обратный канал нужно делать отдельно (например, через POST)
-- ✗ Лимит браузера — 6 соединений на origin
-- ✗ Бинарные данные нативно не поддерживаются (текст-based протокол)
+- ✗ **Только в одну сторону** — обратный канал нужно делать отдельно (например, через POST)
+- ✗ Лимит браузера — 6 соединений на источник
+- ✗ Бинарные данные нативно не поддерживаются (текстовый протокол)
 
-**Когда использовать:** server → client notifications (real-time логи, котировки, события). Современная альтернатива long polling — строго лучше для one-way push.
+**Когда использовать:** уведомления сервер → клиент (логи реального времени, котировки, события). Современная альтернатива длинному опросу — строго лучше для односторонней отправки.
 
 ---
 
 ## WebSocket
 
-**Bidirectional**, persistent TCP-соединение через HTTP Upgrade. Бинарные или текстовые фреймы.
+**Двунаправленное** постоянное TCP-соединение через HTTP Upgrade. Бинарные или текстовые кадры.
 
 ```
-Client: GET /chat HTTP/1.1
+Клиент: GET /chat HTTP/1.1
         Upgrade: websocket
         Connection: Upgrade
         Sec-WebSocket-Key: ...
 
-Server: HTTP/1.1 101 Switching Protocols
+Сервер: HTTP/1.1 101 Switching Protocols
         Upgrade: websocket
         Sec-WebSocket-Accept: ...
 
-(дальше — обычный bidirectional TCP-канал)
-Client → Server: msg1
-Server → Client: msg2 (в любой момент)
-Client → Server: msg3
+(дальше — обычный двунаправленный TCP-канал)
+Клиент → сервер: msg1
+Сервер → клиент: msg2 (в любой момент)
+Клиент → сервер: msg3
 ```
 
-- ✓ Настоящий bidirectional real-time
-- ✓ Низкий overhead — HTTP-заголовков на каждое сообщение нет
+- ✓ Настоящий двунаправленный канал в реальном времени
+- ✓ Низкие оверхед — HTTP-заголовков на каждое сообщение нет
 - ✓ Поддержка бинарных данных
 - ✗ Не кэшируется, плохо подходит для CDN
-- ✗ Stateful — нужны sticky session или внешнее хранение состояния
-- ✗ Проблемы с firewall и proxy — некоторые corporate proxy блокируют upgrade
+- ✗ С состоянием — нужны стики-сессия (sticky session) или внешнее хранение состояния
+- ✗ Проблемы с фаерволами и прокси — некоторые корпоративные прокси блокируют upgrade
 - ✗ Масштабирование непростое — миллионы одновременных соединений
 
-**Use cases:** chat (WhatsApp, Slack, Discord), real-time-игры, collaborative editing (Figma, Google Docs), live-дашборды (trading), IoT.
+**Сценарии:** чат (WhatsApp, Slack, Discord), игры реального времени, совместное редактирование (Figma, Google Docs), панели реального времени (биржевая торговля), IoT.
 
 **Инфраструктура:**
-- Load balancer с поддержкой WebSocket (AWS ALB, HAProxy, Envoy)
-- Управление состоянием соединений (например, Redis pub/sub для cross-server messaging)
-- Sticky session либо pub/sub-«хребет» между серверами
+- балансировщик нагрузки с поддержкой WebSocket (AWS ALB, HAProxy, Envoy);
+- управление состоянием соединений (например, Redis pub/sub для межсерверной рассылки);
+- привязка сессии либо «хребет» из pub/sub между серверами.
 
 ---
 
-## gRPC streaming
+## Потоковая передача gRPC
 
-HTTP/2-based RPC. Поддерживает 4 паттерна:
-- **Unary** — request/response (как REST)
-- **Server streaming** — один request, сервер стримит много response'ов
-- **Client streaming** — клиент стримит много request'ов, один response
-- **Bidirectional streaming** — обе стороны стримят одновременно
+RPC поверх HTTP/2. Поддерживает 4 шаблона:
+- **Унарный (unary)** — запрос/ответ (как REST);
+- **Поток от сервера (server streaming)** — один запрос, сервер шлёт поток ответов;
+- **Поток от клиента (client streaming)** — клиент шлёт поток запросов, сервер один ответ;
+- **Двунаправленный поток (bidirectional streaming)** — обе стороны шлют потоки одновременно.
 
 ```protobuf
 service Notifications {
-  rpc Subscribe(SubscribeRequest) returns (stream NotificationEvent);  // server stream
-  rpc Chat(stream ChatMessage) returns (stream ChatMessage);            // bidi
+  rpc Subscribe(SubscribeRequest) returns (stream NotificationEvent);  // поток от сервера
+  rpc Chat(stream ChatMessage) returns (stream ChatMessage);            // двунаправленный
 }
 ```
 
 - ✓ Строго типизированные контракты (Protobuf)
-- ✓ HTTP/2 multiplexing — одно соединение, много streams
+- ✓ Мультиплексирование HTTP/2 — одно соединение, много потоков
 - ✓ Эффективный бинарный формат
-- ✓ Code generation для большинства языков
-- ✗ Не нативен для браузера (нужен gRPC-Web прокси)
-- ✗ Сложнее дебажить, чем JSON over HTTP
+- ✓ Генерация кода для большинства языков
+- ✗ Не нативен для браузера (нужен прокси gRPC-Web)
+- ✗ Сложнее дебажить, чем JSON поверх HTTP
 - ✗ Не кэшируется так, как REST
 
-**Use cases:** internal микросервисы (особенно Java / Go / Rust), мобильные клиенты iOS/Android (gRPC native), высокопроизводительные API.
+**Сценарии:** внутренние микросервисы (особенно Java / Go / Rust), мобильные клиенты iOS/Android (нативный gRPC), высокопроизводительные API.
 
-**Real-world:** Google internal (родина gRPC), Netflix (internal), Lyft, Square.
+**В продакшене:** Google внутри (родина gRPC), Netflix (внутри), Lyft, Square.
 
 ---
 
 ## Сравнение по сценариям
 
-### Real-time chat
+### Чат в реальном времени
 
-WebSocket (bidirectional). Discord, Slack, WhatsApp.
+WebSocket (двунаправленный). Discord, Slack, WhatsApp.
 
-### Live news feed / dashboard
+### Лента новостей или дашборд в реальном времени
 
-SSE (one-way push достаточно). Twitter timeline, котировки, лог-стримы.
+SSE (достаточно односторонней отправки). Лента Twitter, котировки, потоковая передача логов.
 
-### Mobile push notifications
+### Push-уведомления на мобильных
 
-**APNs / FCM** — не WebSocket. Native push delivery от Apple / Google. Сервер шлёт push через API APNs/FCM; ОС доставляет, даже если приложение не запущено.
+**APNs / FCM** — не WebSocket. Нативная доставка push от Apple и Google. Сервер шлёт push через API APNs/FCM; ОС доставляет уведомление, даже если приложение не запущено.
 
-### Order matching / trading
+### Сопоставление ордеров и торговля
 
-gRPC bidirectional (Lyft, Robinhood) — типизированные сообщения, низкая latency, internal-only.
+Двунаправленный gRPC (Lyft, Robinhood) — типизированные сообщения, низкая задержка, только внутренние сервисы.
 
-### Multiplayer game
+### Многопользовательская игра
 
-WebSocket для tick-based-логики, UDP (WebRTC data channels) для low-latency action.
+WebSocket для пошаговой логики, UDP (WebRTC data channels) для экшена с минимальной задержкой.
 
-### Webhook (B2B integration)
+### Webhook (B2B-интеграция)
 
-External server → ваш сервер через HTTP POST. Async, retry on failure.
+Внешний сервер → ваш сервер через HTTP POST. Асинхронно, повтор при сбое.
 
 ---
 
-## Backpressure
+## Обратное давление (backpressure)
 
-В streaming-протоколах producer может быть быстрее consumer'а. Без backpressure → переполнение памяти.
+В потоковых протоколах производитель может быть быстрее потребителя. Без обратного давления — переполнение памяти.
 
-### Reactive Streams spec
+### Спецификация Reactive Streams
 
-Стандартизированный API в Java (`Flow.Subscriber`), RxJava, Reactor, Akka. Consumer сигнализирует «request N more items» — producer не шлёт больше, чем запрошено.
+Стандартизированный API в Java (`Flow.Subscriber`), RxJava, Reactor, Akka. Потребитель сигнализирует «нужно ещё N элементов» — производитель не шлёт больше запрошенного.
 
 ```java
 Subscription.request(n)  // могу обработать ещё n
-Producer: эмитит до n элементов, дальше ждёт следующий request
+Производитель: эмитит до n элементов, дальше ждёт следующий request
 ```
 
-### Kafka consumer
+### Потребитель Kafka
 
-Pull-based: consumer сам вызывает `poll()`. Если он медленный — Kafka хранит сообщения до тех пор, пока consumer не догонит (в пределах retention).
+Pull-модель: потребитель сам вызывает `poll()`. Если он медленный — Kafka хранит сообщения, пока потребитель не догонит (в пределах окна хранения).
 
-### gRPC streaming flow control
+### Управление потоком в gRPC
 
-В HTTP/2 встроен flow control (window size). gRPC наследует его — consumer не будет завален.
+В HTTP/2 встроено управление потоком (window size). gRPC наследует его — потребителя не завалят.
 
 ### WebSocket
 
-Встроенного flow control нет. **Приложение реализует само** — явные ACK, throttling, либо client-side backpressure-сигнал.
+Встроенного управления потоком нет. **Реализуется приложением** — явные подтверждения, ограничение скорости либо сигнал обратного давления со стороны клиента.
 
 ---
 
 ## Webhooks
 
-Server-to-server асинхронные уведомления. «Когда происходит событие X — отправь POST на этот URL».
+Асинхронные уведомления между серверами. «Когда происходит событие X — отправь POST на этот URL».
 
-### Pattern
+### Шаблон
 
 ```
 Stripe → POST https://yourapp.com/webhooks/stripe
@@ -231,59 +231,59 @@ Stripe → POST https://yourapp.com/webhooks/stripe
   headers: { Stripe-Signature: ... }
 
 Ваше приложение:
-  - проверить подпись (HMAC)
-  - обработать идемпотентно
-  - вернуть 200 (5xx → retry от отправителя)
+  - проверяет подпись (HMAC)
+  - обрабатывает идемпотентно
+  - возвращает 200 (5xx → отправитель повторит)
 ```
 
 ### Семантика доставки
 
-- **At-least-once delivery** — отправитель повторяет при 5xx или timeout
-- **Идемпотентность receiver** — обязательна (один event ID → одна обработка)
-- **Retry policy** — exponential backoff (Stripe: 3 дня, ~9 попыток; Slack: 3 часа)
-- **DLQ на стороне receiver** — неудачные обработки складываются для разбора вручную
+- **At-least-once** — отправитель повторяет при 5xx или таймауте;
+- **Идемпотентность получателя** обязательна (один event_id → одна обработка);
+- **Политика повторов** — экспоненциальная задержка (Stripe: 3 суток, ~9 попыток; Slack: 3 часа);
+- **Очередь недоставленных сообщений (DLQ) на стороне получателя** — неудачные обработки складываются для разбора вручную.
 
 ### Безопасность
 
-- **HMAC signature** — отправитель подписывает тело общим секретом, receiver проверяет → защита от подделки
-- **Защита от replay attack** — включить timestamp в payload, отвергать устаревшие запросы
-- **Allowlist по IP отправителя** — дополнительная мера
-- **mTLS** — для критичного B2B (банкинг, healthcare)
+- **Подпись HMAC** — отправитель подписывает тело общим секретом, получатель проверяет → защита от подделки;
+- **Защита от повтора (anti-replay)** — включить метку времени в полезную нагрузку, отвергать устаревшие запросы;
+- **Список разрешённых IP отправителя** — дополнительная мера;
+- **mTLS** — для критичных B2B-интеграций (банкинг, здравоохранение).
 
 ### Примеры
 
-- Stripe webhooks (события платежей)
-- GitHub webhooks (push, PR, issue events)
-- Slack Event API (сообщения, упоминания)
-- Twilio (статусы доставки SMS)
-- Shopify (события заказов и клиентов)
+- Stripe webhooks (события платежей);
+- GitHub webhooks (push, события PR и issue);
+- Slack Event API (сообщения, упоминания);
+- Twilio (статусы доставки SMS);
+- Shopify (события заказов и клиентов).
 
 ---
 
-## Scaling considerations
+## Соображения масштабирования
 
 ### Миллионы одновременных WebSocket-соединений
 
-- **L4 LB (NLB)** — pass-through, не терминирует. WebSocket обрабатывается на backend.
-- **Sticky session** — один и тот же пользователь приходит на тот же backend (либо stateless через Redis pub/sub)
-- **Лимит соединений на backend** — настраивается (на Linux достижимо 1M+ файловых дескрипторов на процесс)
-- **Память на соединение** — минимизировать (не хранить тяжёлое состояние per session)
-- **Heartbeat / ping** — каждые ~30 сек, удалять мёртвые соединения
+- **L4-балансировщик (NLB)** — pass-through, не терминирует TLS. WebSocket обрабатывается на бэкенде.
+- **Стики-сессия (sticky session)** — один и тот же пользователь приходит на тот же бэкенд (либо без состояния через Redis pub/sub).
+- **Лимит соединений на бэкенд** — настраивается (на Linux достижимо 1M+ файловых дескрипторов на процесс).
+- **Память на соединение** — минимизировать (не хранить тяжёлое состояние сессии).
+- **Heartbeat / ping** — каждые ~30 с, удалять мёртвые соединения.
 
 **Цифры из практики:**
-- WhatsApp на Erlang: 2M одновременных соединений на сервер (2012)
-- Discord на Elixir: ~1.2M на сервер
-- Кастомные C++ серверы: 5M+
+- WhatsApp на Erlang: 2M одновременных соединений на сервер (2012);
+- Discord на Elixir: ~1,2M на сервер;
+- Самописные сервера на C++: 5M+.
 
-### SSE scaling
+### Масштабирование SSE
 
-- **CDN не помогает** (long-lived соединение, не кэшируется)
-- Похоже на WebSocket — инфраструктура «соединение на пользователя»
-- Чуть проще — это просто долгий HTTP, без upgrade handshake
+- **CDN не помогает** (долго живущее соединение, не кэшируется).
+- Похоже на WebSocket — инфраструктура «соединение на пользователя».
+- Чуть проще — это просто долгий HTTP, без рукопожатия upgrade.
 
 ### Гибрид
 
-Многие системы: SSE / WebSocket для активных пользователей + push notifications (APNs/FCM) для неактивных (приложение закрыто). Лучше для батареи на мобильных.
+Многие системы: SSE или WebSocket для активных пользователей + push-уведомления (APNs/FCM) для неактивных (приложение закрыто). Лучше для расхода батареи на мобильных.
 
 ---
 
@@ -294,7 +294,7 @@ Stripe → POST https://yourapp.com/webhooks/stripe
 - [HTML5 EventSource MDN](https://developer.mozilla.org/en-US/docs/Web/API/EventSource)
 - [gRPC Documentation](https://grpc.io/docs/)
 - [Reactive Streams Specification](https://www.reactive-streams.org/)
-- [Discord Engineering — Scaling to 11M+ concurrent users](https://discord.com/blog/) — WebSocket-инфраструктура на Elixir/Erlang
+- [Discord Engineering — Scaling to 11M+ concurrent users](https://discord.com/blog/) — инфраструктура WebSocket на Elixir/Erlang
 - [WhatsApp — Erlang scalability](https://www.erlang-solutions.com/blog/the-genius-of-the-erlang-scheduler-and-the-tracing-tools-of-the-erlang-vm/)
 - [Stripe — Designing webhooks](https://stripe.com/docs/webhooks)
 - [Discord — Voice servers WebRTC](https://discord.com/blog/how-discord-handles-two-and-half-million-concurrent-voice-users-using-webrtc)
