@@ -1,64 +1,64 @@
 # Design Problem: Web Crawler
 
-Periodically download web pages для индексации (search engine), monitoring (price tracking), archival (Wayback Machine). Главные challenges: scale, politeness (don't DDoS sites), dedup, content extraction.
+Периодически качает веб-страницы для индексации (search engine), мониторинга (price tracking), архивации (Wayback Machine). Главные challenges: масштаб, politeness (не «дудосить» сайты), дедупликация, извлечение контента.
 
 ---
 
 ## 1. Requirements
 
 ### Functional
-- Start с seed URLs
-- Crawl pages, extract text + outgoing links
-- Follow links (BFS / DFS)
-- Re-crawl pages periodically (freshness)
-- Respect robots.txt
-- Store crawled content для downstream processing
+- Старт с seed URLs
+- Crawl страниц, извлечение текста + исходящих ссылок
+- Переход по ссылкам (BFS / DFS)
+- Периодический re-crawl (свежесть)
+- Уважать robots.txt
+- Хранить скачанный контент для дальнейшей обработки
 
 ### Non-functional
-- **Politeness** — не overwhelm target servers (rate limit per domain)
-- **Scale** — billions of pages
-- **Freshness** — recent pages re-crawled within days
-- **Robust** — handle errors, dynamic content, redirects
+- **Politeness** — не перегружать target-серверы (rate-limit per domain)
+- **Масштаб** — миллиарды страниц
+- **Свежесть** — популярные страницы переcrawl'иваются за дни
+- **Robust** — обработка ошибок, динамический контент, redirects
 
 ---
 
 ## 2. Estimation
 
 ```
-Web: ~ 50B unique pages (rough estimate)
-Re-crawl: top 1B daily, rest weekly/monthly
-  → ~ 10K-100K downloads/sec sustained
+Web: ~50B уникальных страниц (грубо)
+Re-crawl: top 1B ежедневно, остальные раз в неделю/месяц
+  → ~10K–100K скачиваний в секунду в среднем
 
-Storage per page (HTML + extracted text):
-  Avg 100 KB raw, 20 KB extracted text
-  10B pages × 100 KB = 1 PB raw + 200 TB extracted
+Storage на страницу (HTML + извлечённый текст):
+  В среднем 100 КБ raw, 20 КБ extracted
+  10B страниц × 100 КБ = 1 ПБ raw + 200 ТБ extracted
 
-Bandwidth: 10K req/sec × 100 KB = 1 GB/sec ingress
+Bandwidth: 10K req/sec × 100 КБ = 1 ГБ/сек ingress
 ```
 
 ---
 
-## 3. Architecture
+## 3. Архитектура
 
 ```
-Seed URLs → 
+Seed URLs →
 URL Frontier (priority queue per domain)
   ↓
 URL Selector (политика, robots.txt) →
 DNS Resolver (cached) →
-HTTP Fetcher (pool of crawlers, async I/O)
+HTTP Fetcher (пул crawler'ов, async I/O)
   ↓
 Response →
-Content Parser (extract text + links)
+Content Parser (извлечение текста + ссылок)
   ↓
-  ├── New URLs → URL Frontier (back to queue)
-  ├── Extracted content → Content Store (S3 / HDFS)
-  ├── Dedup check → Bloom Filter / Content Hash DB
+  ├── Новые URL → URL Frontier (обратно в очередь)
+  ├── Извлечённый контент → Content Store (S3 / HDFS)
+  ├── Dedup-проверка → Bloom Filter / Content Hash DB
   └── Metadata DB (PostgreSQL / Cassandra)
-       
-Downstream:
+
+Дальше:
   - Indexer → Inverted Index (Elasticsearch)
-  - Analytics
+  - Аналитика
 ```
 
 ---
@@ -67,70 +67,70 @@ Downstream:
 
 Priority queue для предстоящих URL.
 
-### Politeness — main constraint
+### Politeness — главное ограничение
 
-Не более 1-2 connections / requests per domain per second.
+Не более 1–2 соединений / запросов на домен в секунду.
 
 ```
 Frontier:
-  Per-domain queue: URLs для example.com all in one sub-queue
-  Politeness scheduler: at most N concurrent crawlers per domain
-  Across all domains: parallel
+  Per-domain queue: URL example.com все в одной подочереди
+  Politeness-планировщик: максимум N одновременных crawler'ов на домен
+  Между доменами: параллельно
 ```
 
-Implementation:
-- Redis sorted set per domain: `domain:example.com` with score=enqueue_time
-- N crawler workers, each gets URL from a different domain queue (round-robin)
-- Sleep / hold за политики delay (e.g., min 1 sec between same-domain requests)
+Реализация:
+- Redis sorted set на домен: `domain:example.com` со score=enqueue_time
+- N crawler-worker'ов, каждый берёт URL из разных доменов (round-robin)
+- Sleep / задержки по политике (например, минимум 1 сек между запросами к одному домену)
 
-### Priority
+### Приоритеты
 
-Not all URLs equal:
-- Popular sites — high priority (refresh often)
-- Discovered new URLs — medium
-- Long-tail / low-PR — low
+Не все URL равны:
+- Популярные сайты — высокий приоритет (refresh чаще)
+- Новые обнаруженные URL — средний
+- Длинный хвост / низкий PR — низкий
 
-Multi-level priority queue: tiers for priorities. Crawl higher tiers more frequently.
+Многоуровневая priority queue: тиры по приоритетам. Верхние тиры crawl'им чаще.
 
-### Dedup queue
+### Dedup очереди
 
-URL уже crawled / in queue? Bloom Filter (fast «maybe yes» check) + DB lookup для confirmed.
+URL уже crawl'ился / в очереди? Bloom Filter (быстрая проверка «вероятно да») + DB lookup для подтверждения.
 
 ```python
 if not bloom.contains(url):
     bloom.add(url)
     enqueue(url)
-elif not db.exists(url):  # bloom false positive check
+elif not db.exists(url):  # проверка bloom false positive
     bloom.add(url)
     enqueue(url)
-# else: skip duplicate
+# иначе: пропускаем дубль
 ```
 
 ---
 
 ## 5. DNS Resolver
 
-DNS for each URL adds latency. Cache:
+DNS на каждый URL добавляет latency. Кэшируем:
 
 ```
-DNS cache:
+DNS-кэш:
   domain → (ip, ttl)
-  Hit: skip DNS query
-  Miss: resolve, cache for TTL
+  Hit: пропускаем DNS-запрос
+  Miss: резолвим, кэшируем на TTL
 
-Local DNS server (bind, unbound) doing recursion + caching.
+Локальный DNS-сервер (bind, unbound) делает рекурсию + кэширование.
 ```
 
-Without cache: each crawl = DNS query = 10-100 ms overhead.
+Без кэша: каждый crawl = DNS-запрос = 10–100 мс overhead.
 
 ---
 
 ## 6. HTTP Fetcher
 
-Async I/O (Java NIO, Go goroutines, Python asyncio) для massive concurrency на single machine.
+Async I/O (Java NIO, Go goroutines, Python asyncio) для массовой concurrency на одной машине.
 
 ```python
-# Pseudo-async
+# Псевдо-асинхронно
 async def crawl(url):
     response = await http.get(url, timeout=10, follow_redirects=True)
     if response.status == 200:
@@ -146,15 +146,15 @@ async def crawl(url):
         log_failure(url, response.status)
 ```
 
-**Connection pool** — reuse TCP/TLS connections.
+**Connection pool** — переиспользуем TCP/TLS-соединения.
 
-**Per-host concurrency limit** — max 5 connections / host.
+**Per-host concurrency limit** — максимум 5 соединений на host.
 
 ---
 
 ## 7. Robots.txt
 
-Каждый сайт может specify crawler rules:
+Сайт может задать правила для crawler'ов:
 
 ```
 example.com/robots.txt:
@@ -172,60 +172,60 @@ for url in domain_urls:
     sleep(robots.crawl_delay or 1)
 ```
 
-Cache robots.txt per domain (TTL 24 hours).
+Кэшируем robots.txt на домен (TTL 24 часа).
 
 ---
 
-## 8. Content extraction
+## 8. Извлечение контента
 
-### Parse HTML
+### Парсинг HTML
 
-Extract:
-- Title, meta tags
-- Body text (strip HTML)
-- Outgoing links (`<a href>`)
+Извлекаем:
+- Title, meta-теги
+- Body-текст (без HTML)
+- Исходящие ссылки (`<a href>`)
 - Canonical URL (`<link rel="canonical">`)
 
-Libraries: BeautifulSoup, jsoup (Java), readability.js.
+Библиотеки: BeautifulSoup, jsoup (Java), readability.js.
 
-### Detect language
+### Определение языка
 
-For multi-lingual indexing — language detect (cld3, langdetect).
+Для мультиязычной индексации — детект языка (cld3, langdetect).
 
-### Detect duplicates
+### Поиск дубликатов
 
-Same content на разных URLs:
-- Content hash (SHA-256) — exact match
-- SimHash / MinHash — near-duplicate detection (small differences)
+Один и тот же контент на разных URL:
+- Content hash (SHA-256) — точное совпадение
+- SimHash / MinHash — near-duplicate detection (небольшие отличия)
 
 ```
 content_hash = SHA256(extracted_text)
-if exists в Bloom + DB → mark as duplicate of canonical URL
-else → store
+если есть в Bloom + DB → помечаем как дубль canonical URL
+иначе → сохраняем
 ```
 
-### Extract structured data
+### Извлечение структурированных данных
 
 - JSON-LD, microdata, Open Graph
-- Product info, prices, reviews (semantic)
+- Данные о товарах, цены, отзывы (семантика)
 
 ---
 
-## 9. Storage
+## 9. Хранилище
 
-### Raw HTML
+### Сырой HTML
 
-S3 / HDFS, partitioned by date/domain.
+S3 / HDFS, партиционирование по дате/домену.
 
 ```
 s3://crawler-raw/2024/01/15/example.com/<url-hash>.html.gz
 ```
 
-Compressed gzip — text compresses 5-10×.
+Сжатие gzip — текст ужимается в 5–10 раз.
 
-### Extracted text
+### Извлечённый текст
 
-Smaller, queried more often. Cassandra или Parquet on S3.
+Меньше, запрашивается чаще. Cassandra или Parquet на S3.
 
 ### Metadata
 
@@ -246,67 +246,67 @@ CREATE INDEX idx_last_crawled ON pages(last_crawled_at);
 
 ---
 
-## 10. Re-crawl strategy
+## 10. Стратегия re-crawl
 
-URLs re-crawled с разной частотой based on:
-- **Update frequency** (news site every hour vs static blog monthly)
-- **PageRank / importance** — popular pages more often
-- **Last-modified header** — site hint
+URL переcrawl'иваются с разной частотой на основе:
+- **Частоты обновлений** (новостной сайт — ежечасно vs статический блог — раз в месяц)
+- **PageRank / важности** — популярные страницы чаще
+- **Last-modified header** — подсказка сайта
 
 ```
 re_crawl_interval = base_interval × importance_factor × update_frequency_factor
 
-Top 1M pages → daily
-Next 100M → weekly  
-Rest → monthly
+Top 1M страниц → ежедневно
+Следующие 100M → еженедельно
+Остальные → ежемесячно
 ```
 
-Scheduling: each crawled page enqueued back с future timestamp.
+Планирование: каждая crawl'нутая страница ставится обратно в очередь с future timestamp.
 
 ---
 
 ## 11. Distributed crawlers
 
-Single machine — 10K-100K req/sec max (network bound). For 1B+ pages/day → multiple machines.
+Одна машина — 10K–100K req/sec максимум (упирается в сеть). Для 1B+ страниц в день — несколько машин.
 
-### Sharding strategy
+### Стратегия шардирования
 
-Partition by **domain hash** — все URLs одного domain crawled by single worker (preserves politeness).
+Партиционирование по **хэшу домена** — все URL одного домена обрабатываются одним worker'ом (сохраняем politeness).
 
 ```
 crawler_id = hash(domain) % N_crawlers
 ```
 
-URL Frontier itself distributed — Redis Cluster shards by domain.
+Сам URL Frontier тоже распределён — Redis Cluster шардирует по домену.
 
-### Coordination
+### Координация
 
-- New URLs found by crawler A → publish к queue (Kafka)
-- Other crawlers consume their domain partitions
+- Новые URL найдены crawler'ом A → публикация в очередь (Kafka)
+- Другие crawler'ы читают свои партиции
 
 ---
 
 ## 12. Failure modes
 
-| Scenario | Handling |
-|----------|----------|
-| Crawler crashes | URLs остались в queue, другой worker picks up |
-| Site returns 503 | Backoff, retry later (don't hammer) |
-| Infinite loop (calendar spider trap) | Max depth per domain, dup URL detection |
-| Bad SSL certs | Skip or accept based on policy |
-| Slow site | Timeout (10 sec), retry с backoff |
-| Robots.txt unavailable | Default to «allowed everything»? Or «default deny»? (policy decision) |
+| Сценарий | Обработка |
+|----------|-----------|
+| Crawler упал | URL остались в очереди, другой worker подхватывает |
+| Сайт отвечает 503 | Backoff, retry позже (не долбим) |
+| Бесконечный цикл (календарь-spider trap) | Лимит глубины на домен, дедупликация URL |
+| Битые SSL-сертификаты | Skip или принимаем по политике |
+| Медленный сайт | Timeout (10 сек), retry с backoff |
+| Robots.txt недоступен | Default = «всё разрешено»? Или «default deny»? (выбор политики) |
 
 ---
 
-## 13. Anti-patterns / Anti-detection
+## 13. Antipatterns / anti-detection
 
-Some sites block crawlers actively:
-- **User-Agent identification** — declare yourself (Googlebot/2.1; etc.)
-- **Rate limiting** — respect 429
-- **JavaScript rendering** — modern sites SPA, need headless browser (Puppeteer, Playwright)
-- **CAPTCHA** — usually skip those pages
-- **Honeypot links** — hidden links, follow → marked as bot
+Часть сайтов активно блокирует crawler'ов:
+- **Идентификация User-Agent** — представляться (Googlebot/2.1; и т. д.)
+- **Rate limiting** — уважать 429
+- **JavaScript rendering** — современные SPA требуют headless-браузер (Puppeteer, Playwright)
+- **CAPTCHA** — обычно такие страницы пропускаем
+- **Honeypot-ссылки** — скрытые ссылки, переход по которым → пометка «бот»
 
 ---
 
@@ -314,39 +314,39 @@ Some sites block crawlers actively:
 
 ### BFS vs DFS
 
-- **BFS** (default) — explores by distance from seed, balanced
-- **DFS** — deep into one branch, можно stuck в large site
+- **BFS** (по умолчанию) — обходит по расстоянию от seed, сбалансированно
+- **DFS** — глубоко в одну ветку, может застрять на большом сайте
 
-Most crawlers BFS-ish (priority queue overrides).
+Большинство crawler'ов — BFS-подобные (priority queue перетягивает порядок).
 
 ### Politeness vs throughput
 
-Strict politeness (1 req/sec/domain) — many small sites slow, fewer big sites bottleneck.
-Aggressive — risk IP bans, harm sites.
+Строгая politeness (1 req/sec/domain) — медленно на множестве маленьких сайтов, узкое место на больших.
+Агрессивный crawler — риск IP-банов, вред сайтам.
 
-Tune per domain based on response times и `Crawl-delay`.
+Тюнить per domain по response time и `Crawl-delay`.
 
 ### Real-time vs batch
 
-Search engines: real-time (continuous). 
-Archival (Wayback): batch (full crawl periodically).
+Search-движки: real-time (непрерывно).
+Архивы (Wayback): batch (полный crawl периодически).
 
 ---
 
 ## 15. Real-world
 
-- **Googlebot** — most advanced crawler, billions of pages indexed
-- **Bingbot, Yandex, Baidu** — similar
-- **Internet Archive (Wayback Machine)** — archival
-- **Common Crawl** — open crawl dumps, monthly, free dataset
+- **Googlebot** — самый продвинутый crawler, миллиарды страниц проиндексированы
+- **Bingbot, Yandex, Baidu** — аналогично
+- **Internet Archive (Wayback Machine)** — архивный
+- **Common Crawl** — открытые crawl-дампы ежемесячно, бесплатный датасет
 
 ---
 
 ## Источники
 
-- *System Design Interview Vol. 1* (Alex Xu) — Ch. 9 «Design a Web Crawler»
+- *System Design Interview Vol. 1* (Alex Xu) — глава 9 «Design a Web Crawler»
 - [donnemartin/system-design-primer — Web Crawler](https://github.com/donnemartin/system-design-primer/blob/master/solutions/system_design/web_crawler/README.md)
 - [Common Crawl Documentation](https://commoncrawl.org/the-data/)
 - [Apache Nutch Documentation](https://nutch.apache.org/) — open-source crawler
 - [Heritrix (Internet Archive crawler)](https://github.com/internetarchive/heritrix3)
-- *Web Crawler/Search Engine* (Bing/Yahoo papers historically)
+- *Web Crawler / Search Engine* (исторические работы Bing/Yahoo)

@@ -1,41 +1,41 @@
 # Design Problem: Search Autocomplete (Typeahead)
 
-Suggest queries as user types. Google search box, Amazon product search, Twitter mentions. Latency-critical (50-100 ms per keystroke), ranking by popularity.
+Подсказывать запросы по мере набора. Google search box, поиск товаров на Amazon, упоминания в Twitter. Latency-критично (50–100 мс на keystroke), ранжирование по популярности.
 
-> **Scope**: design-level. Trie теория — [`TRIE.md`](TRIE.md).
+> **Scope:** уровень дизайна. Теория Trie — в [`TRIE.md`](TRIE.md).
 
 ---
 
 ## 1. Requirements
 
 ### Functional
-- Suggest top-K query completions для prefix
-- Update suggestions с каждым keystroke
-- Rank by popularity (most-searched first)
-- Personalization (optional)
-- Real-time updates (new trending queries appear)
+- Подсказывать top-K продолжений запроса для prefix'а
+- Обновлять подсказки на каждом keystroke
+- Ранжирование по популярности (чаще искали — выше)
+- Персонализация (опционально)
+- Обновление в реальном времени (новые trending-запросы появляются)
 
 ### Non-functional
-- **Sub-100 ms response** — < 50 ms ideally
-- **High throughput** — каждый keystroke = request × millions of users
-- **Scalability** — billions of search queries history
+- **Sub-100 мс ответ** — в идеале < 50 мс
+- **Высокий throughput** — каждое нажатие = запрос × миллионы пользователей
+- **Масштаб** — миллиарды search-запросов в истории
 
 ---
 
 ## 2. Estimation
 
 ```
-500M searches / day
-Average 4 keystrokes per query = 2B keystroke autocomplete requests / day
-  = ~ 25K QPS avg, 100K QPS peak
+500M поисков в день
+В среднем 4 keystroke на запрос = 2B autocomplete-запросов в день
+  = ~25K QPS в среднем, пик 100K QPS
 
-Unique queries: ~ 100M (long tail)
-Top 1M cover ~ 95% queries (Zipfian distribution)
+Уникальных запросов: ~100M (длинный хвост)
+Top 1M покрывает ~95% (Zipf-распределение)
 
-Trie size:
-  100M queries × avg 20 chars × 1 byte = 2 GB raw chars
-  With tree overhead + top-K cached per node: ~ 20 GB total
-  → Fits in RAM (single node 64 GB)
+Размер Trie:
+  100M запросов × в среднем 20 символов × 1 байт = 2 ГБ сырых символов
+  С деревом и top-K на каждой ноде: ~20 ГБ
+  → Влезет в RAM (одна нода 64 ГБ)
 ```
 
 ---
@@ -54,175 +54,175 @@ GET /api/v1/autocomplete?q=brown+f&limit=10
 
 ---
 
-## 4. Architecture
+## 4. Архитектура
 
 ```
-User typing → throttle (debounce 50-100 ms keystrokes)
+Пользователь печатает → throttle (debounce 50–100 мс между keystroke)
   ↓
-LB → Autocomplete Service (read replicas)
+LB → Autocomplete Service (read-replicas)
   ↓
-In-memory Trie + Top-K cache
-  ↓ (refresh periodically)
-Trie Builder (batch job)
+In-memory Trie + кэш top-K
+  ↓ (периодический refresh)
+Trie Builder (batch-задача)
   ↑
-Query Log Aggregator → counts per query per day
+Query Log Aggregator → счётчики per query per day
   ↑
-Raw search logs (Kafka)
+Сырые search-логи (Kafka)
 ```
 
 ---
 
 ## 5. Trie с pre-computed top-K
 
-См. [`TRIE.md`](TRIE.md) для базовой теории.
+Базовая теория — в [`TRIE.md`](TRIE.md).
 
-Каждый Trie node хранит **top-K suggestions** для своего prefix:
+Каждая нода Trie хранит **top-K suggestions** для своего prefix'а:
 
 ```python
 class TrieNode:
     children: dict
-    top_k_suggestions: list[(string, score)]  # pre-sorted by score
+    top_k_suggestions: list[(string, score)]  # отсортированы по score
 ```
 
-Query `"app"`:
-- Navigate to node for "app"
-- Return `node.top_k_suggestions` (instant)
+Запрос `"app"`:
+- Доходим до ноды для "app"
+- Возвращаем `node.top_k_suggestions` (мгновенно)
 
 **Trade-off:**
-- ✓ O(L) query time + return K — very fast
-- ✗ Memory: per-node top-K cache
-- ✗ Update: changing score may require updating multiple ancestor nodes
+- ✓ Время запроса O(L) + возврат K — очень быстро
+- ✗ Память: top-K кэш на ноду
+- ✗ Обновление: смена score может требовать обновления в нескольких предках
 
 ---
 
-## 6. Trie build pipeline
+## 6. Пайплайн построения Trie
 
 ### Offline (batch)
 
 ```
-Daily Spark job:
-  Raw search logs → aggregation:
-    query → count over last 30 days
-  Build trie:
-    insert each (query, count) → update top-K в ancestor nodes
-  Serialize trie → S3
+Ежедневный Spark-job:
+  Сырые search-логи → агрегация:
+    query → count за последние 30 дней
+  Строим Trie:
+    insert каждый (query, count) → обновляем top-K в предках
+  Сериализуем Trie → S3
 ```
 
 ### Online refresh
 
 ```
-Autocomplete service:
-  At startup: download latest trie from S3, load into memory
-  Periodically: check for updates, reload (blue-green to avoid downtime)
+Autocomplete-сервис:
+  При старте: скачиваем свежий Trie из S3, загружаем в память
+  Периодически: проверяем обновления, перезагружаем (blue/green, чтобы избежать downtime)
 ```
 
-### Real-time partial updates
+### Real-time частичные обновления
 
-For trending (e.g., breaking news terms — «Earthquake»), pure offline laggy.
+Для trending'а (например, термов из новостей вроде «Earthquake») чисто offline-подход отстаёт.
 
 ```
-Recent queries (last 1 hour) → streaming aggregation (Flink) →
-  Updates к «hot» trie (separate in-memory) →
-  Merge results from offline trie + hot trie at query time
+Свежие запросы (за последний час) → streaming-агрегация (Flink) →
+  Обновления в «hot» Trie (отдельный in-memory) →
+  При запросе мерджим результаты offline + hot Trie
 ```
 
 ---
 
-## 7. Storage
+## 7. Хранение
 
 ### Trie (in-memory)
 
-- Single binary serialized format
-- Per app instance load same blob
-- ~ 20 GB for 100M queries → fits 64 GB instance
+- Один сериализованный бинарный формат
+- На каждом инстансе приложения тот же blob
+- ~20 ГБ на 100M запросов → влезает в 64 ГБ инстанс
 
 ### Persistence (cold)
 
-- S3 blob — re-built daily
-- Smaller queries DB (PostgreSQL / Cassandra) для drill-down analytics
+- Blob в S3 — перестраивается ежедневно
+- Меньшая БД запросов (PostgreSQL / Cassandra) для drill-down аналитики
 
-### Search logs
+### Search-логи
 
-- Kafka topic with retention (e.g., 30 days)
-- Archive к S3 + columnar (Parquet) для analytics
+- Kafka topic с retention (например, 30 дней)
+- Архив в S3 + колоночный формат (Parquet) для аналитики
 
 ---
 
 ## 8. Distributed serving
 
-### Sharding by prefix
+### Шардирование по prefix
 
-Если trie не помещается на single node — shard by prefix:
+Если Trie не помещается на одной ноде — шардируем по prefix:
 
 ```
-Shard 0: prefixes a-d
-Shard 1: prefixes e-h
-Shard 2: prefixes i-l
+Shard 0: prefix a–d
+Shard 1: prefix e–h
+Shard 2: prefix i–l
 ...
 
-Router dispatches query к correct shard based on first character
+Router отправляет запрос на нужный shard по первому символу
 ```
 
-But for total fan-out (e.g., suggestion crossing shards), need merge.
+Если suggestion пересекает shards — нужен merge.
 
-### Replicate read-only
+### Read-only-реплики
 
-Trie is immutable per refresh. Many read replicas for high QPS.
+Trie иммутабелен в рамках одного refresh'а. Много read-replica для высокого QPS.
 
 ```
-N replicas, each loads same trie
-Round-robin requests
-Refresh: blue/green deploy, new replicas with new trie come up
+N реплик, каждая загружает один и тот же Trie
+Round-robin запросов
+Refresh: blue/green deploy, новые реплики поднимаются с новым Trie
 ```
 
 ---
 
-## 9. Personalization
+## 9. Персонализация
 
-Add user-specific suggestions on top of global popular.
+Добавляем user-specific подсказки поверх глобально популярных.
 
 ```
-At query time:
+На запросе:
   global_suggestions = trie.top_k(prefix, K=15)
-  user_history = redis.lrange(f"history:{user_id}", 0, -1)  # recent searches
+  user_history = redis.lrange(f"history:{user_id}", 0, -1)  # недавние поиски
   user_matching = filter(lambda s: s.startswith(prefix), user_history)
   
-  merge: prefer user_matching, fill rest with global
+  merge: предпочитаем user_matching, остаток добиваем из global
 ```
 
-Or use ML model with features (location, time of day, language, recent activity).
+Либо ML-модель с фичами (локация, время суток, язык, недавняя активность).
 
 ---
 
-## 10. Anti-patterns / Bad words
+## 10. Антипаттерны / плохой контент
 
-- Filter explicit / harmful queries
-- Block trademark abuse (Coca-Cola won't allow «Pepsi» suggestion)
-- Hide queries with very low count (likely spam / typos)
+- Фильтрация явных / вредных запросов
+- Блок trademark-злоупотреблений (Coca-Cola не разрешит подсказку «Pepsi»)
+- Скрытие запросов с очень низким count (спам / опечатки)
 
 ---
 
-## 11. Caching layer
+## 11. Слой кэширования
 
-Top prefixes («a», «am», «ama», «amaz») — millions of QPS.
+Top-prefix'ы («a», «am», «ama», «amaz») получают миллионы QPS.
 
 ```
-Application-level cache (Caffeine LRU) на каждый app instance
-TTL: 5 minutes (trade-off freshness vs hit rate)
+Application-level кэш (Caffeine LRU) на каждом инстансе
+TTL: 5 минут (баланс freshness vs hit rate)
 
-Top 1000 prefixes covered → 90% queries served from cache without trie traversal
+Top 1000 prefix'ов покрывают → 90% запросов отдаются из кэша без обхода Trie
 ```
 
 ---
 
 ## 12. Failure modes
 
-| Scenario | Handling |
-|----------|----------|
-| Trie rebuild fails | Use yesterday's trie; alert ops |
-| Hot prefix overload | Scale up replicas; geographic CDN edge caching for read-only |
-| New trending term not in trie | Hot trie (streaming) covers; merge results |
-| User input has emojis / unicode | Normalize at ingestion + query time |
+| Сценарий | Обработка |
+|----------|-----------|
+| Rebuild Trie упал | Используем вчерашний; алёрт оператору |
+| Перегрузка hot-prefix'а | Scale-up реплик; гео-CDN edge-кэширование для read-only |
+| Свежий trending-терм отсутствует в Trie | Hot Trie (streaming) его подхватывает; merge результатов |
+| Пользователь ввёл emoji / unicode | Нормализуем при ingestion'е и на запросе |
 
 ---
 
@@ -230,34 +230,34 @@ Top 1000 prefixes covered → 90% queries served from cache without trie travers
 
 ### Pre-computed top-K vs query-time ranking
 
-- **Pre-computed** — fast, but stale (rebuilt daily); cannot personalize aggressively
-- **Query-time** — slower, but real-time + personalization possible
+- **Pre-computed** — быстро, но устаревает (пересборка раз в день); агрессивно персонализировать сложно
+- **Query-time** — медленнее, но real-time + персонализация возможна
 
-Hybrid: pre-computed + late-binding personalization re-rank.
+Гибрид: pre-computed + поздняя персонализирующая re-rank.
 
-### Trie vs search engine
+### Trie vs поисковый движок
 
-- **Trie** — perfect для prefix matching, hand-tuned ranking
-- **Elasticsearch / Solr** — fuzzy matching, edge n-gram tokenizer работает aналогично; out-of-box features
-- **DAWG** (Directed Acyclic Word Graph) — еще compact, но harder to update
+- **Trie** — идеален для prefix matching, ручное ранжирование
+- **Elasticsearch / Solr** — fuzzy matching, edge n-gram tokenizer; готовые фичи из коробки
+- **DAWG** (Directed Acyclic Word Graph) — ещё компактнее, но сложно обновлять
 
-Modern: Elasticsearch Completion Suggester (FST-backed) widely used. Pure trie остаётся когда нужен fine control.
+Сейчас широко используют Elasticsearch Completion Suggester (на базе FST). Чистый Trie остаётся там, где нужен точный контроль.
 
 ---
 
-## 14. Real-world examples
+## 14. Real-world примеры
 
-- **Google search autocomplete** — kustom trie + ML + personalization
-- **Amazon search** — product catalog Trie + category boosting
-- **Twitter mentions** — special case (user handles)
-- **LinkedIn typeahead** — Cleo (open-sourced)
-- **Elasticsearch Completion Suggester** — FST-based, used by many smaller services
+- **Google search autocomplete** — кастомный Trie + ML + персонализация
+- **Amazon search** — Trie по каталогу + boosting по категориям
+- **Twitter mentions** — особый случай (user handles)
+- **LinkedIn typeahead** — Cleo (выложен в open source)
+- **Elasticsearch Completion Suggester** — FST-based, используется многими небольшими сервисами
 
 ---
 
 ## Источники
 
-- *System Design Interview Vol. 1* (Alex Xu) — Ch. 13 «Design a Search Autocomplete System»
+- *System Design Interview Vol. 1* (Alex Xu) — глава 13 «Design a Search Autocomplete System»
 - [LinkedIn Cleo open source](https://github.com/linkedin/cleo)
 - [Elasticsearch Completion Suggester](https://www.elastic.co/guide/en/elasticsearch/reference/current/search-suggesters.html#completion-suggester)
 - [Hello Interview — Twitter typeahead](https://www.hellointerview.com/learn/system-design/problem-breakdowns)

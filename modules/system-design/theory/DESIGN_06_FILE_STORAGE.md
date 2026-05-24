@@ -1,39 +1,39 @@
-# Design Problem: File Storage (Dropbox/Google Drive)
+# Design Problem: File Storage (Dropbox / Google Drive)
 
-Cloud storage с sync через devices, чанкинг, дедупликация, conflict resolution. Главные challenges: large file handling, sync efficiency, multi-device consistency.
+Cloud storage с синхронизацией между устройствами, чанкингом, дедупликацией и conflict resolution. Главные challenges: работа с большими файлами, эффективная sync, multi-device consistency.
 
 ---
 
 ## 1. Requirements
 
 ### Functional
-- Upload files (любого размера до limit, e.g., 50 GB)
-- Download
-- Sync across devices (desktop, mobile, web)
-- Share files (link, permission)
-- Version history
-- (Optional) Real-time collaborative editing (Google Docs-style)
+- Upload файлов (любого размера до лимита, например 50 ГБ)
+- Скачивание
+- Sync между устройствами (desktop, mobile, web)
+- Шеринг файлов (ссылка, права)
+- История версий
+- (Опционально) Real-time collaborative editing (стиль Google Docs)
 
 ### Non-functional
-- **Reliable** — никогда не лишать пользователя файлов (99.999999999% durability как S3)
-- **Efficient sync** — only diff transmitted, not whole file
+- **Надёжность** — никогда не терять файлы (durability 99.999999999% — как у S3)
+- **Эффективный sync** — передаём только diff, не файл целиком
 - **Available** — 99.99%
-- **Bandwidth-efficient** — для mobile / slow connections
-- **Cross-device consistency** — change on phone → visible on laptop within seconds
+- **Экономия bandwidth** — для mobile и медленных сетей
+- **Cross-device consistency** — изменение на телефоне → видно на ноутбуке за секунды
 
 ---
 
 ## 2. Estimation
 
 ```
-500M users, 100M DAU
-Each stores avg 50 GB → total 25 EB (exabytes!)
-Compressed + deduplicated → maybe 5 EB unique
+500M пользователей, 100M DAU
+В среднем хранят 50 ГБ → всего 25 ЭБ (экзабайт!)
+С компрессией и дедупликацией → ~5 ЭБ уникальных данных
 
-Daily uploads: 100M users × avg 10 files × 5 MB = 5 PB/day
-Daily downloads: 5× more = 25 PB/day
+Ежедневные uploads: 100M × ~10 файлов × 5 МБ = 5 ПБ/день
+Ежедневные downloads: ×5 = 25 ПБ/день
 
-Bandwidth peak: serve to ~ 10M concurrent connections globally
+Пик bandwidth: обслуживание ~10M одновременных соединений глобально
 ```
 
 ---
@@ -57,103 +57,103 @@ GET /api/v1/files/:fileId
 → { metadata, downloadUrl }
 
 GET /api/v1/files/sync?cursor=...
-→ { changes: [...], nextCursor }   # changes since last sync
+→ { changes: [...], nextCursor }   # изменения с последнего sync
 ```
 
 ---
 
-## 4. High-level architecture
+## 4. High-level архитектура
 
 ```
-Client (desktop app, mobile, web)
+Client (desktop, mobile, web)
   ↓
 LB → API Gateway
   ↓
-  ├── Metadata Service (file/folder hierarchy, versions)
-  ├── Block Service (chunk upload, retrieval)
-  ├── Sync Service (change feed для clients)
-  ├── Share Service (permissions, links)
+  ├── Metadata Service (файлово-папочная иерархия, версии)
+  ├── Block Service (upload и retrieve chunks)
+  ├── Sync Service (поток изменений для клиентов)
+  ├── Share Service (права, ссылки)
   ↓
-Storage:
+Хранилище:
   - Metadata DB (PostgreSQL / Cassandra) — file tree, ownership, permissions, versions
-  - Block Storage (S3 / custom) — actual file chunks
-  - Block hash index (Redis / DynamoDB) — для deduplication
+  - Block Storage (S3 / custom) — собственно chunks
+  - Block hash index (Redis / DynamoDB) — для дедупликации
 ```
 
 ---
 
-## 5. Chunking — главный design pattern
+## 5. Чанкинг — главный паттерн дизайна
 
-Large files (1 GB+) разбиваются на **fixed-size chunks** (обычно 4 MB).
+Большие файлы (1 ГБ+) разбиваются на **fixed-size chunks** (обычно 4 МБ).
 
-### Why chunks
+### Зачем chunks
 
-- **Parallel upload** — N chunks одновременно
-- **Resumable uploads** — connection drop → resume specific chunk
-- **Deduplication** — same chunks reused across files / users
-- **Efficient sync** — change one chunk → upload только changed chunk
+- **Параллельный upload** — N chunks одновременно
+- **Resumable uploads** — обрыв соединения → продолжаем с конкретного chunk
+- **Дедупликация** — одинаковые chunks переиспользуются между файлами и пользователями
+- **Эффективный sync** — изменился один chunk → отправляем только его
 
-### Chunk identification
+### Идентификация chunk
 
-Каждый chunk имеет **hash** (SHA-256). Hash = identifier and integrity check.
+У каждого chunk есть **hash** (SHA-256). Hash служит одновременно идентификатором и integrity check.
 
 ```
 file F = [chunk1_hash, chunk2_hash, chunk3_hash, ...]
 
-Upload protocol:
-  Client splits file
-  For each chunk:
+Протокол upload:
+  Клиент режет файл
+  Для каждого chunk:
     hash = SHA256(chunk_data)
-    Check API: «do you have hash X?»
-      Yes → skip upload (already exists, server reuses)
-      No → upload chunk
-  Finalize: send list of hashes to server
+    Спрашиваем API: «у вас есть hash X?»
+      Да → пропускаем upload (уже есть, сервер переиспользует)
+      Нет → загружаем chunk
+  Finalize: шлём серверу список хэшей
 ```
 
-### Deduplication
+### Дедупликация
 
-Cross-user dedup: если 1M users have copy того же file (popular doc, distributed library), only one physical copy stored.
+Cross-user dedup: если 1M пользователей хранят одинаковый файл (популярный документ, дистрибутив библиотеки), физически он лежит один раз.
 
 ```
 chunk_hash → (storage_location, refcount)
 
-On upload: increment refcount or create new
-On delete: decrement; if refcount==0 → mark для GC
+На upload: increment refcount или создаём новый
+На delete: decrement; если refcount==0 → помечаем на GC
 ```
 
-Privacy implication: cross-user dedup может leak existence of files. **Per-user dedup** preserves privacy.
+Privacy-нюанс: cross-user dedup может выдавать существование файла. **Per-user dedup** сохраняет приватность.
 
 ### Content-defined chunking (CDC)
 
-Fixed-size has problem: insert 1 byte at beginning → all chunks shift, no dedup.
+У fixed-size chunking есть проблема: вставка 1 байта в начало → все chunks сдвигаются, дедупликация ломается.
 
-CDC: use **rolling hash** (Rabin fingerprint) to determine chunk boundaries based на content. Insert byte → only adjacent chunk changes.
+CDC: использовать **rolling hash** (Rabin fingerprint) для определения границ chunk'ов по содержимому. Вставили байт → изменился только соседний chunk.
 
-Used by: rsync, Restic, BorgBackup, Dropbox.
+Используют: rsync, Restic, BorgBackup, Dropbox.
 
 ---
 
 ## 6. Data model
 
 ```sql
--- Files / folders (sharded by user_id)
+-- Files / folders (шард по user_id)
 CREATE TABLE files (
     id UUID PRIMARY KEY,
     user_id BIGINT NOT NULL,
     parent_id UUID,           -- NULL для root
     name TEXT,
     type ENUM('file', 'folder'),
-    size BIGINT,               -- bytes
+    size BIGINT,              -- в байтах
     current_version BIGINT,
     created_at TIMESTAMPTZ,
     deleted_at TIMESTAMPTZ
 );
 
--- Versions
+-- Версии
 CREATE TABLE file_versions (
     file_id UUID,
     version BIGINT,
-    chunks UUID[],             -- ordered list of chunk hashes
+    chunks UUID[],            -- упорядоченный список хэшей chunk'ов
     size BIGINT,
     created_by BIGINT,
     created_at TIMESTAMPTZ,
@@ -162,8 +162,8 @@ CREATE TABLE file_versions (
 
 -- Chunk index (high-throughput KV)
 CREATE TABLE chunks (
-    hash CHAR(64) PRIMARY KEY, -- SHA256 hex
-    storage_path TEXT,         -- S3 path
+    hash CHAR(64) PRIMARY KEY, -- SHA256 в hex
+    storage_path TEXT,         -- путь в S3
     size INT,
     refcount BIGINT
 );
@@ -171,74 +171,74 @@ CREATE TABLE chunks (
 
 ---
 
-## 7. Sync protocol
+## 7. Sync-протокол
 
-Client maintains local **cursor** (last sync state). On reconnect — fetch changes since cursor.
+Клиент держит локальный **cursor** (последнее состояние sync). При переподключении подтягивает изменения с этого cursor'а.
 
 ```
 Client → GET /sync?cursor=last_known_position
-Server → list of changes since cursor:
+Server → список изменений с cursor:
   [
     { event: "file_created", id, name, parent, chunks: [...] },
     { event: "file_updated", id, version, chunks: [...] },
     { event: "file_deleted", id },
     ...
   ]
-  Plus new cursor
+  + новый cursor
 
-Client applies changes:
-  - New file: fetch chunks (parallel)
-  - Updated file: fetch ONLY new chunks (delta)
-  - Deleted: remove locally
+Client применяет изменения:
+  - Новый файл: качаем chunks (параллельно)
+  - Обновлён файл: качаем ТОЛЬКО новые chunks (delta)
+  - Удалён: убираем локально
 ```
 
-### Real-time push (alternative)
+### Real-time push (альтернатива)
 
-For instant sync, server pushes events via WebSocket / long-polling. Hybrid: push when connected, fallback к pull on reconnect.
+Для мгновенного sync сервер пушит события через WebSocket / long-polling. Гибрид: push при подключённом клиенте, fallback на pull при reconnect.
 
 ---
 
 ## 8. Conflict resolution
 
-Two devices edit same file offline. Both come online with different changes.
+Два устройства редактируют файл offline. Оба приходят online с разными изменениями.
 
-### Last-Write-Wins (simple)
+### Last-Write-Wins (простой вариант)
 
-Whichever client uploads first wins; second gets conflict notice.
+Кто первым залил — победил; второй получает уведомление о конфликте.
 
 ```
-Device A: uploads v5 of file (parent = v3)
-Device B: tries v5 (also parent = v3) → server detects: «v5 already exists»
-  Server saves Device B's version as «file (B's conflict).docx» (Dropbox style)
-  User manually merges
+Устройство A: загружает v5 (parent = v3)
+Устройство B: пытается v5 (тоже parent = v3) → сервер видит «v5 уже существует»
+  Сервер сохраняет версию B как «file (B's conflict).docx» (стиль Dropbox)
+  Пользователь мержит вручную
 ```
 
 ### CRDT-based (Google Docs / collaborative)
 
-Real-time text editing с CRDTs (Yjs / Automerge). См. [`CRDT.md`](CRDT.md).
+Real-time-редактирование текста через CRDT (Yjs / Automerge). См. [`CRDT.md`](CRDT.md).
 
 ```
-Each edit = CRDT operation
-All operations broadcast к peers
+Каждое редактирование = CRDT-операция
+Все операции broadcast'ятся peer'ам
 Eventual convergence
 ```
 
-Не подходит для arbitrary file types — только structured (text, JSON, etc.).
+Не подходит для произвольных типов файлов — только для структурированных (text, JSON и т. п.).
 
 ---
 
-## 9. Sharing
+## 9. Шеринг
 
-### Share link
+### Share-ссылка
 
-Generate unique token per file:
+Генерируем уникальный токен на файл:
 ```
-fileId + shareToken → unique URL
+fileId + shareToken → уникальный URL
 ```
 
-Permissions:
-- Public (anyone with link)
-- Specific users (email-based)
+Права:
+- Public (любой по ссылке)
+- Конкретные пользователи (по email)
 - Read vs write
 
 ### Permission DB
@@ -246,36 +246,36 @@ Permissions:
 ```sql
 CREATE TABLE share_permissions (
     file_id UUID,
-    user_id BIGINT,        -- or NULL для public link
+    user_id BIGINT,        -- или NULL для публичной ссылки
     permission ENUM('read', 'write', 'admin'),
     expires_at TIMESTAMPTZ
 );
 ```
 
-ACL check на каждый access (cached).
+ACL-проверка на каждом доступе (кэшируется).
 
 ---
 
 ## 10. Storage backend
 
-### S3-compatible
+### S3-совместимое хранилище
 
-Most cloud providers use object storage (S3, GCS, Azure Blob) for actual chunks.
+Большинство облаков используют object storage (S3, GCS, Azure Blob) под собственно chunks.
 
 ```
-chunk hash → S3 object key (e.g., bucket/chunks/ab/cd/abcd1234...)
-Use 2-3 character prefix for sharding (avoid S3 hot partition)
+chunk hash → S3 object key (например, bucket/chunks/ab/cd/abcd1234...)
+Используем 2–3-символьный префикс как sharding-ключ (защита от hot-partition S3)
 ```
 
 ### Tiered storage
 
-- **Hot tier** — recently accessed chunks, S3 Standard or local SSD cache
-- **Cold tier** — old, rarely accessed, S3 Glacier / Deep Archive
-- Move via lifecycle policies (auto)
+- **Hot tier** — недавно использованные chunks, S3 Standard или локальный SSD-кэш
+- **Cold tier** — старые, редко используемые, S3 Glacier / Deep Archive
+- Перенос — через lifecycle policies (автоматически)
 
-### Replication
+### Репликация
 
-S3 replicates 11x9 nines durability — no single-DC failure loss.
+S3 даёт durability «11 девяток» — потери из-за падения одного DC исключены.
 
 ---
 
@@ -283,16 +283,16 @@ S3 replicates 11x9 nines durability — no single-DC failure loss.
 
 ### Edge cache
 
-For shared / public files, push to CDN.
+Для шаренных / публичных файлов — push в CDN.
 
 ```
-File → CDN edge cache (signed URL)
-Other users в region serve from edge.
+Файл → edge-кэш CDN (signed URL)
+Другие пользователи в регионе получают файл с edge'а.
 ```
 
 ### Recent files
 
-Hot per-user cache in app: recently accessed metadata + chunks.
+Hot per-user кэш в приложении: недавно использованные метаданные + chunks.
 
 ---
 
@@ -300,62 +300,62 @@ Hot per-user cache in app: recently accessed metadata + chunks.
 
 ### Delta sync (diff upload)
 
-Use rsync-style algorithm:
-- Server computes hashes for each chunk (already stored)
-- Client computes rolling hash при editing → finds matching chunks → only sends new ones
+Используем rsync-подход:
+- Сервер вычисляет хэши уже хранимых chunks
+- Клиент при редактировании считает rolling hash → находит совпадающие chunks → шлёт только новые
 
 ### Compression
 
-Compress text-based files (txt, html, json) before upload. Binary files (images, video) — already compressed.
+Сжимаем текстовые файлы (txt, html, json) перед upload'ом. Бинарные (картинки, видео) уже сжаты.
 
-### Bandwidth limits
+### Лимиты bandwidth
 
-User configurable in client (e.g., «pause sync when on cellular», «limit to 1 MB/s»).
+Настраиваются в клиенте («пауза sync на мобильной сети», «ограничить до 1 МБ/с»).
 
 ---
 
 ## 13. Failure modes
 
-| Scenario | Handling |
-|----------|----------|
-| Upload interrupted | Resume from last successful chunk |
-| Chunk hash mismatch на download | Re-fetch chunk (corruption) |
-| User exceeds storage quota | Reject upload, alert user |
-| Sync conflict | Save as «file (conflict).ext», user merges |
-| Server error during finalize | Client retries; idempotent — same chunks recognized |
-| Block storage outage | Fallback secondary region; uploads queue |
+| Сценарий | Обработка |
+|----------|-----------|
+| Upload оборвался | Продолжаем с последнего успешного chunk |
+| Несовпадение hash на download | Перекачиваем chunk (повреждение) |
+| Превышена квота | Отвергаем upload, уведомляем пользователя |
+| Sync-конфликт | Сохраняем как «file (conflict).ext», пользователь мержит |
+| Ошибка сервера на finalize | Клиент retry'ит; идемпотентно — те же chunks распознаются |
+| Сбой block storage | Fallback в secondary region; uploads в очередь |
 
 ---
 
 ## 14. Trade-offs
 
-### Chunk size
+### Размер chunk
 
-- **Smaller** (1 MB) — better dedup, more granular sync, but more metadata overhead
-- **Larger** (16 MB) — less metadata, but worse dedup; whole chunk re-upload on edit
+- **Меньше** (1 МБ) — лучше дедупликация, гранулярный sync, но больше overhead на metadata
+- **Больше** (16 МБ) — меньше metadata, но хуже дедупликация; правки требуют перезагрузки всего chunk
 
-Typical: 4 MB (Dropbox).
+Типично: 4 МБ (Dropbox).
 
-### Per-user dedup vs cross-user
+### Per-user vs cross-user дедупликация
 
-- **Per-user** — privacy preserved, but storage cost ×N (each user separately)
-- **Cross-user** — massive storage savings, but theoretical privacy leak (file existence detectable)
+- **Per-user** — приватность сохранена, но storage cost ×N (каждый пользователь отдельно)
+- **Cross-user** — огромная экономия места, но теоретическая утечка приватности (можно определить наличие файла)
 
-Dropbox does cross-user dedup; some competitors per-user (privacy-focused).
+Dropbox делает cross-user dedup; часть конкурентов — per-user (privacy-focused).
 
-### Sync strategy
+### Стратегия sync
 
-- **Selective sync** — user picks folders to sync (laptop limited space)
-- **Stream files** — Files On-Demand (Windows OneDrive style) — placeholder, fetch on open
-- **Full sync** — everything everywhere (heavy)
+- **Selective sync** — пользователь выбирает папки для sync (ограниченное место на ноутбуке)
+- **Stream files** — Files On-Demand (стиль Windows OneDrive): placeholder, скачивание при открытии
+- **Full sync** — всё везде (тяжело)
 
 ---
 
 ## Источники
 
-- *System Design Interview Vol. 1* (Alex Xu) — Ch. 15 «Design Google Drive»
+- *System Design Interview Vol. 1* (Alex Xu) — глава 15 «Design Google Drive»
 - [Hello Interview — Dropbox](https://www.hellointerview.com/learn/system-design/problem-breakdowns/dropbox)
-- [Dropbox Engineering Blog — Architecture](https://dropbox.tech/) — many posts on chunking, sync
+- [Dropbox Engineering Blog — Architecture](https://dropbox.tech/) — много постов про чанкинг и sync
 - [Dropbox — Magic Pocket: building Dropbox's storage system](https://dropbox.tech/infrastructure/inside-the-magic-pocket)
 - [rsync algorithm paper (Andrew Tridgell)](https://www.samba.org/~tridge/phd_thesis.pdf)
-- *Cracking the Coding Interview* — Dropbox-style problems
+- *Cracking the Coding Interview* — Dropbox-style задачи

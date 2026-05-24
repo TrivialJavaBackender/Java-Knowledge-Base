@@ -1,45 +1,45 @@
-# Design Problem: URL Shortener (TinyURL/bit.ly)
+# Design Problem: URL Shortener (TinyURL / bit.ly)
 
-Сервис принимает long URL → возвращает short URL (`bit.ly/abc123`). Click на short → redirect на long. Классическая «easy» SD-задача — focus на ID generation, redirect latency, аналитике.
+Сервис принимает длинный URL → возвращает короткий (`bit.ly/abc123`). Клик по короткому → redirect на длинный. Классическая «easy» SD-задача — фокус на ID generation, latency редиректа и аналитике.
 
 ---
 
 ## 1. Requirements
 
 ### Functional
-- POST long URL → short URL (`bit.ly/<6-char-code>`)
-- GET short URL → 301/302 redirect к long URL
-- (Optional) Custom alias (`bit.ly/my-link`)
-- (Optional) Expiration (TTL)
-- (Optional) Click analytics
+- POST длинного URL → короткий URL (`bit.ly/<6-символьный код>`)
+- GET по короткому URL → 301/302 redirect на длинный
+- (Опционально) Custom alias (`bit.ly/my-link`)
+- (Опционально) Expiration (TTL)
+- (Опционально) Аналитика кликов
 
 ### Non-functional
-- **Read-heavy** (10:1 read/write typical)
-- **Low latency redirect** — p99 < 100ms
-- **High availability** — 99.99% (redirect critical, broken URL ≠ retried)
-- **Не предсказуемый код** — нельзя угадать `abc124` зная `abc123` (можно — random or hash, не sequential)
-- **Уникальность** — каждый long URL → один short (или allow duplicates, обсудить)
+- **Read-heavy** (типично 10:1 read/write)
+- **Низкая latency редиректа** — p99 < 100 мс
+- **High availability** — 99.99% (битый redirect никто не повторит)
+- **Непредсказуемый код** — нельзя угадать `abc124`, зная `abc123` (нужен random или hash, не sequential)
+- **Уникальность** — каждый длинный URL → один короткий (или допустить дубли — обсудить с интервьюером)
 
 ---
 
 ## 2. Estimation
 
 ```
-100M URLs created/year, 10:1 R/W
+100M URL создаётся в год, 10:1 read/write
 
-Writes:  100M / year / 31.5M sec = ~3 writes/sec average
-         Peak: 30 writes/sec
-Reads:   1B reads/year / 31.5M = ~30 reads/sec average
-         Peak: 300 reads/sec
-→ Trivial QPS, single server можно
+Writes:  100M / год / 31.5M сек = ~3 writes/sec в среднем
+         Пик: 30 writes/sec
+Reads:   1B reads / год / 31.5M = ~30 reads/sec в среднем
+         Пик: 300 reads/sec
+→ QPS тривиальный, хватит и одного сервера
 
-Storage: per URL ~ 500 bytes (long_url + short_code + metadata)
-         10 years × 100M × 500B = 500 GB → single PostgreSQL OK
-         
-Cache: hot 20% URLs × 500B = 10 GB working set → fits Redis node
+Storage: на URL ~500 байт (long_url + short_code + metadata)
+         10 лет × 100M × 500 байт = 500 ГБ → влезет в один PostgreSQL
 
-ID space: base62 (a-zA-Z0-9) 6 chars = 62^6 = 56B URLs (enough for years)
-          7 chars = 3.5T (forever)
+Cache: hot 20% URL × 500 байт = 10 ГБ working set → один Redis-узел
+
+Пространство ID: base62 (a-zA-Z0-9) на 6 символов = 62^6 = 56B URL (хватит на годы)
+                7 символов = 3.5T (на «вечность»)
 ```
 
 ---
@@ -53,7 +53,7 @@ Body: { url: "https://example.com/very/long/path", expiresIn?: 86400 }
 
 GET /:shortCode
 → 301 Location: <long_url>
-   (or 302 if analytics tracking — 301 cached by browser, GET wouldn't reach server)
+   (или 302 если нужна аналитика — 301 кэшируется браузером, повторный GET до сервера не дойдёт)
 
 GET /api/v1/links/:shortCode/stats
 → { clicks: 12345, byCountry: {...}, byHour: {...} }
@@ -61,25 +61,25 @@ GET /api/v1/links/:shortCode/stats
 
 ---
 
-## 4. High-level architecture
+## 4. High-level архитектура
 
 ```
-Client → CDN (cache for hot redirects?) →
-       → LB → API Server pool →
+Client → CDN (опционально кэширует hot редиректы) →
+       → LB → API-серверы →
                 ├ Cache (Redis) — code → long_url
                 ├ ID generator service
-                └ DB (PostgreSQL, sharded by short_code) — durable store
-       
-       → Analytics: async (Kafka → batch processor)
+                └ DB (PostgreSQL, шардирована по short_code) — durable-хранилище
+
+       → Аналитика: async (Kafka → batch-обработка)
 ```
 
 ---
 
-## 5. ID generation — главный design decision
+## 5. ID generation — главное архитектурное решение
 
-### Option A: Sequential ID + base62
+### Вариант A: sequential ID + base62
 
-DB autoincrement → integer → base62 encode.
+DB autoincrement → integer → base62-кодирование.
 
 ```
 id=1 → "1"
@@ -87,52 +87,52 @@ id=62 → "10"
 id=1000000 → "4c92"
 ```
 
-- ✓ Простой, monotonic
-- ✗ **Sequential predictable** — анализатор может scrape `abc1, abc2, ...`
-- ✗ Single point (DB autoincrement) — bottleneck at scale
+- ✓ Просто, монотонно
+- ✗ **Sequential предсказуем** — скрейпер может пройти `abc1`, `abc2`, …
+- ✗ Единая точка (DB autoincrement) — bottleneck на масштабе
 
-### Option B: Random 6 chars
+### Вариант B: случайные 6 символов
 
 ```python
 import secrets
-shortCode = secrets.token_urlsafe(4)[:6]  # base64 → 6 chars
+shortCode = secrets.token_urlsafe(4)[:6]  # base64 → 6 символов
 ```
 
-- ✓ Unpredictable
-- ✗ **Collisions** — birthday paradox: 62^6 = 56B; при 10M existing URLs ~ 1 in 5.6M shortened → collision occasionally → retry
-- Mitigation: insert with `ON CONFLICT DO NOTHING`, retry on conflict
+- ✓ Непредсказуемо
+- ✗ **Коллизии** — birthday paradox: 62^6 = 56B; при 10M существующих URL ~1 на 5.6M shortened → изредка коллизия → retry
+- Митигация: `INSERT ... ON CONFLICT DO NOTHING`, retry при конфликте
 
-### Option C: Hash long URL
+### Вариант C: hash от длинного URL
 
 `shortCode = base62(MD5(long_url))[:6]`
 
-- ✓ Deduplication free (same URL → same short)
-- ✗ Collisions still possible; need handling
-- ✗ User cannot have multiple shorts for same long URL (often desired для analytics)
+- ✓ Бесплатная дедупликация (один и тот же URL → один и тот же short)
+- ✗ Коллизии всё равно возможны; их нужно обрабатывать
+- ✗ Пользователь не может иметь несколько short'ов для одного long URL (часто нужно для аналитики)
 
-### Option D: Key Generation Service (KGS)
+### Вариант D: Key Generation Service (KGS)
 
-Pre-generate batch of unique codes, store в DB. App grabs from pool.
+Заранее сгенерировать батч уникальных кодов и хранить в БД. Приложение берёт из пула.
 
 ```
-KGS pool: 1M pre-generated unused codes
-App: GET /kgs/next-code → "abc123" (marked used)
+KGS pool: 1M предгенерированных неиспользованных кодов
+App: GET /kgs/next-code → "abc123" (помечается use'd)
 ```
 
-- ✓ No collisions при runtime
-- ✓ No predictability
-- ✓ Scales: multiple KGS instances, each owns range
-- ✗ Extra service to operate
+- ✓ Нет коллизий в runtime
+- ✓ Непредсказуемо
+- ✓ Масштабируется: несколько KGS-инстансов, у каждого свой диапазон
+- ✗ Дополнительный сервис в эксплуатации
 
-### Option E: Snowflake-style ID
+### Вариант E: ID в стиле Snowflake
 
-64-bit ID = `timestamp (41 bits) | machine_id (10 bits) | sequence (12 bits)`. Encode base62.
+64-битный ID = `timestamp (41 бит) | machine_id (10 бит) | sequence (12 бит)`. Кодируется в base62.
 
-- ✓ Distributed, no central coordinator
-- ✓ Sortable by time
-- ✗ Predictable (timestamp embedded)
+- ✓ Распределённо, без центрального координатора
+- ✓ Сортируется по времени
+- ✗ Предсказуемо (внутри лежит timestamp)
 
-**Recommendation:** KGS for production; random 6-7 chars with retry for simpler scale.
+**Рекомендация:** KGS для production; random 6–7 символов с retry — для меньших масштабов.
 
 ---
 
@@ -145,73 +145,73 @@ CREATE TABLE urls (
     user_id      BIGINT,
     created_at   TIMESTAMPTZ DEFAULT now(),
     expires_at   TIMESTAMPTZ,
-    click_count  BIGINT DEFAULT 0  -- denormalized; or separate analytics table
+    click_count  BIGINT DEFAULT 0  -- денормализовано; или отдельная analytics-таблица
 );
 
 CREATE INDEX idx_expires ON urls(expires_at) WHERE expires_at IS NOT NULL;
 CREATE INDEX idx_user ON urls(user_id);
 ```
 
-**Sharding:** by `short_code` hash. Since reads/writes are key-based (short_code), trivial to shard.
+**Шардирование:** по хэшу `short_code`. Поскольку чтение и запись — по ключу (short_code), шардирование тривиально.
 
 ---
 
-## 7. Redirect path — critical
+## 7. Redirect path — критичный путь
 
-Hot path: `GET /:shortCode → redirect`. Latency budget < 100 ms.
+Hot path: `GET /:shortCode → redirect`. Latency budget < 100 мс.
 
 ```
-1. App receives request
-2. Check Redis cache (1 ms): if hit → 301
-3. If miss → query DB (1-5 ms): cache result, → 301
-4. Async: write analytics event to Kafka
-5. Return 301 with `Location` header
+1. Приложение принимает запрос
+2. Чтение Redis-кэша (1 мс): hit → 301
+3. Miss → запрос в БД (1–5 мс): кладём в кэш, → 301
+4. Async: пишем событие аналитики в Kafka
+5. Возвращаем 301 с заголовком Location
 ```
 
-**Caching strategy:**
-- LRU cache, TTL = 1 hour (or longer для immutable short codes)
-- Hot set (20%) → 95%+ hit ratio
-- Cache stampede protection: single-flight on cache miss
+**Cache strategy:**
+- LRU-кэш, TTL = 1 час (или дольше для иммутабельных кодов)
+- Hot set (20%) → hit ratio 95%+
+- Защита от cache stampede: single-flight при cache miss
 
-**CDN consideration:** возможно cache `301` responses at edge для viral links. Trade-off: stale links if updated/deleted; usually OK since short codes immutable.
+**CDN-нюанс:** можно кэшировать сами `301`-ответы на edge для viral-ссылок. Trade-off: устаревшие ссылки при обновлении/удалении; обычно ok, потому что короткие коды иммутабельны.
 
 ---
 
-## 8. Analytics
+## 8. Аналитика
 
 ```
-On click: emit event to Kafka topic
+На клик: эмитим событие в Kafka topic
   { shortCode, timestamp, ip, userAgent, referer, country }
 
 Async consumer:
-  Batch process every 1 min → aggregate counts per (shortCode, hour, country)
-  Store в analytics DB (ClickHouse, BigQuery) — columnar для aggregations
+  Batch-обработка раз в минуту → агрегаты по (shortCode, hour, country)
+  Хранение в analytics DB (ClickHouse, BigQuery) — колоночная для агрегаций
 ```
 
-Counter denormalized в `urls.click_count` — eventually consistent (updated every N seconds).
+Денормализованный счётчик в `urls.click_count` обновляется eventually consistent (раз в N секунд).
 
 ---
 
 ## 9. Scale considerations
 
-### 10× scale (1B URLs, 10K read QPS)
+### ×10 (1B URL, 10K read QPS)
 
-- More cache nodes (Redis Cluster)
-- DB sharding по short_code
-- Multiple analytics consumers
+- Больше кэш-узлов (Redis Cluster)
+- Шардирование БД по `short_code`
+- Несколько analytics-consumer'ов
 
-### 100× scale (100B URLs)
+### ×100 (100B URL)
 
-- Geo-replicated DB (multi-region)
-- Edge cache for viral links (CDN)
+- Гео-реплицированная БД (multi-region)
+- Edge-кэш для viral-ссылок (CDN)
 
-### Hot link / celebrity content
+### Hot-ссылка / celebrity content
 
-«bit.ly/xyz» виралится → 1M req/sec на one shortCode.
+«bit.ly/xyz» виралится → 1M req/sec на один shortCode.
 
-- CDN absorbs most
-- Cache replication (hot keys на multiple nodes)
-- Rate limit per-user (но redirect должен работать для всех — only limit creation/abuse)
+- CDN absorb'ит большую часть
+- Реплицировать hot keys на несколько кэш-узлов
+- Rate-limit per user (но сам redirect должен работать для всех — лимит ставится только на создание / abuse)
 
 ---
 
@@ -219,10 +219,10 @@ Counter denormalized в `urls.click_count` — eventually consistent (updated ev
 
 ### 301 vs 302
 
-- **301 Permanent Redirect** — browser cached, fewer hits on our server, **no analytics на repeat visits**
-- **302 Temporary Redirect** — каждый visit hits us, **full analytics**
+- **301 Permanent Redirect** — кэшируется браузером, меньше нагрузки на сервер, **аналитика теряется на повторных визитах**
+- **302 Temporary Redirect** — каждый визит долетает до нас, **аналитика полная**
 
-Choose 302 if analytics matter (default bit.ly), 301 if pure redirect-as-service.
+Выбрать 302, если аналитика важна (дефолт bit.ly); 301 — если это просто redirect-as-service.
 
 ### Custom alias
 
@@ -231,27 +231,27 @@ POST /api/v1/shorten
 Body: { url: "...", alias: "my-link" }
 → "bit.ly/my-link"
 
-If alias exists → 409 Conflict
+Если alias занят → 409 Conflict
 ```
 
-DB constraint: alias is UNIQUE. Pre-check or rely on insert error.
+В БД — UNIQUE-ограничение на `alias`. Либо предварительная проверка, либо опираться на ошибку insert.
 
 ### Expiration / soft delete
 
-`expires_at` column; cleanup batch job. Or `is_active` flag (rare to truly delete).
+Колонка `expires_at`; batch-задача для cleanup. Либо флаг `is_active` (полное удаление редко делают).
 
 ---
 
 ## 11. Anti-abuse
 
-- **Rate limit creation** — 100 URLs / hour per IP
-- **URL validation** — reject malformed, internal IPs (SSRF), known bad domains (phishing list)
-- **Spam links** — periodic re-check destinations, block redirect if URL becomes malicious
+- **Rate limit на создание** — 100 URL в час на IP
+- **Валидация URL** — отвергать malformed, внутренние IP (SSRF), известные плохие домены (phishing list)
+- **Spam-ссылки** — периодическая перепроверка destination, блок redirect, если URL стал вредоносным
 
 ---
 
-## Источники / references
+## Источники
 
-- *System Design Interview Vol. 1* (Alex Xu) — Ch. 8 «Design a URL Shortener»
+- *System Design Interview Vol. 1* (Alex Xu) — глава 8 «Design a URL Shortener»
 - [Hello Interview — URL Shortener](https://www.hellointerview.com/learn/system-design/problem-breakdowns/url-shortener)
-- [bit.ly Architecture Blog (legacy)](https://word.bitly.com/post/8662250532/dablooms-an-open-source-scalable-counting-bloom-filter) — discusses scaling decisions
+- [bit.ly Architecture Blog (legacy)](https://word.bitly.com/post/8662250532/dablooms-an-open-source-scalable-counting-bloom-filter)

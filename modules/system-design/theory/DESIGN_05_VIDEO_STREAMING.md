@@ -1,6 +1,6 @@
-# Design Problem: Video Streaming (Netflix/YouTube)
+# Design Problem: Video Streaming (Netflix / YouTube)
 
-Доставлять видео миллионам пользователей с низкой latency и adaptive quality. Главные компоненты: **video encoding pipeline**, **CDN distribution**, **adaptive bitrate streaming (HLS/DASH)**.
+Доставлять видео миллионам пользователей с низкой latency и адаптивным качеством. Главные компоненты: **video encoding pipeline**, **CDN distribution**, **adaptive bitrate streaming (HLS/DASH)**.
 
 ---
 
@@ -8,37 +8,37 @@
 
 ### Functional
 - Upload видео (creator)
-- Watch видео в realtime (viewer)
+- Просмотр видео в реальном времени (viewer)
 - Adaptive quality (mobile 3G → 4K)
-- Search, recommendations
-- Comments, likes (YouTube-specific)
+- Поиск, рекомендации
+- Комментарии, лайки (YouTube-специфика)
 
 ### Non-functional
-- **Smooth playback** — no buffering at acceptable bandwidth
-- **Low startup latency** — < 2 sec from click to first frame
+- **Плавное воспроизведение** — без буферизации при приемлемой полосе
+- **Низкая startup latency** — < 2 сек от клика до первого кадра
 - **High availability** — 99.99%
-- **Global scale** — billions of users
-- **Storage** — exabytes of video
+- **Глобальный масштаб** — миллиарды пользователей
+- **Storage** — экзабайты видео
 
 ---
 
 ## 2. Estimation
 
 ```
-100M DAU watching avg 30 min/day
-1 hour of 1080p video = ~ 3 GB
-1 hour of 4K video = ~ 7 GB
+100M DAU, в среднем 30 мин/день
+1 час 1080p ≈ 3 ГБ
+1 час 4K ≈ 7 ГБ
 
-Bandwidth peak: 100M users × avg 2 Mbps = 200 Tbps
-  → must be served from CDN edge, not origin
+Пик bandwidth: 100M пользователей × в среднем 2 Мбит/с = 200 Тбит/с
+  → обслуживается edge'ами CDN, не origin
 
 Storage:
-  1B videos × avg 10 minutes × 7 quality levels × ~ 100 MB per encoding
-  = ~ 700 PB (and growing)
-  
-Encoding compute:
-  1M new videos uploaded/day × 30 min average length × 7 qualities
-  = serious compute (50K+ encoding workers)
+  1B видео × в среднем 10 мин × 7 уровней качества × ~100 МБ на encoding
+  = ~700 ПБ (растёт)
+
+Compute на encoding:
+  1M новых видео/день × в среднем 30 мин × 7 качеств
+  = серьёзный compute (50K+ encoding-worker'ов)
 ```
 
 ---
@@ -48,13 +48,13 @@ Encoding compute:
 ```http
 POST /api/v1/videos/upload
 Body (multipart): { title, description, file }
-→ { videoId, uploadUrl } # presigned S3 URL for actual upload
+→ { videoId, uploadUrl } # presigned S3 URL для самого upload
 
 GET /api/v1/videos/:id
 → { id, title, description, manifestUrl, thumbnails }
 
 GET /api/v1/videos/:id/manifest.m3u8   # HLS manifest
-→ playlists by quality
+→ playlist'ы по качествам
 ```
 
 ---
@@ -62,25 +62,25 @@ GET /api/v1/videos/:id/manifest.m3u8   # HLS manifest
 ## 4. Upload + encoding pipeline
 
 ```
-Creator uploads original video → 
-  S3 (raw bucket)
+Creator загружает оригинал →
+  S3 (raw-бакет)
   ↓ Object created event (S3 → SNS → SQS)
   ↓
 Encoding workers (Spark / Kafka consumers):
-  1. Download original
-  2. Transcode to multiple qualities (240p, 360p, 480p, 720p, 1080p, 4K)
-  3. Split into segments (2-10 sec chunks): HLS/DASH
-  4. Generate thumbnails (every 5 sec)
-  5. Upload encoded files to CDN-origin bucket
-  6. Generate manifest file (.m3u8 / .mpd)
-  7. Mark video "published" in DB
-  
-Creator gets notification: video ready
+  1. Скачать оригинал
+  2. Transcode в несколько качеств (240p, 360p, 480p, 720p, 1080p, 4K)
+  3. Нарезать на сегменты (chunks 2–10 сек): HLS/DASH
+  4. Сгенерировать thumbnails (каждые 5 сек)
+  5. Загрузить encoded-файлы в CDN-origin бакет
+  6. Сгенерировать manifest (.m3u8 / .mpd)
+  7. Пометить видео как "published" в БД
+
+Creator получает уведомление: видео готово
 ```
 
-**Transcoding cost:** seriously CPU/GPU intensive. Use specialized hardware (NVIDIA NVENC, AWS MediaConvert).
+**Стоимость transcoding'а:** очень тяжёлый CPU/GPU. Используют специализированные ускорители (NVIDIA NVENC, AWS MediaConvert).
 
-**Parallelization:** split video в chunks, encode parallel, reassemble.
+**Параллелизация:** видео разбивается на chunks, encoding идёт параллельно, потом склейка.
 
 ---
 
@@ -88,14 +88,14 @@ Creator gets notification: video ready
 
 ### Концепт
 
-Видео encoded в **multiple quality levels**. Player picks quality based на текущей пропускной способности и adapts dynamically.
+Видео кодируется в **несколько уровней качества**. Player выбирает качество по текущей полосе и динамически адаптируется.
 
 ### Структура HLS
 
 ```
 master.m3u8                    # Master playlist
-├── 240p.m3u8                  # Media playlist for 240p
-│   ├── seg_001.ts             # 6-sec segments
+├── 240p.m3u8                  # Media playlist для 240p
+│   ├── seg_001.ts             # 6-секундные сегменты
 │   ├── seg_002.ts
 │   └── ...
 ├── 720p.m3u8
@@ -116,123 +116,123 @@ master.m3u8                    # Master playlist
 1080p.m3u8
 ```
 
-### Player behavior
+### Поведение player'а
 
 ```
-Player fetches master.m3u8
-Initially picks lowest quality (or estimates from speed test)
-Fetches first segment, measures download time
-  - If fast → next request goes для higher quality manifest
-  - If slow / buffering → drops to lower quality
-Continuously adapts
+Player забирает master.m3u8
+Начинает с самого низкого качества (или оценивает по speed test)
+Скачивает первый сегмент, замеряет время загрузки
+  - Быстро → следующий запрос на manifest более высокого качества
+  - Медленно / буферизация → понижаем качество
+Непрерывно адаптируется
 ```
 
 ### HLS vs DASH
 
 | | HLS | DASH |
 |---|---|---|
-| Author | Apple | ISO standard |
-| Format | TS (transport stream) / fragmented MP4 | MP4 |
+| Автор | Apple | ISO-стандарт |
+| Формат | TS (transport stream) / fragmented MP4 | MP4 |
 | Manifest | .m3u8 | .mpd (XML) |
-| Browsers | Safari native, others via libraries | Most modern |
-| Devices | Apple iOS native | Android, web, many |
+| Браузеры | Safari нативно, остальные через библиотеки | Большинство современных |
+| Устройства | iOS нативно | Android, web, и т. п. |
 
-Modern: usually serve both или use **CMAF** (Common Media Application Format) — единый mp4 + manifest variants.
+Сейчас обычно отдают оба или используют **CMAF** (Common Media Application Format) — единый mp4 + варианты manifest'а.
 
 ---
 
 ## 6. CDN distribution
 
-Edge cache + origin shielding обязательны для масштабa.
+Edge-кэш + origin shielding обязательны на масштабе.
 
 ```
-User в Tokyo requests video segment →
-  CDN edge (Tokyo PoP) — cache hit? Return segment.
-  Miss → fetch from regional shield (Asia) → origin (S3 in main region)
-  Cache for next users.
+Пользователь в Tokyo запрашивает сегмент видео →
+  CDN edge (Tokyo PoP) — hit? Отдаём сегмент.
+  Miss → запрос к регионального shield (Asia) → origin (S3 в основном регионе)
+  Кэшируем для следующих пользователей.
 ```
 
-**Cache hit ratio target:** 95%+. Otherwise origin overwhelmed.
+**Целевой cache hit ratio:** 95%+. Иначе origin захлёбывается.
 
-**Smart pre-population:** popular videos pushed to edges proactively (Netflix uses ML to predict viewing patterns per region, pre-cache).
+**Smart pre-population:** популярные видео заранее пушатся на edge (Netflix ML-моделями предсказывает паттерны просмотра по регионам и пре-кэширует).
 
-**Custom CDN:** Netflix Open Connect (CDN deployed inside ISPs' networks для super-low latency).
+**Custom CDN:** Netflix Open Connect — CDN, развёрнутый прямо внутри сетей ISP для очень низкой latency.
 
 ---
 
 ## 7. Storage
 
-### Original (raw upload)
+### Оригинал (raw upload)
 
-S3 Standard или Glacier (rarely accessed после encoding).
+S3 Standard или Glacier (после encoding'а обращаются редко).
 
-### Encoded segments
+### Encoded-сегменты
 
-- Hot (popular): S3 + CDN
-- Cold (old, rare): S3 Glacier
+- Hot (популярные): S3 + CDN
+- Cold (старые, редкие): S3 Glacier
 
-Per video: ~ 700 MB across qualities (10-min HD video).
-1B videos × 700 MB = 700 PB (matches earlier estimate).
+На видео: ~700 МБ суммарно по качествам (10-минутное HD-видео).
+1B видео × 700 МБ = 700 ПБ (согласуется с оценкой выше).
 
 ### Metadata DB
 
-PostgreSQL / Cassandra — video metadata, comments, likes (separate aggregation).
+PostgreSQL / Cassandra — метаданные видео, комментарии, лайки (отдельная агрегация).
 
 ---
 
-## 8. Live streaming (extension)
+## 8. Live streaming (расширение)
 
-Differences from VOD (Video on Demand):
-- Source: continuous encoder feeds chunks к origin
-- Manifest: updated continuously (`#EXT-X-MEDIA-SEQUENCE` increments)
-- Latency budget tighter — viewers want «live»
-- Low Latency HLS (LL-HLS) → < 5 sec end-to-end (vs. 30+ sec traditional)
-- WebRTC для interactive (sub-second, e.g. video calls)
+Отличия от VOD (Video on Demand):
+- Источник: непрерывный encoder шлёт chunks на origin
+- Manifest обновляется непрерывно (`#EXT-X-MEDIA-SEQUENCE` инкрементится)
+- Latency budget жёстче — зрители хотят «live»
+- Low Latency HLS (LL-HLS) → < 5 сек end-to-end (vs 30+ сек у традиционного HLS)
+- WebRTC для интерактива (sub-second, видеозвонки)
 
 **Pipeline:**
 ```
-Camera → RTMP → Ingest server → Transcoding (real-time, multiple qualities) →
-  Segment storage → CDN → Viewer player
+Camera → RTMP → Ingest-сервер → Transcoding (real-time, несколько качеств) →
+  Хранилище сегментов → CDN → Player зрителя
 ```
 
 ---
 
-## 9. Recommendations / Personalization
+## 9. Рекомендации / персонализация
 
 ### Pre-compute (batch)
 
-Daily Spark job:
+Ежедневный Spark-job:
 - Collaborative filtering (matrix factorization)
-- Per-user video score matrix
-- Store top-N per user в Redis / DynamoDB
+- Матрица оценок «пользователь × видео»
+- Top-N на пользователя — в Redis / DynamoDB
 
 ### Real-time re-ranking
 
-When user opens app:
-- Fetch pre-computed candidates (top 1000)
-- Re-rank based на current context: recent watches, device, time of day
-- ML model online inference
+При открытии приложения:
+- Достаём pre-computed кандидатов (top 1000)
+- Re-rank с учётом контекста: недавние просмотры, устройство, время суток
+- Online inference ML-моделью
 
-**A/B testing** — different ranking models served к user buckets.
+**A/B testing** — разные ranking-модели работают на разных бакетах пользователей.
 
 ---
 
-## 10. Comments / Likes (YouTube-specific)
+## 10. Комментарии и лайки (YouTube-специфика)
 
-### Likes — counter
+### Лайки — counter
 
-PostgreSQL / Redis HINCRBY for counter. Async aggregation для display:
+PostgreSQL / Redis HINCRBY как счётчик. Async-агрегация для отображения:
 
 ```
-User clicks like:
-  immediate: visual +1 (optimistic UI)
-  async: increment counter в Redis
-  batch: every 60 sec, persist Redis → DB
+Пользователь нажал like:
+  моментально: визуальный +1 (optimistic UI)
+  async: increment счётчика в Redis
+  batch: раз в 60 сек, persist Redis → DB
 ```
 
-### Comments
+### Комментарии
 
-Cassandra с partitioning по videoId. Pagination by timestamp.
+Cassandra, partition по videoId. Pagination по timestamp.
 
 ```
 TABLE comments (
@@ -244,66 +244,66 @@ TABLE comments (
 ) WITH CLUSTERING ORDER BY (comment_id DESC);
 ```
 
-### Replies / threads
+### Reply'и / треды
 
-Parent_comment_id reference. Recursive query limits depth.
+Ссылка `parent_comment_id`. Рекурсивный запрос с ограничением по глубине.
 
 ---
 
 ## 11. Anti-piracy / DRM
 
-For paid content (Netflix originals, premium):
+Для платного контента (оригиналы Netflix, premium):
 - **DRM (Digital Rights Management)** — Widevine (Google), FairPlay (Apple), PlayReady (Microsoft)
-- Encrypted segments delivered through CDN
-- Player negotiates licence with DRM server
-- Decryption keys delivered only к valid devices
+- Зашифрованные сегменты идут через CDN
+- Player договаривается с DRM-сервером о лицензии
+- Ключи дешифрования выдаются только на валидные устройства
 
-Free tier (YouTube basic):
-- No DRM
-- Watermarks для creator content
-- Manual review/takedown для copyright issues
+Free-тир (базовый YouTube):
+- Без DRM
+- Watermarks для creator-контента
+- Ручной review / takedown по copyright-жалобам
 
 ---
 
 ## 12. Failure modes
 
-| Scenario | Handling |
-|----------|----------|
-| CDN edge slow → buffering | Player adapts to lower quality |
-| Origin bucket down | Multi-region replication, failover |
-| Encoding pipeline backed up | Scale up workers; viewers get 240p until ready |
-| Live stream encoder crash | Backup encoder takes over (active-active) |
-| Recommendation service down | Fall back на popular videos list (pre-cached) |
+| Сценарий | Обработка |
+|----------|-----------|
+| CDN edge тормозит → буферизация | Player переключается на качество ниже |
+| Origin-бакет упал | Multi-region replication, failover |
+| Encoding pipeline в backlog'е | Увеличиваем число worker'ов; viewer получает 240p до готовности остальных |
+| Live encoder упал | Резервный encoder подхватывает (active-active) |
+| Recommendations down | Fallback на список популярных видео (pre-cached) |
 
 ---
 
 ## 13. Trade-offs
 
-### Storage cost vs encoding qualities
+### Стоимость хранения vs число качеств
 
-7 qualities × 1B videos = expensive. Trade-off:
-- Encode less qualities (3-4 instead of 7) — smaller storage, less choice
-- Encode on-demand для cold videos — cold latency
-- Variable: keep more qualities only для popular videos
+7 качеств × 1B видео — дорого. Trade-off:
+- Меньше качеств (3–4 вместо 7) — меньше storage, меньше выбора
+- Encoding по требованию для холодных видео — высокая cold-latency
+- Гибрид: больше качеств только для популярных видео
 
 ### CDN pull vs push
 
-- **Pull** (default) — first user causes cache miss
-- **Push** — Netflix pre-positions video на CDN edges based на ML predictions
+- **Pull** (по умолчанию) — первый пользователь вызывает cache miss
+- **Push** — Netflix заранее размещает видео на edge'ах по ML-прогнозам
 
-### Live latency vs reliability
+### Live: latency vs reliability
 
-- 1-sec latency (WebRTC) — interactive, no buffer for network glitches
-- 5-sec (LL-HLS) — buffer for hiccups
-- 30-sec (traditional HLS) — robust, late catch-up
+- 1 сек (WebRTC) — интерактивно, нет буфера на сбои сети
+- 5 сек (LL-HLS) — есть буфер на «икоту» сети
+- 30 сек (классический HLS) — надёжно, поздний catch-up
 
 ---
 
 ## Источники
 
-- *System Design Interview Vol. 1* (Alex Xu) — Ch. 14 «Design YouTube»
+- *System Design Interview Vol. 1* (Alex Xu) — глава 14 «Design YouTube»
 - [Netflix Tech Blog — Open Connect CDN, video encoding](https://netflixtechblog.com/)
-- [YouTube architecture (old talk 2007)](https://www.youtube.com/watch?v=-w7UOMnTSrU) — relevant principles
+- [YouTube architecture (talk, 2007)](https://www.youtube.com/watch?v=-w7UOMnTSrU) — принципы актуальны
 - [Apple HLS Specification](https://developer.apple.com/streaming/)
 - [DASH Industry Forum](https://dashif.org/)
 - [Twitch — Live streaming infrastructure](https://blog.twitch.tv/en/tags/engineering/)

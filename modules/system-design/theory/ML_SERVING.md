@@ -1,8 +1,8 @@
 # ML Model Serving
 
-Развёртывание ML-моделей в production: online (real-time) vs batch inference, model registry, feature stores, A/B testing моделей. В 2024-2026 это стало стандартной темой на интервью senior backend / ML platform engineer.
+Развёртывание ML-моделей в production: online (real-time) vs batch inference, model registry, feature stores, A/B testing моделей. В 2024–2026 — стандартная тема на интервью senior backend / ML platform engineer.
 
-> **Scope**: serving infrastructure. Vector DBs и RAG — отдельно [`VECTOR_DBS_RAG.md`](VECTOR_DBS_RAG.md).
+> **Scope:** serving-инфраструктура. Vector DB и RAG — отдельно в [`VECTOR_DBS_RAG.md`](VECTOR_DBS_RAG.md).
 
 ---
 
@@ -10,51 +10,51 @@
 
 ### Online inference
 
-Request-response в реальном времени: пользователь делает action → model predicts → возвращается результат.
+Request-response в реальном времени: пользователь совершает действие → модель делает predict → возвращается результат.
 
 ```
 User → API Gateway → Inference Service → Model
                                           ↓
-                                       Prediction (~ 10-100 ms)
-                  ← Response with personalized result
+                                       Prediction (~10–100 мс)
+                  ← Response с персонализированным результатом
 ```
 
-**Use cases:** recommendations на странице, fraud detection on transaction, search ranking, ad targeting.
+**Use cases:** рекомендации на странице, fraud detection на транзакции, search ranking, ad targeting.
 
-**Latency requirements:** обычно < 100 ms p99. Иногда < 10 ms (HFT, real-time bidding).
+**Latency requirements:** обычно < 100 мс p99. Иногда < 10 мс (HFT, real-time bidding).
 
-**Challenges:**
-- Low latency = небольшая модель или GPU inference
-- High throughput = batching requests at inference server
-- Feature freshness — feature должны быть доступны в memory / fast store
+**Сложности:**
+- Низкая latency = небольшая модель или GPU inference
+- Высокий throughput = batching запросов на inference-сервере
+- Свежесть фичей — данные должны лежать в памяти или быстром хранилище
 
 ### Batch inference
 
-Predictions computed periodically (hourly / daily) для всех users / items, stored для quick lookup.
+Predictions считаются периодически (каждый час / каждую ночь) для всех пользователей / айтемов и сохраняются для быстрых lookup'ов.
 
 ```
-Schedule: nightly
-  → Load all users from DB
-  → Run model on each (Spark / Flink)
-  → Write predictions to DB / cache
-  → Serve via key-value lookup при request
+Schedule: ночью
+  → Загружаем всех пользователей из БД
+  → Прогоняем модель (Spark / Flink)
+  → Записываем predictions в БД / cache
+  → На запрос — KV-lookup
 
-User request → DB lookup → cached prediction (< 1 ms)
+User request → DB lookup → cached prediction (< 1 мс)
 ```
 
-**Use cases:** «what to show on home page» (predictions cached per user), email campaigns, churn predictions.
+**Use cases:** «что показать на главной» (predictions закэшированы per user), email-кампании, churn predictions.
 
 **Trade-offs:**
-- ✓ Low query latency (KV lookup)
-- ✓ Can use heavy models (нет latency budget)
-- ✗ Stale predictions (могут не учитывать current session)
-- ✗ Storage cost (predictions for all users × all items × N variants)
+- ✓ Низкая query latency (KV lookup)
+- ✓ Можно использовать тяжёлые модели (нет жёсткого latency budget)
+- ✗ Stale predictions (не учитывают текущую сессию)
+- ✗ Storage cost (predictions для всех пользователей × всех айтемов × N вариантов)
 
-### Hybrid
+### Гибрид
 
-Pre-compute candidates (batch), re-rank in real-time (online). 
+Pre-compute кандидатов (batch), re-rank в реальном времени (online).
 
-YouTube example: batch pre-computes 100-1000 candidate videos per user; online model re-ranks based on current session + context.
+YouTube: batch заранее считает 100–1000 кандидатов на пользователя; online-модель re-rank'ит с учётом текущей сессии и контекста.
 
 ---
 
@@ -62,49 +62,49 @@ YouTube example: batch pre-computes 100-1000 candidate videos per user; online m
 
 ### Model server
 
-Specialized servers для serving ML models:
+Специализированные серверы для serving ML-моделей:
 
 - **TensorFlow Serving** — оригинал, gRPC + REST API
 - **TorchServe** — для PyTorch
 - **NVIDIA Triton Inference Server** — multi-framework, GPU optimization, batching
-- **Seldon Core / KServe (K8s)** — orchestration
-- **BentoML** — Python-native, easy deployment
+- **Seldon Core / KServe (на Kubernetes)** — оркестрация
+- **BentoML** — Python-native, простой деплой
 
-### Optimization
+### Оптимизация
 
-- **Quantization** — fp32 → int8/fp16. Smaller, faster, slight accuracy loss
-- **Pruning** — remove low-importance weights
-- **Distillation** — train small «student» model to mimic large «teacher»
+- **Quantization** — fp32 → int8/fp16. Меньше, быстрее, небольшая потеря точности
+- **Pruning** — выкидывание малозначимых весов
+- **Distillation** — обучение маленькой «student»-модели имитировать большую «teacher»
 - **Compilation** — TensorRT (NVIDIA), ONNX Runtime, OpenVINO (Intel)
-- **Batching** — process multiple requests as one batch (more GPU efficient)
-- **Caching** — frequent inputs → cached predictions
+- **Batching** — несколько запросов обрабатываются одним батчем (эффективнее на GPU)
+- **Caching** — частые входы → закэшированные predictions
 
 ### Hardware
 
-- **CPU** — small models, low-volume
-- **GPU** — large models (CNNs, transformers), batch inference. NVIDIA dominant.
-- **TPU** — Google's custom AI chip
-- **Accelerators** — AWS Inferentia, Apple Neural Engine, Tenstorrent
+- **CPU** — небольшие модели, низкий объём
+- **GPU** — большие модели (CNN, transformers), batch inference. Доминирует NVIDIA.
+- **TPU** — кастомный AI-чип Google
+- **Акселераторы** — AWS Inferentia, Apple Neural Engine, Tenstorrent
 
 ---
 
 ## Feature Stores
 
-Production ML нужен **тот же feature** для training и serving (training-serving skew problem).
+В production ML нужны **одни и те же фичи** для training и serving (проблема training-serving skew).
 
-### Feature store responsibilities
+### Зоны ответственности feature store
 
-- **Single source of truth** для features
-- **Online store** — fast lookup в serving time (Redis, DynamoDB)
-- **Offline store** — historical features для training (S3, Parquet, BigQuery)
-- **Feature engineering** — compute pipelines (Flink, Spark)
-- **Versioning** — feature schema versions
-- **Point-in-time correctness** — at training, retrieve feature values as of timestamp T
+- **Единый источник истины** для фичей
+- **Online store** — быстрый lookup в serving (Redis, DynamoDB)
+- **Offline store** — исторические фичи для training (S3, Parquet, BigQuery)
+- **Feature engineering** — пайплайны вычислений (Flink, Spark)
+- **Versioning** — версии схем фичей
+- **Point-in-time correctness** — при обучении достаём значения фичей **на момент** timestamp T
 
 ### Реализации
 
 - **Feast** (open source) — Python-native
-- **Tecton** — managed, по сути commercialized Feast
+- **Tecton** — managed-вариант, по сути commercialized Feast
 - **AWS SageMaker Feature Store**
 - **Databricks Feature Store**
 - **Hopsworks**
@@ -114,13 +114,13 @@ Production ML нужен **тот же feature** для training и serving (tra
 
 ## Model Registry
 
-Catalog обученных models с metadata.
+Каталог обученных моделей с метаданными.
 
-**Metadata:**
-- Model name, version
-- Training data version
-- Hyperparameters
-- Performance metrics (offline eval)
+**Метаданные:**
+- Имя и версия модели
+- Версия training data
+- Гиперпараметры
+- Метрики (offline eval)
 - Lineage (data → features → model)
 - Approval status (dev → staging → prod)
 
@@ -137,38 +137,38 @@ Catalog обученных models с metadata.
 
 ### Shadow deployment
 
-Новая модель запускается параллельно со старой; predictions сравниваются. Output не возвращается клиенту.
+Новая модель работает параллельно со старой; predictions сравниваются. Output клиенту не возвращается.
 
 ```
-Request → Old Model (returns prediction to user)
-       → New Model (prediction logged, not returned)
+Request → Old Model (predict → пользователю)
+       → New Model (predict логируется, не возвращается)
 
-Compare: difference distribution, latency, errors
+Сравнение: распределение различий, latency, ошибки
 ```
 
-- ✓ Safe testing on real traffic
-- ✗ Doubles compute cost
+- ✓ Безопасный тест на реальном трафике
+- ✗ Удваивает compute cost
 
 ### A/B testing
 
-Split traffic between models, compare business metrics.
+Разделить трафик между моделями, сравнить бизнес-метрики.
 
 ```
-50% → Model A (current production)
+50% → Model A (текущий prod)
 50% → Model B (challenger)
 
-Track: click-through, conversion, latency
+Метрики: click-through, conversion, latency
 ```
 
-Statistical significance, multi-arm bandit для adaptive allocation.
+Проверять статистическую значимость; multi-arm bandit — для адаптивного распределения трафика.
 
 ### Canary rollout
 
-Gradual rollout: 1% → 10% → 50% → 100%. Monitor metrics на каждом step, rollback если хуже.
+Постепенный rollout: 1% → 10% → 50% → 100%. Мониторим метрики на каждом шаге, откатываем при ухудшении.
 
 ### Multi-model
 
-Different models for different segments / contexts.
+Разные модели для разных сегментов / контекстов.
 
 ```
 if user.tier == "premium":
@@ -183,26 +183,26 @@ else:
 
 ## Monitoring
 
-ML systems decay в production без monitoring.
+ML-системы деградируют в production без мониторинга.
 
-### Model monitoring
+### Что мониторим
 
-- **Input data drift** — distribution input features changes (например, new user behavior)
-- **Concept drift** — relationship input→output changes (recession changes purchase patterns)
-- **Prediction distribution** — outputs shift
-- **Performance metrics** — if ground truth available (clicks, conversions)
+- **Input data drift** — распределение входных фичей меняется (новое поведение пользователей)
+- **Concept drift** — меняется связь input → output (рецессия меняет паттерны покупок)
+- **Prediction distribution** — выходы сдвинулись
+- **Performance metrics** — если доступна ground truth (клики, конверсии)
 
-### Tools
+### Инструменты
 
 - **Evidently AI** — open source
 - **Arize, Fiddler, WhyLabs** — managed
-- **Custom dashboards** — Grafana + Prometheus
+- **Кастомные дашборды** — Grafana + Prometheus
 
-### Retraining triggers
+### Триггеры на переобучение
 
-- Scheduled (weekly / monthly)
-- Threshold-based (metric drops below X)
-- Continuous (production stream of new data)
+- По расписанию (раз в неделю / месяц)
+- Threshold-based (метрика упала ниже X)
+- Continuous (production-поток новых данных)
 
 ---
 
@@ -210,27 +210,27 @@ ML systems decay в production без monitoring.
 
 ### Netflix — recommendations
 
-- Offline: matrix factorization, deep learning models trained nightly
-- Online: real-time re-ranking based on current session
-- Personalized homepage = combination of multiple models (rows, ordering, artwork)
+- Offline: matrix factorization и deep learning, обучаются ночью
+- Online: real-time re-ranking по текущей сессии
+- Персональная главная = комбинация нескольких моделей (строки, порядок, artwork)
 
 ### Uber Michelangelo
 
 - Feature store
-- Training, serving, monitoring unified platform
-- 1000+ models in production
+- Унифицированная платформа для training, serving и мониторинга
+- 1000+ моделей в production
 
 ### Spotify
 
 - Discover Weekly = collaborative filtering + content-based
-- Real-time recommendations during listening session
-- Annoy library для approximate nearest neighbor (Spotify open-sourced)
+- Real-time-рекомендации во время прослушивания
+- Библиотека Annoy для approximate nearest neighbor (выложена Spotify в open source)
 
-### Twitter timeline ranking
+### Twitter — timeline ranking
 
-- Heavy ML model per user × per tweet
-- Pre-fetch candidates → score → re-rank
-- Real-time signals (current trends) + slow signals (user history)
+- Тяжёлая ML-модель на каждого пользователя × каждый твит
+- Pre-fetch кандидатов → scoring → re-rank
+- Real-time-сигналы (текущие тренды) + медленные (история пользователя)
 
 ---
 
@@ -239,18 +239,18 @@ ML systems decay в production без monitoring.
 Для real-time recommendations / search:
 
 ```
-Total budget: 100 ms (user perceives instant)
+Общий бюджет: 100 мс (пользователь воспринимает как мгновенно)
 
-Distribution:
-  Network (client ↔ edge): 30 ms
-  Application logic: 10 ms
-  Feature fetch: 5 ms (Redis hot data)
-  Model inference: 20 ms (GPU batch)
-  Re-ranking + post-processing: 10 ms
-  Spare: 25 ms
+Распределение:
+  Сеть (client ↔ edge):              30 мс
+  Application logic:                 10 мс
+  Feature fetch:                      5 мс (Redis hot data)
+  Model inference:                   20 мс (GPU batch)
+  Re-ranking + постобработка:        10 мс
+  Запас:                             25 мс
 ```
 
-**Insight:** model latency — лишь часть. Feature fetch может быть тем же или дольше.
+**Insight:** latency самой модели — лишь часть. Feature fetch может занимать столько же или дольше.
 
 ---
 
@@ -258,24 +258,24 @@ Distribution:
 
 | | Build | Buy (managed) |
 |---|---|---|
-| Cost (initial) | High (eng time) | Low (subscription) |
-| Cost (scale) | Lower per request | Higher |
-| Customization | Full | Limited |
-| Team size | Need ML platform team | Smaller |
-| Examples | Uber Michelangelo, Airbnb Zipline | SageMaker, Vertex AI |
+| Cost (стартовый) | Высокий (инженерное время) | Низкий (подписка) |
+| Cost (на масштабе) | Ниже за запрос | Выше |
+| Кастомизация | Полная | Ограниченная |
+| Размер команды | Нужна ML platform team | Меньше |
+| Примеры | Uber Michelangelo, Airbnb Zipline | SageMaker, Vertex AI |
 
-Most companies < 1000 ML models — buy. FAANG-scale: build.
+Большинство компаний с < 1000 ML-моделей — buy. FAANG-масштаб — build.
 
 ---
 
 ## Антипаттерны
 
-- **Training-serving skew** — different feature pipelines for training vs serving. → use feature store.
-- **No monitoring** — model decays silently, business metrics suffer.
-- **Latency не measured properly** — model alone, не считая feature fetch, network, etc.
-- **Re-training without validation** — new model deployed без offline + online eval. Performance regression.
-- **No rollback plan** — bad model breaks production, нет way back.
-- **Over-engineering** — sophisticated pipeline для simple use case. Often, simple model + good data wins.
+- **Training-serving skew** — разные пайплайны фичей для training и serving → использовать feature store.
+- **Нет мониторинга** — модель тихо деградирует, бизнес-метрики падают.
+- **Latency измеряется неполно** — только модель, без feature fetch, сети и т. п.
+- **Re-training без валидации** — новая модель деплоится без offline и online eval → регрессия качества.
+- **Нет rollback-плана** — плохая модель ломает production, и нечем откатить.
+- **Over-engineering** — сложный пайплайн под простой кейс. Часто простая модель + хорошие данные побеждают.
 
 ---
 
@@ -285,7 +285,7 @@ Most companies < 1000 ML models — buy. FAANG-scale: build.
 - *Machine Learning Design Patterns* (Lakshmanan et al., 2020)
 - [Uber Engineering — Michelangelo: An Internal ML-as-a-Service Platform](https://www.uber.com/blog/michelangelo-machine-learning-platform/)
 - [Netflix Tech Blog — ML Engineering](https://netflixtechblog.com/tagged/machine-learning)
-- [Made With ML (Goku Mohandas)](https://madewithml.com/) — practical guide
+- [Made With ML (Goku Mohandas)](https://madewithml.com/)
 - [Feast Documentation](https://docs.feast.dev/)
 - [NVIDIA Triton Inference Server](https://docs.nvidia.com/deeplearning/triton-inference-server/user-guide/docs/index.html)
 - [MLOps Community](https://mlops.community/)

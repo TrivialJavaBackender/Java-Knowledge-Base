@@ -1,48 +1,48 @@
 # DDoS Protection и WAF
 
-Защита от атак: DDoS (исчерпание ресурсов), application-level (SQLi, XSS, SSRF), credential attacks. Multi-layered defense — нет single tool для всего.
+Защита от атак: DDoS (исчерпание ресурсов), application-level (SQLi, XSS, SSRF), credential attacks. Многоуровневая защита — единого средства от всего нет.
 
-> **Scope**: edge-уровень защиты (rate limiting, WAF, DDoS mitigation). Application-level auth (JWT/OAuth) — [`identity_providers.md`](identity_providers.md). Secrets ops — [`infrastructure/SECRETS.md`](../../infrastructure/theory/SECRETS.md). Security testing (SAST/DAST/pentest) — [`software-engineering/TESTING.md`](../../software-engineering/theory/TESTING.md).
+> **Scope:** edge-уровень защиты (rate limiting, WAF, DDoS mitigation). Application-level auth (JWT/OAuth) — [`identity_providers.md`](identity_providers.md). Secrets ops — [`infrastructure/SECRETS.md`](../../infrastructure/theory/SECRETS.md). Тестирование безопасности (SAST/DAST/pentest) — [`software-engineering/TESTING.md`](../../software-engineering/theory/TESTING.md).
 
 ---
 
 ## Виды DDoS
 
-### Volumetric (Layer 3-4)
+### Volumetric (Layer 3–4)
 
-Заваливают bandwidth / network packets.
+Заваливают полосу пропускания / сетевыми пакетами.
 
-- **UDP flood** — миллионы UDP packets
-- **SYN flood** — half-open TCP connections, server tracks state
-- **DNS amplification** — small request → huge response (amplification ratio 50-200×)
-- **NTP amplification** — similar
-- **Memcached amplification** — exposed memcached gave 1.7 TB/s attack (GitHub 2018)
+- **UDP flood** — миллионы UDP-пакетов
+- **SYN flood** — half-open TCP-соединения, сервер удерживает состояние
+- **DNS amplification** — маленький запрос → огромный ответ (коэффициент 50–200×)
+- **NTP amplification** — аналогично
+- **Memcached amplification** — открытый memcached дал атаку 1.7 Тбит/с (GitHub, 2018)
 
-**Размер:** 1-Tbps+ attacks случались (2016 Dyn, 2018 GitHub).
+**Масштаб:** атаки уровня 1 Тбит/с уже случались (Dyn 2016, GitHub 2018).
 
-**Защита:** absorption at edge (Cloudflare/Akamai/AWS Shield — capacity 100+ Tbps total network).
+**Защита:** absorb на edge (Cloudflare / Akamai / AWS Shield — суммарная capacity сети 100+ Тбит/с).
 
 ### Protocol (Layer 4)
 
-Exploit protocol implementation:
-- **Slowloris** — slow HTTP requests, keep connections open
+Эксплуатируют реализацию протокола:
+- **Slowloris** — медленные HTTP-запросы, держат соединения открытыми
 - **TCP RST flood**
-- **Smurf attack** — ICMP с spoofed source
+- **Smurf attack** — ICMP со spoofed source
 
-**Защита:** rate limit per IP, drop bad packets.
+**Защита:** rate limit per IP, отбрасывание плохих пакетов.
 
 ### Application (Layer 7)
 
-«Legitimate-looking» requests, но overwhelming volume или asymmetric cost.
+Запросы выглядят легитимно, но либо слишком объёмные, либо асимметрично дорогие.
 
-- **HTTP flood** — миллион GET / sec
-- **Cache busting** — different query strings, bypass CDN
+- **HTTP flood** — миллион GET в секунду
+- **Cache busting** — разные query string, обход CDN
 - **Login brute force** — credential stuffing
-- **API enumeration** — discover endpoints
+- **API enumeration** — обнаружение endpoints
 
-**Сложнее обнаружить:** выглядит как real traffic, smaller volume может быть достаточно (если backend slow на каждый request).
+**Сложнее обнаружить:** выглядит как реальный трафик, и даже небольшого объёма достаточно, если каждый запрос дорого обходится backend'у.
 
-**Защита:** rate limit per user/IP, CAPTCHA, behavioral analysis, WAF.
+**Защита:** rate limit per user / IP, CAPTCHA, behavioral analysis, WAF.
 
 ---
 
@@ -50,167 +50,167 @@ Exploit protocol implementation:
 
 ### Edge absorption (CDN)
 
-Cloudflare / Akamai / AWS Shield — distribute attack по 200+ PoPs. **Anycast** — attack traffic goes to closest PoP, not your origin.
+Cloudflare / Akamai / AWS Shield распределяют атаку по 200+ PoP. **Anycast** — атакующий трафик уходит на ближайший PoP, не на ваш origin.
 
-- Cloudflare: claims «unmetered DDoS protection» on all plans
-- AWS Shield Standard (free for CloudFront/Route 53 users)
-- AWS Shield Advanced ($3K/month) — adds 24/7 response team, cost protection
+- Cloudflare заявляет «unmetered DDoS protection» на всех планах
+- AWS Shield Standard — бесплатно для пользователей CloudFront / Route 53
+- AWS Shield Advanced (~$3K/мес) — добавляет 24/7 response team и cost protection
 
 ### SYN cookies (Layer 4)
 
-Server не tracks half-open TCP. Вместо state — cookie в SYN-ACK, validated на ACK.
+Сервер не хранит half-open TCP-соединения. Вместо состояния — cookie в SYN-ACK, валидируется при ACK.
 
-- ✓ Eliminates SYN flood memory exhaustion
-- Available in Linux kernel — `net.ipv4.tcp_syncookies = 1`
+- ✓ Решает проблему исчерпания памяти на SYN flood
+- В Linux включается через `net.ipv4.tcp_syncookies = 1`
 
 ### Rate limiting на edge
 
-Limit requests per IP / per session / per API key.
+Ограничение по IP / сессии / API key.
 
 ```
 Cloudflare:
-  Rate limiting rules: 100 req/min per IP
-  Burst handling: token bucket
+  Rate limiting rules: 100 запросов/мин на IP
+  Burst-логика: token bucket
 
 AWS WAF:
-  Rate-based rule: 2000 req per 5-min per IP
+  Rate-based rule: 2000 запросов за 5 мин на IP
 
 Application-level (Redis + Lua):
-  See "Design rate limiter" design problem
+  См. design problem «Rate limiter»
 ```
 
-### Caching
+### Кэширование
 
-Static cache на edge — 99% requests handled без touching origin. Attack focused на cacheable endpoints — absorbed.
+Статика кэшируется на edge — 99% запросов обслуживаются без обращения к origin. Атаки на cacheable endpoints просто absorbing'аются.
 
 ### Geofencing
 
-Block / rate-limit traffic from specific countries. Useful если business doesn't operate там.
+Блок или ограничение трафика из конкретных стран — полезно, если бизнес там не работает.
 
 ### Behavioral analysis
 
-ML / heuristics detect anomalies:
-- Spike in requests from one IP
-- Patterns matching known attack tools
-- User-Agent unusual
+ML / эвристики ловят аномалии:
+- Резкий рост запросов с одного IP
+- Паттерны известных атакующих инструментов
+- Подозрительные User-Agent
 
-Bot management (Cloudflare Bot Management, Akamai Bot Manager) — sophisticated.
+Продвинутые системы: Cloudflare Bot Management, Akamai Bot Manager.
 
 ---
 
 ## WAF (Web Application Firewall)
 
-Filter HTTP requests based on patterns / rules. **Layer 7** protection.
+Фильтрует HTTP-запросы по паттернам / правилам. Защита на **Layer 7**.
 
 ### OWASP Core Rule Set (CRS)
 
-Default ruleset для major WAF: ModSecurity, Cloudflare, AWS WAF.
+Дефолтный набор правил для основных WAF: ModSecurity, Cloudflare, AWS WAF.
 
 Защищает от **OWASP Top 10**:
-- **SQL Injection** — patterns как `' OR 1=1`, `UNION SELECT`
+- **SQL Injection** — паттерны `' OR 1=1`, `UNION SELECT`
 - **XSS** — `<script>`, `javascript:`, event handlers
 - **Path traversal** — `../../../etc/passwd`
-- **SSRF** — `localhost`, `169.254.169.254` (cloud metadata)
+- **SSRF** — `localhost`, `169.254.169.254` (cloud metadata endpoint)
 - **Command injection** — `; cat /etc/passwd`
-- **File upload** — extensions, magic bytes
+- **File upload** — проверка расширений и magic bytes
 
-### WAF deployment modes
+### Режимы развёртывания WAF
 
-1. **Detection mode** — log violations only (training period)
-2. **Blocking mode** — return 403 / challenge
+1. **Detection mode** — только логирование нарушений (период обучения)
+2. **Blocking mode** — возврат 403 или challenge
 
-**Pattern:** start с detection, tune rules (false positives), switch to blocking.
+**Паттерн:** начать с detection, отстроить правила (false positives), переключить в blocking.
 
 ### False positives
 
-Common — WAF blocks legitimate request. Examples:
-- Article body contains `<script>` example → blocked as XSS
-- Search query «UNION» → blocked as SQLi
-- User uploads .pdf → blocked by file rule
+Распространённое явление — WAF блокирует легитимный запрос. Примеры:
+- Тело статьи содержит `<script>` как пример → блок как XSS
+- Поисковый запрос с «UNION» → блок как SQLi
+- Пользователь загружает .pdf → блок по правилу для файлов
 
-**Mitigation:**
-- Custom rules для known patterns
-- Per-endpoint rules (relax for admin-only endpoints)
-- Whitelist trusted users / IPs
+**Митигации:**
+- Кастомные правила под известные паттерны
+- Per-endpoint правила (слабее для admin-only endpoints)
+- Whitelist для доверенных пользователей / IP
 
-### WAF products
+### WAF-продукты
 
 - **ModSecurity** (Apache, Nginx) — open source, OWASP CRS
-- **Cloudflare WAF** — managed, integrated с DDoS
+- **Cloudflare WAF** — managed, интегрирован с DDoS-защитой
 - **AWS WAF** — pay-per-rule, AWS-native
 - **Imperva, F5 BIG-IP ASM** — enterprise
-- **Wallarm, Signal Sciences** — modern API security
+- **Wallarm, Signal Sciences** — современная API security
 
 ---
 
 ## Bot Management
 
-Distinguishing humans vs bots.
+Различение человек vs бот.
 
-### Good bots vs bad
+### Хорошие vs плохие боты
 
-- **Good**: search engine crawlers (Googlebot, Bingbot), uptime monitoring, RSS readers
-- **Bad**: scrapers, credential stuffing, content theft, fake account creation, vulnerability scanners
+- **Хорошие:** поисковые краулеры (Googlebot, Bingbot), uptime monitoring, RSS-ридеры
+- **Плохие:** скрейперы, credential stuffing, кража контента, создание фейковых аккаунтов, сканеры уязвимостей
 
-### Detection techniques
+### Методы детекции
 
-- **User-Agent analysis** — known bad UA strings
-- **JavaScript challenge** — issue JS that real browsers compute, headless browsers struggle
+- **User-Agent analysis** — известные «плохие» UA-строки
+- **JavaScript challenge** — выдаём JS, который выполняют настоящие браузеры; headless-браузеры спотыкаются
 - **CAPTCHA** — Google reCAPTCHA, hCaptcha, Cloudflare Turnstile
-- **Device fingerprinting** — Canvas, WebGL, font fingerprints
-- **Behavioral** — mouse movements, typing patterns, navigation flow
+- **Device fingerprinting** — Canvas, WebGL, отпечатки шрифтов
+- **Behavioral** — движения мыши, паттерны набора, навигационный flow
 
-### CAPTCHA decline
+### Закат CAPTCHA
 
-reCAPTCHA v2 (image puzzles) → v3 (invisible scoring) → today: **passive challenges** (Cloudflare Turnstile, Apple App Attest).
+reCAPTCHA v2 (картинки) → v3 (невидимый скоринг) → сейчас: **пассивные challenges** (Cloudflare Turnstile, Apple App Attest).
 
-Modern approach: silent risk score, only challenge suspicious traffic.
+Современный подход: тихий risk score, challenge — только для подозрительного трафика.
 
 ---
 
 ## API security
 
-REST APIs face different attack vectors than browser apps.
+REST-API сталкиваются с другими векторами, чем браузерные приложения.
 
-### Authentication
+### Аутентификация
 
-- API keys (header) — simple, но утечки через repos / browser inspector
-- OAuth2 access tokens — short TTL, refresh rotation
-- mTLS — для B2B critical (banking, fintech)
-- HMAC signing — AWS-style request signing
+- API-ключи (в header) — просто, но утекают через репозитории / browser inspector
+- OAuth2 access tokens — короткий TTL, refresh rotation
+- mTLS — для критичного B2B (банкинг, fintech)
+- HMAC signing — request signing в стиле AWS
 
 ### Rate limiting per API key
 
 ```
-Free tier: 100 req/min
-Pro tier: 10000 req/min
-Enterprise: unmetered with monitoring
+Free tier: 100 запросов/мин
+Pro tier: 10 000 запросов/мин
+Enterprise: без лимита, но с мониторингом
 ```
 
-Implement через [rate-limiter design problem](#) или managed service (Kong, Tyk, Apigee).
+Реализация — собственный rate limiter (см. design problem) или managed-сервис (Kong, Tyk, Apigee).
 
 ### Schema validation
 
-Reject malformed requests early. Прежде чем дойдут до business logic.
+Отбрасывать malformed-запросы как можно раньше, до бизнес-логики.
 
-- OpenAPI/JSON Schema validation на edge
-- gRPC has schema baked in (Protobuf)
+- Валидация OpenAPI / JSON Schema на edge
+- В gRPC схема встроена (Protobuf)
 
 ### Input validation
 
-Never trust client input:
-- Length limits (prevent huge payloads)
-- Type validation
-- Range checks (negative numbers где shouldn't be)
-- Whitelist allowed values (enums)
+Никогда не доверять клиентскому вводу:
+- Лимиты длины (защита от огромных payload'ов)
+- Проверка типов
+- Range checks (отрицательные числа там, где не должно быть)
+- Whitelist допустимых значений (enums)
 
 ### Output encoding
 
-XSS prevention: escape output context-appropriately (HTML, JavaScript, URL).
+Защита от XSS: escape вывода в зависимости от контекста (HTML, JavaScript, URL).
 
 ### CORS
 
-Cross-Origin Resource Sharing — controls which origins can call API from browser.
+Cross-Origin Resource Sharing — определяет, какие origins могут вызывать API из браузера.
 
 ```http
 Access-Control-Allow-Origin: https://app.example.com
@@ -219,34 +219,34 @@ Access-Control-Allow-Headers: Authorization
 Access-Control-Allow-Credentials: true
 ```
 
-**Antipattern:** `Access-Control-Allow-Origin: *` + credentials — disabled by browser.
+**Антипаттерн:** `Access-Control-Allow-Origin: *` вместе с credentials — браузер заблокирует.
 
 ### CSRF (Cross-Site Request Forgery)
 
-Browser sends cookies на любой request к domain. Attacker page makes hidden request к your API.
+Браузер отправляет cookies на любой запрос к домену. Страница атакующего делает скрытый запрос к вашему API.
 
-**Defense:**
-- **SameSite cookies** (`Lax`, `Strict`) — default in modern browsers
-- **CSRF tokens** — server generates per-session token, client must include in request
-- **JWT в Authorization header** — not auto-sent like cookies, not vulnerable
+**Защита:**
+- **SameSite cookies** (`Lax`, `Strict`) — default в современных браузерах
+- **CSRF-токены** — сервер выдаёт на сессию, клиент обязан включить в запрос
+- **JWT в заголовке Authorization** — не отправляется автоматически, как cookies, и неуязвим к CSRF
 
 ---
 
 ## Zero Trust / BeyondCorp
 
-Google's BeyondCorp (2010s) — отказ от network-perimeter security. Каждый request authenticated + authorized regardless of network location.
+BeyondCorp от Google (2010-е) — отказ от network-perimeter security. Каждый запрос аутентифицируется и авторизуется независимо от сетевого расположения.
 
-### Principles
+### Принципы
 
-- **Никаких trusted networks** — corp network ≠ trusted
-- **Device authentication** — managed devices (corp laptop) authenticated
-- **User identity verification** — strong auth (SSO + MFA)
-- **Continuous evaluation** — risk score per request, not just login
-- **Least privilege** — access per-resource, time-limited
+- **Никаких trusted networks** — корпоративная сеть ≠ доверенная
+- **Device authentication** — managed-устройства (корпоративный ноутбук) аутентифицируются
+- **User identity verification** — сильная аутентификация (SSO + MFA)
+- **Continuous evaluation** — risk score на каждом запросе, а не только при логине
+- **Least privilege** — доступ per-resource, на ограниченное время
 
-### Implementations
+### Реализации
 
-- **Google BeyondCorp** (internal)
+- **Google BeyondCorp** (внутренний)
 - **Cloudflare Access** (BeyondCorp-as-a-service)
 - **Tailscale** (mesh VPN с identity)
 - **Zscaler ZTNA**
@@ -254,24 +254,24 @@ Google's BeyondCorp (2010s) — отказ от network-perimeter security. Ка
 
 ---
 
-## Real-world incidents
+## Реальные инциденты
 
-- **Dyn DDoS (2016)** — Mirai IoT botnet, 1.2 Tbps. Twitter, Reddit, Netflix down.
-- **GitHub DDoS (2018-02-28)** — 1.35 Tbps Memcached amplification. Recovered in 10 min с Akamai Prolexic absorb.
-- **AWS DDoS (2020-02)** — 2.3 Tbps. AWS Shield mitigated.
-- **Capital One breach (2019)** — SSRF (Server-Side Request Forgery) attack on misconfigured AWS WAF + IAM. 100M+ records.
-- **Equifax (2017)** — Apache Struts vulnerability (CVE-2017-5638). 147M records.
+- **Dyn DDoS (2016)** — Mirai IoT-ботнет, 1.2 Тбит/с. Twitter, Reddit, Netflix лежали.
+- **GitHub DDoS (28.02.2018)** — 1.35 Тбит/с, Memcached amplification. Восстановление за 10 мин через Akamai Prolexic.
+- **AWS DDoS (02.2020)** — 2.3 Тбит/с. Митигировано AWS Shield.
+- **Capital One breach (2019)** — SSRF-атака на неверно сконфигурированный AWS WAF + IAM. 100M+ записей.
+- **Equifax (2017)** — уязвимость Apache Struts (CVE-2017-5638). 147M записей.
 
 ---
 
 ## Антипаттерны
 
-- **Single layer defense** — только firewall, или только WAF. Defense in depth: CDN + DDoS + WAF + rate limit + auth + monitoring.
-- **«Security by obscurity»** — secret URLs, custom obfuscated tokens. Не работает.
-- **WAF без tuning** — full block mode сразу → много false positives → users complain → WAF disabled.
-- **Trusting client-side validation** — JS validates, server doesn't.
-- **Long-lived API keys** — utечка не обнаружена, эксплуатируется месяцами. Rotation policy.
-- **Same key для всех окружений** — staging leak compromises prod.
+- **Один уровень защиты** — только firewall, или только WAF. Нужен defense in depth: CDN + DDoS + WAF + rate limit + auth + мониторинг.
+- **«Security by obscurity»** — секретные URL, кастомные обфусцированные токены. Не работает.
+- **WAF без тюнинга** — сразу full block mode → много false positives → жалобы пользователей → WAF отключают.
+- **Доверие client-side валидации** — JS проверяет, сервер не проверяет.
+- **Долгоживущие API-ключи** — утечка не замечается, эксплуатируется месяцами. Нужна rotation policy.
+- **Один ключ на все окружения** — утечка из staging компрометирует prod.
 
 ---
 

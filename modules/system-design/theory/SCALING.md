@@ -8,7 +8,7 @@
 
 ## Vertical vs Horizontal Scaling
 
-**Vertical (scale up)** — увеличить мощность одного узла: больше CPU/RAM/SSD. Дёшево до определённого предела (AWS x1e.32xlarge — 128 vCPU, 3.9 TB RAM), просто (нет кода менять), но имеет хард-лимит + dolce factor (одна нода = один SPOF).
+**Vertical (scale up)** — увеличить мощность одного узла: больше CPU/RAM/SSD. Дёшево до определённого предела (AWS x1e.32xlarge — 128 vCPU, 3.9 ТБ RAM), просто (код не меняем), но имеет жёсткий лимит и cost factor (одна нода = один SPOF).
 
 **Horizontal (scale out)** — добавлять узлы. Нет верхнего предела, но требует:
 - Stateless services (или externalised state)

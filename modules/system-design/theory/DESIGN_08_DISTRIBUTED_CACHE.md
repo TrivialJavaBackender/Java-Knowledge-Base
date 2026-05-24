@@ -1,8 +1,8 @@
-# Design Problem: Distributed Cache (Memcached/Redis Cluster)
+# Design Problem: Distributed Cache (Memcached / Redis Cluster)
 
-Shared cache across N application instances. Главные challenges: data distribution (consistent hashing), replication для HA, cache invalidation.
+Общий cache на N инстансов приложений. Главные challenges: распределение данных (consistent hashing), репликация для HA, инвалидация.
 
-> **Scope**: design-уровень. Cache patterns, eviction algorithms, Caffeine/Redis deep — см. [`caching-deep-dive/`](../../../caching-deep-dive/).
+> **Scope:** уровень дизайна. Cache-паттерны, eviction-алгоритмы, Caffeine/Redis в глубину — в [`caching-deep-dive/`](../../../caching-deep-dive/).
 
 ---
 
@@ -12,36 +12,36 @@ Shared cache across N application instances. Главные challenges: data dis
 - GET key → value
 - PUT key value [TTL]
 - DELETE key
-- (Optional) Counters (INCR), structured (Hash, List, Set, ZSet)
+- (Опционально) Counters (INCR), структуры (Hash, List, Set, ZSet)
 
 ### Non-functional
-- **Low latency** — p99 < 10 ms
-- **High throughput** — 100K-1M ops/sec
-- **Scalable** — add nodes for capacity
-- **Available** — node failure не loses всех данных
-- **Eventual consistency OK** — cache есть «approximation», DB — source of truth
+- **Низкая latency** — p99 < 10 мс
+- **Высокий throughput** — 100K–1M ops/sec
+- **Масштабируемость** — добавление узлов для capacity
+- **High availability** — отказ узла не теряет все данные
+- **Eventual consistency допустима** — cache «приближение», источник истины — БД
 
 ---
 
 ## 2. Estimation
 
 ```
-1B items cached, avg 1 KB each → 1 TB working set
-1M ops/sec peak across cluster
+1B элементов в cache, в среднем 1 КБ → working set 1 ТБ
+Пик 1M ops/sec по кластеру
 
-Single Redis node:
-  - 100K-1M ops/sec (network bound > 1 Gbps)
-  - ~ 100 GB RAM practical limit
-  
-→ Need 10-20 shards to handle 1 TB / 1M ops
+Один Redis-узел:
+  - 100K–1M ops/sec (упирается в сеть > 1 Гбит/с)
+  - ~100 ГБ RAM практический предел
+
+→ Нужно 10–20 шардов на 1 ТБ / 1M ops
 ```
 
 ---
 
-## 3. Architecture
+## 3. Архитектура
 
 ```
-Client (smart, knows topology)
+Client (smart, знает топологию)
   ↓
   ├── Node 1 (shard 0, primary)
   ├── Node 2 (shard 1, primary)
@@ -50,18 +50,18 @@ Client (smart, knows topology)
   ├── Replica of Node 2 (shard 1, replica)
   └── Replica of Node 3 (shard 2, replica)
 
-Reads → primary (or replica для read scaling)
+Reads → primary (или replica для read-scaling)
 Writes → primary
-Async replication primary → replica
+Async-репликация primary → replica
 ```
 
 ---
 
-## 4. Distribution — Consistent Hashing
+## 4. Распределение — consistent hashing
 
-Key → shard mapping via consistent hashing.
+Сопоставление key → shard через consistent hashing.
 
-См. [`SHARDING.md` (databases)](../../databases/theory/SHARDING.md#consistent-hashing) и [`caching-deep-dive/DISTRIBUTED_CACHING.md`](../../../caching-deep-dive/theory/DISTRIBUTED_CACHING.md) для теории.
+Теория — в [`SHARDING.md` (databases)](../../databases/theory/SHARDING.md#consistent-hashing) и [`caching-deep-dive/DISTRIBUTED_CACHING.md`](../../../caching-deep-dive/theory/DISTRIBUTED_CACHING.md).
 
 ```python
 ring = ConsistentHashRing(virtual_nodes_per_real=200)
@@ -69,150 +69,150 @@ ring.add_node("node1")
 ring.add_node("node2")
 ring.add_node("node3")
 
-shard = ring.get_node(key)  # hash(key) → walk ring → найти node
+shard = ring.get_node(key)  # hash(key) → проходим ring → находим node
 ```
 
-**Adding node:** перемещается только `1/N` ключей.
+**При добавлении узла:** перемещается только `1/N` ключей.
 
-**Redis Cluster подход:** 16384 hash slots, статически распределены по nodes. Move slot → migrate keys (online).
+**Подход Redis Cluster:** 16384 hash-слотов, статически распределённых по узлам. Move slot → online-миграция ключей.
 
 ---
 
-## 5. Client-side vs server-side routing
+## 5. Client-side vs server-side роутинг
 
-### Client-side (Memcached style)
+### Client-side (стиль Memcached)
 
-Client computes shard, connects directly к right node.
+Клиент сам вычисляет shard, подключается напрямую к нужному узлу.
 
-- ✓ Fastest (1 hop)
-- ✗ Client must know topology, handle membership changes
+- ✓ Самый быстрый (1 hop)
+- ✗ Клиент обязан знать топологию и переживать изменения membership
 
 ### Proxy-based (Twemproxy, mcrouter)
 
-Client sends к proxy, proxy routes.
+Клиент шлёт на proxy, proxy роутит.
 
-- ✓ Simple client
-- ✗ Extra hop, proxy adds latency
+- ✓ Простой клиент
+- ✗ Дополнительный hop, proxy добавляет latency
 
-### Server-side cluster (Redis Cluster, mongos-style)
+### Server-side cluster (Redis Cluster, в стиле mongos)
 
-Any node receives request, redirects если нужно («MOVED slot to nodeX»).
+Любой узел принимает запрос, при необходимости делает редирект («MOVED slot to nodeX»).
 
-- ✓ Client just needs initial node list
-- ✗ Possible extra hop
+- ✓ Клиенту достаточно начального списка узлов
+- ✗ Возможен дополнительный hop
 
 ---
 
-## 6. Replication
+## 6. Репликация
 
 ### Sync vs async
 
-- **Sync** — write returns after replica confirms. Slower, no data loss on primary failure.
-- **Async** — write returns immediately. Faster, may lose recent writes on failover.
+- **Sync** — write завершается после подтверждения replica. Медленнее, нет потери при сбое primary.
+- **Async** — write возвращается сразу. Быстрее, могут потеряться последние writes при failover'е.
 
-Cache typically: **async** (cache loss tolerable, refilled from DB).
+Cache обычно: **async** (потеря cache переживается, перезаливается из БД).
 
-### Replica count
+### Количество replicas
 
-- 1 replica — recover from one node failure, no read scaling
-- 2+ replicas — read load balanced, higher tolerance
+- 1 replica — переживает падение одного узла, без read scaling
+- 2+ replicas — read load распределяется, выше отказоустойчивость
 
 Trade-off: storage cost × (N+1).
 
 ---
 
-## 7. Failure handling
+## 7. Обработка сбоев
 
-### Node down
+### Узел упал
 
-- Replica promoted to primary
-- Client (or cluster) updates topology
-- Failed node — when comes back, replicates from new primary
+- Replica повышается до primary
+- Клиент (или кластер) обновляет топологию
+- Когда узел возвращается — реплицируется с нового primary
 
-### Whole shard down
+### Целый shard упал
 
-- All data in that shard lost (cache, OK)
-- Or restored from snapshot
-- During recovery: cache misses, DB load spike
+- Все данные shard'а потеряны (cache — ок)
+- Либо восстанавливается из снапшота
+- Во время recovery: cache miss'ы, всплеск нагрузки на БД
 
-### Network partition
+### Сетевой раздел
 
-- Minority partition stops accepting writes (split-brain prevention)
-- Cluster reconfigured when partition heals
+- Minority-раздел перестаёт принимать writes (защита от split-brain)
+- Кластер переконфигурируется после восстановления
 
 ---
 
 ## 8. Cache invalidation
 
-См. [`caching-deep-dive/CONSISTENCY.md`](../../../caching-deep-dive/theory/CONSISTENCY.md) для теории.
+Теория — в [`caching-deep-dive/CONSISTENCY.md`](../../../caching-deep-dive/theory/CONSISTENCY.md).
 
-### Patterns
+### Паттерны
 
-- **TTL-only** — entries expire automatically; eventual consistency
-- **Write-through invalidation** — application updates cache + DB атомарно (with order: DB then cache, или CAS)
-- **CDC-based** — Debezium streams DB changes → invalidate cache (more loosely coupled)
-- **Versioned keys** — append version к key (`user:123:v5`), new data → new key, old key expires
+- **TTL-only** — записи автоматически истекают; eventual consistency
+- **Write-through invalidation** — приложение пишет в cache + БД атомарно (с определённым порядком: сначала БД, потом cache; либо CAS)
+- **CDC-based** — Debezium стримит изменения БД → инвалидирует cache (менее жёсткая связанность)
+- **Versioned keys** — добавлять версию к ключу (`user:123:v5`), новые данные → новый ключ, старый протухает
 
-### Patterns most apps use
+### Что обычно используют
 
-1. Cache-aside (lazy loading): read miss → DB → put in cache
-2. TTL для freshness bound
-3. Active invalidation only для critical (price changes, etc.)
+1. Cache-aside (lazy loading): read miss → БД → put в cache
+2. TTL для границы свежести
+3. Active invalidation только для критичного (изменение цен и т. п.)
 
 ---
 
-## 9. Hot key problem
+## 9. Проблема hot key
 
-Single key receiving disproportionate traffic.
+Один ключ получает непропорциональную нагрузку.
 
-### Mitigations
+### Митигации
 
-- **Replication** — replicate hot key на all/multiple nodes
-- **Key splitting** — `user:bieber:tweets:0..9`, randomize on write/read
-- **Local cache** — app instances cache hot keys в process memory
+- **Репликация** — реплицировать hot key на несколько / все узлы
+- **Splitting ключа** — `user:bieber:tweets:0..9`, рандомизируем на write/read
+- **Локальный кэш** — приложения кэшируют hot keys в памяти процесса
 - **Tiered caching** — L1 in-process, L2 distributed
 
-См. [`caching-deep-dive/ANTI_PATTERNS.md`](../../../caching-deep-dive/theory/ANTI_PATTERNS.md#hot-key) для деталей.
+Подробнее — в [`caching-deep-dive/ANTI_PATTERNS.md`](../../../caching-deep-dive/theory/ANTI_PATTERNS.md#hot-key).
 
 ---
 
-## 10. Persistence (optional)
+## 10. Persistence (опционально)
 
-Pure cache — RAM only. Some use cases need persistence:
+Чистый cache — только в RAM. Иногда нужно persistence:
 
-- **Redis RDB** — periodic snapshot
+- **Redis RDB** — периодический снапшот
 - **Redis AOF** — append-only log
-- **Tradeoff:** Persistence adds latency, cost. Most cache designs skip.
+- **Trade-off:** persistence добавляет latency и стоимость. Большинство cache-дизайнов обходятся без него.
 
 См. [`caching-deep-dive/REDIS.md`](../../../caching-deep-dive/theory/REDIS.md).
 
 ---
 
-## 11. Eviction policies
+## 11. Eviction-политики
 
-When cache full, evict items.
+Когда cache переполнен — нужно выбрасывать.
 
-- **LRU** — Least Recently Used. Standard, good for most workloads.
-- **LFU** — Least Frequently Used. Better для stable hot set.
-- **TTL** — fixed expiration time
-- **FIFO** — simple, but often inferior to LRU
-- **W-TinyLFU** (Caffeine default) — best research, used in modern caches
-- **Allkeys-random** — Redis option (when keys all equally important)
+- **LRU** — Least Recently Used. Стандарт, подходит для большинства нагрузок.
+- **LFU** — Least Frequently Used. Лучше при стабильном hot-set'е.
+- **TTL** — фиксированное время жизни
+- **FIFO** — просто, но часто хуже LRU
+- **W-TinyLFU** (дефолт Caffeine) — современный лидер по бенчмаркам
+- **Allkeys-random** — опция Redis (когда все ключи одинаково важны)
 
 См. [`caching-deep-dive/EVICTION_POLICIES.md`](../../../caching-deep-dive/theory/EVICTION_POLICIES.md).
 
 ---
 
-## 12. Monitoring
+## 12. Мониторинг
 
-Critical metrics:
-- **Hit ratio** (target > 90%)
+Ключевые метрики:
+- **Hit ratio** (цель > 90%)
 - **Latency** p50/p99
-- **Memory usage** per shard
-- **Eviction rate** — high = cache undersized
-- **Hot keys** — periodic scan top-N
+- **Memory usage** на shard
+- **Eviction rate** — высокий = cache слишком маленький
+- **Hot keys** — периодическое сканирование top-N
 
-Per-shard imbalance signals bad hash key distribution.
+Перекос между shard'ами — индикатор плохого распределения ключей.
 
 ---
 
@@ -222,40 +222,40 @@ Per-shard imbalance signals bad hash key distribution.
 
 | | Memcached | Redis |
 |---|---|---|
-| Data types | String only | String, Hash, List, Set, ZSet, Stream, ... |
-| Persistence | None | RDB / AOF |
-| Replication | Client-side (3rd party) | Built-in |
+| Типы данных | Только string | String, Hash, List, Set, ZSet, Stream, … |
+| Persistence | Нет | RDB / AOF |
+| Репликация | Через клиент (3rd party) | Встроенная |
 | Cluster | mcrouter / Twemproxy | Redis Cluster |
-| Single-threaded | Multi-threaded | Single-threaded (per shard) |
-| Use case | Pure caching | Caching + data structures + pub/sub + Lua |
+| Threading | Multi-threaded | Single-threaded на shard |
+| Use case | Чистый cache | Cache + data structures + pub/sub + Lua |
 
-Modern: Redis dominates. Memcached used by legacy or pure-cache simplicity.
+Сейчас Redis доминирует. Memcached — у legacy-систем или там, где нужен только чистый cache.
 
 ### Centralized vs near-cache
 
-- **Centralized** (this design) — one cache, all apps share
-- **Near-cache** (per-app L1 + shared L2) — faster local lookup, complex invalidation
-- **Replicated** — all data on all nodes (only небольшие dataset)
+- **Centralized** (этот дизайн) — один cache, все приложения работают с ним
+- **Near-cache** (per-app L1 + shared L2) — быстрее локальный lookup, сложнее инвалидация
+- **Replicated** — все данные на всех узлах (только небольшие датасеты)
 
-Hazelcast / Apache Ignite support near-cache pattern.
+Hazelcast и Apache Ignite поддерживают near-cache.
 
 ---
 
-## 14. Anti-patterns
+## 14. Антипаттерны
 
-- **Cache as primary store** — без DB underneath, cache loss = data loss
-- **Massive single key** (big key) — blocks event loop, см. `caching-deep-dive/ANTI_PATTERNS.md`
-- **No TTL on user-generated keys** — потенциальный memory leak
-- **Sync invalidation на критическом пути** — adds latency to writes
+- **Cache как основное хранилище** — без БД под ним потеря cache = потеря данных
+- **Огромный single key (big key)** — блокирует event loop; см. `caching-deep-dive/ANTI_PATTERNS.md`
+- **Нет TTL на user-generated ключах** — потенциальная утечка памяти
+- **Sync-инвалидация на критическом пути** — добавляет latency к writes
 
 ---
 
 ## Источники
 
-- *System Design Interview Vol. 2* (Alex Xu) — chapter on distributed cache
+- *System Design Interview Vol. 2* (Alex Xu) — глава про distributed cache
 - [Hello Interview — Distributed Cache](https://www.hellointerview.com/learn/system-design/problem-breakdowns/distributed-cache)
 - [Redis Cluster Specification](https://redis.io/docs/management/scaling/)
-- [Facebook — Scaling Memcache at Facebook](https://www.usenix.org/system/files/conference/nsdi13/nsdi13-final170_update.pdf) — classic paper
+- [Facebook — Scaling Memcache at Facebook](https://www.usenix.org/system/files/conference/nsdi13/nsdi13-final170_update.pdf) — классический paper
 - [Hazelcast Documentation](https://docs.hazelcast.com/)
 - [Apache Ignite Documentation](https://ignite.apache.org/docs/latest/)
-- См. также весь модуль [`caching-deep-dive/`](../../../caching-deep-dive/)
+- Весь модуль [`caching-deep-dive/`](../../../caching-deep-dive/)

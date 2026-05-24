@@ -15,9 +15,9 @@ WHERE earth_distance(lat, lon, driver_lat, driver_lon) < 5000
 ORDER BY distance ASC LIMIT 100;
 ```
 
-→ Full table scan, distance calc для каждого row. На 1M drivers — секунды.
+→ Full table scan, расчёт расстояния на каждую строку. На 1M водителей — секунды.
 
-**Решение:** **spatial index** — структура, разбивающая 2D plane на регионы, чтобы query touched only relevant regions.
+**Решение:** **spatial index** — структура, разбивающая 2D-плоскость на регионы, чтобы запрос обходил только нужные.
 
 ---
 
@@ -51,15 +51,15 @@ Encode `(lat, lon)` в **string**. Soрtable, prefix-shared = nearby.
 
 ### Свойства
 
-- **Sortable** — близкие места имеют schon prefix (`"9q8yyz"` rather than `"9q8yya"`)
-- **Lexicographic search** — `WHERE geohash LIKE '9q8yy%'` найдёт всё в этом box
-- **Storage-efficient** — string (10-12 chars)
+- **Sortable** — близкие места имеют общий префикс (`"9q8yyz"` vs `"9q8yya"`)
+- **Lexicographic search** — `WHERE geohash LIKE '9q8yy%'` найдёт всё в этой ячейке
+- **Storage-efficient** — строка (10–12 символов)
 
-### Limitations
+### Ограничения
 
-- **Edge effect** — точка рядом с границей geohash (например, на экваторе) имеет очень разный geohash чем сосед в нескольких метрах
-- **Не равные boxes** — geohash boxes (rectangles) — не учитывают Earth curvature; near poles очень искажение
-- **Neighbor query сложный** — найти 8 соседних geohash требует logic (не просто +1 / -1)
+- **Edge effect** — точка рядом с границей geohash (например, на экваторе) имеет совсем другой geohash, чем сосед в нескольких метрах
+- **Неравные ячейки** — прямоугольные boxes не учитывают кривизну Земли; ближе к полюсам сильное искажение
+- **Поиск соседей непрост** — найти 8 соседних geohash требует логики (а не просто +1 / −1)
 
 ### Use cases
 
@@ -85,10 +85,10 @@ Cell IDs at level 0: ~ 85 trillion km² (entire planet face)
 
 ### Свойства
 
-- **Spherical**: правильно учитывает Earth curvature
-- **Hierarchical**: cell IDs хранят parent-child hierarchy
-- **Locality-preserving**: nearby cells have similar IDs
-- **Efficient**: integer cell IDs (8 bytes), fast comparison
+- **Spherical:** корректно учитывает кривизну Земли
+- **Hierarchical:** cell ID хранят parent-child иерархию
+- **Locality-preserving:** соседние cell имеют похожие ID
+- **Efficient:** integer cell ID (8 байт), быстрое сравнение
 
 ### Use cases
 
@@ -105,9 +105,9 @@ Uber's library: hexagonal grid. Each cell is a hexagon (vs squares в S2/quadtre
 
 ### Зачем hexagons
 
-- **All neighbors are equidistant** — square имеет 8 neighbors (4 close, 4 diagonal far); hexagon — 6 neighbors at equal distance
-- **No cell ambiguity** — square corners are tricky («3-way intersection»)
-- Better для ride-matching: rider в одном hex looks for drivers в neighboring hexes equally
+- **Все соседи равноудалены** — у квадрата 8 соседей (4 близких + 4 диагональных, дальше); у hex — 6 соседей на равном расстоянии
+- **Нет неопределённости в углах** — углы квадратов сложны («3-way intersection»)
+- Удобно для ride-matching: rider в одной hex ищет драйверов в соседних hex одинаково
 
 ### Levels
 
@@ -140,7 +140,7 @@ Resolution 9 (popular for ride-share): ~ 0.1 km²
 
 ## Quadtree
 
-Recursive partitioning of 2D plane. Каждый node split в 4 quadrants when threshold exceeded.
+Рекурсивное разбиение 2D-плоскости. Каждая нода делится на 4 квадранта при превышении threshold.
 
 ```
 Root: whole world
@@ -168,20 +168,20 @@ def find_nearby(point, radius, node):
 
 ### Use cases
 
-- **In-memory spatial index** для game maps, RTS
-- **PostGIS** — alternative to R-tree
-- **Image processing** (image quadtrees)
+- **In-memory spatial index** для игровых карт, RTS
+- **PostGIS** — альтернатива R-tree
+- **Image processing** (квадратные деревья изображений)
 
-### Limitations
+### Ограничения
 
-- **Skewed data** — если все points в одной области → unbalanced tree, deep
-- **Insertion / deletion** — может требовать rebalance
+- **Skewed data** — если все точки в одной области → разбалансированное дерево, глубокое
+- **Insert / delete** — может требовать rebalance
 
 ---
 
 ## R-tree
 
-R-tree groups nearby objects into **bounding rectangles** (MBR — Minimum Bounding Rectangle). Hierarchical:
+R-tree группирует объекты в **bounding rectangles** (MBR — Minimum Bounding Rectangle). Иерархия:
 
 ```
 Root MBR (covers whole)
@@ -195,24 +195,24 @@ Root MBR (covers whole)
 
 ### Query
 
-`WHERE point inside MBR` — descend tree, prune subtrees whose MBR doesn't intersect query.
+`WHERE point inside MBR` — спускаемся по дереву, отсекаем поддеревья, чьи MBR не пересекают запрос.
 
 ### Свойства
 
-- **Balanced** — depth bounded
-- **Update-friendly** — insert finds tightest MBR, updates upward
-- **Handles** any shape (not just points): polygons, lines
+- **Balanced** — глубина ограничена
+- **Update-friendly** — insert находит самое плотное MBR, обновления идут вверх
+- **Поддерживает** произвольные формы (не только точки): полигоны, линии
 
 ### Use cases
 
-- **PostGIS** — GiST index по сути R-tree variant
+- **PostGIS** — GiST-индекс по сути вариант R-tree
 - **MongoDB** 2dsphere index
 - **SQLite** R*Tree module
-- **Spatial joins**: «find all roads intersecting this rectangle»
+- **Spatial joins:** «find all roads intersecting this rectangle»
 
 ### R+ tree, R* tree
 
-Optimizations: better split heuristics, fewer overlapping MBR.
+Оптимизации: лучшие эвристики split, меньше пересекающихся MBR.
 
 ---
 
@@ -258,11 +258,11 @@ Optimizations: better split heuristics, fewer overlapping MBR.
 
 ## Pitfalls
 
-- **Lat/Lon order** — varies (PostgreSQL: lat, lon; GeoJSON: lon, lat) — bugs!
-- **Earth shape** — flat 2D distance != great-circle distance. For long distances (>10 km), use Haversine formula or projection
-- **Antimeridian** — lon = ±180 wraps around. Query crossing the line — special handling
-- **Pole singularity** — geographic projections distort near poles
-- **Update churn** — moving objects (drivers, vehicles): index update cost. Often: don't index in DB, hold in-memory (Redis), update DB batch
+- **Порядок lat/lon** — разный в разных API (PostgreSQL: lat, lon; GeoJSON: lon, lat) — источник багов!
+- **Форма Земли** — плоское 2D-расстояние ≠ great-circle distance. Для длинных дистанций (>10 км) — Haversine или проекция
+- **Антимеридиан** — lon = ±180 заворачивается. Запросы через эту линию требуют отдельной обработки
+- **Сингулярность полюсов** — географические проекции искажаются у полюсов
+- **Update churn** — движущиеся объекты (драйверы, машины): стоимость обновления индекса. Часто: не индексируем в БД, держим in-memory (Redis), батчим записи в БД
 
 ---
 

@@ -101,9 +101,9 @@ Vary: Cookie             → ⚠ часто disable CDN caching (т.к. cookie �
 
 API-запрос к CDN: «выкини `/img.png` из кэша». Идёт ко всем PoP'ам.
 
-- ✓ Мгновенный (~30 секунд на global propagation)
-- ✗ Платный у multidata-providers (Cloudflare unlimited, AWS — за money)
-- Поддерживают: purge by URL, by tag (если поставили `Cache-Tag` header), purge all
+- ✓ Мгновенный (~30 секунд на глобальное распространение)
+- ✗ Платный у крупных провайдеров (у Cloudflare unlimited, у AWS — за деньги)
+- Поддерживают: purge по URL, по тегу (если выставлен заголовок `Cache-Tag`), purge всего
 
 ### Versioned URLs (recommended)
 

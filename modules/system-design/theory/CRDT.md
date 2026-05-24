@@ -217,12 +217,12 @@ PN-Counter unbounded. Если нужен `counter <= 100` (например, ti
 
 CRDT — **eventual consistency**. Не подходят для:
 
-- **Strong consistency** (financial transactions, inventory с hard limit) — нужен consensus
-- **Sequential workflows** (state machines с конкретными переходами) — CRDT не enforce'ит логику
-- **Атомарные multi-key operations** (transactions across keys) — CRDT обычно per-key
-- **Когда conflict resolution имеет business логику** (manual review winner) — application-level merge удобнее
+- **Strong consistency** (финансовые транзакции, inventory с жёстким лимитом) — нужен консенсус
+- **Последовательных workflow** (state machines с конкретными переходами) — CRDT не обеспечивает логику переходов
+- **Атомарных multi-key операций** (транзакции по нескольким ключам) — CRDT обычно per-key
+- **Когда conflict resolution имеет бизнес-логику** (ручной выбор «победителя») — application-level merge удобнее
 
-**Counter-example:** «У нас 100 билетов на концерт». PN-Counter с CRDT мог бы продать 110 (concurrent writes на разных нодах). Нужен escrow / consensus / sharded reservation.
+**Контрпример:** «У нас 100 билетов на концерт». PN-Counter с CRDT мог бы продать 110 (concurrent writes на разных узлах). Нужен escrow / консенсус / шардированная резервация.
 
 ---
 

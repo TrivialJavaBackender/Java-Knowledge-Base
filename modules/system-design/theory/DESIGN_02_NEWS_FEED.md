@@ -1,48 +1,48 @@
-# Design Problem: News Feed (Twitter/Instagram)
+# Design Problem: News Feed (Twitter / Instagram)
 
-User postит → followers видят в timeline. Главная задача — **fan-out**: push to followers (write-heavy) vs pull at read (compute on demand). Celebrity problem.
+Пользователь публикует пост → followers видят его в своём timeline. Главная задача — **fan-out**: push followers'ам (write-heavy) vs pull на чтение (вычисление по запросу). Celebrity problem.
 
 ---
 
 ## 1. Requirements
 
 ### Functional
-- Post tweet (text + optional media)
-- Follow / unfollow users
-- View home timeline (sorted by time / relevance)
+- Опубликовать tweet (текст + опционально media)
+- Follow / unfollow пользователей
+- Просмотр home timeline (по времени или по relevance)
 - Like, retweet, reply
-- (Optional) Search, hashtags, trending
+- (Опционально) Поиск, hashtags, trending
 
 ### Non-functional
-- **Read-heavy** (~ 1000:1 R/W for Twitter scale)
-- **Low latency feed** — p99 < 500ms
-- **Eventual consistency OK** — пост может появиться у followers с задержкой 1-10 sec
-- **Scalability** — 300M+ DAU, billions of follows
+- **Read-heavy** (~1000:1 R/W в масштабе Twitter)
+- **Низкая latency timeline** — p99 < 500 мс
+- **Eventual consistency допустима** — пост может появиться у followers с задержкой 1–10 сек
+- **Масштабируемость** — 300M+ DAU, миллиарды follow-связей
 
 ---
 
 ## 2. Estimation
 
 ```
-300M DAU, average 100 reads + 1 post per user per day (10% are posters)
+300M DAU, в среднем 100 чтений + 1 пост на пользователя в день (постят ~10%)
 
-WRITES (posts):
-  300M × 1 × 10% = 30M posts/day = ~ 350 writes/sec avg, ~ 700 peak
+WRITES (посты):
+  300M × 1 × 10% = 30M постов/день = ~350 writes/sec в среднем, пик ~700
 
 READS (timeline):
-  300M × 100 = 30B reads/day = ~ 350K reads/sec avg, ~ 700K peak
+  300M × 100 = 30B reads/день = ~350K reads/sec в среднем, пик ~700K
 
-R/W ratio: 1000:1 — heavily read-skewed
+R/W ratio: 1000:1 — сильный read-skew
 
 STORAGE:
-  Posts: 30M × 500B = 15 GB/day = 5.5 TB/year
-  10 years: 55 TB raw, × 3 replication = 165 TB
-  
-FANOUT cost (если push):
-  Average user has ~ 200 followers
+  Посты: 30M × 500 байт = 15 ГБ/день = 5.5 ТБ/год
+  10 лет: 55 ТБ raw, × 3 replication = 165 ТБ
+
+Стоимость fanout (если push):
+  В среднем у пользователя ~200 followers
   Celebrity: 100M followers
-  Total fanout writes per second = 700 × 200 (avg) = 140K writes/sec
-  Celebrities: 700 × 100M followers = 70B writes (если все стучатся одновременно — невозможно)
+  Всего fanout writes per sec = 700 × 200 (среднее) = 140K writes/sec
+  Celebrities: 700 × 100M followers = 70B writes (если все «выстрелят» одновременно — невозможно)
 ```
 
 ---
@@ -66,63 +66,63 @@ POST /api/v1/tweets/:id/retweet
 
 ---
 
-## 4. Three approaches к timeline generation
+## 4. Три подхода к генерации timeline
 
 ### A. Fan-out on Write (Push)
 
-При posting — записать tweet в timeline кэш **каждого follower**.
+При публикации — пишем tweet в кэш timeline **каждого follower'а**.
 
 ```
-User posts → 
-  insert tweet into posts table →
-  for each follower:
+User posts →
+  вставляем tweet в таблицу posts →
+  для каждого follower:
     LPUSH timeline:{follower_id} tweet_id
 ```
 
 - ✓ **Read latency низкая** — timeline уже подготовлен
-- ✗ **Write амплификация** — celebrity (100M followers) = 100M cache writes
-- ✗ Inactive followers — wasted work
-- ✗ New follow requires backfill
+- ✗ **Усиление writes** — celebrity (100M followers) = 100M cache writes
+- ✗ Неактивные followers — холостая работа
+- ✗ Новый follow требует backfill
 
 ### B. Fan-out on Read (Pull)
 
-При reading — fetch tweets от всех followed users в реальном времени.
+На чтение — подтягиваем посты от всех followee'в в реальном времени.
 
 ```
-User opens timeline →
+User открывает timeline →
   followed = SELECT user_id FROM follows WHERE follower = user
   tweets = SELECT * FROM tweets WHERE user_id IN (followed) ORDER BY time DESC LIMIT 50
 ```
 
-- ✓ **No write amplification**
-- ✗ **Read latency высокая** — много joins, sort
-- ✗ Worst case: user follows 10K — query massive
+- ✓ **Нет write-амплификации**
+- ✗ **Read latency высокая** — много join'ов и сортировка
+- ✗ Worst case: подписан на 10K — запрос огромный
 
-### C. Hybrid (Twitter actual approach)
+### C. Hybrid (реальный подход Twitter)
 
-**Push для normal users, pull для celebrities.**
+**Push для обычных пользователей, pull для celebrities.**
 
 ```
 User posts:
   if user.followers > 100K (celebrity):
-    don't push — followers will pull
+    не пушим — followers сами подтянут
   else:
-    push to all followers' timelines
+    push во все timelines followers
 
-User reads timeline:
-  base_timeline = pre-computed (pushed)
-  + celebrities_tweets = pull recent from celebrities user follows
-  merge sort by time
+User читает timeline:
+  base_timeline = заранее подготовлен (через push)
+  + celebrities_tweets = pull свежих постов celebrities, на которых подписан пользователь
+  merge sort по времени
   return
 ```
 
-- ✓ Лучшее из обоих
+- ✓ Лучшее из двух миров
 - ✗ Сложность реализации
-- Threshold tuning
+- Нужен тюнинг threshold
 
 ---
 
-## 5. High-level architecture
+## 5. High-level архитектура
 
 ```
 Client
@@ -135,14 +135,14 @@ Post     Timeline    User       Media
 Service  Service     Service    Service
   ↓         ↓         ↓           ↓
 Post DB  Timeline    User DB    Object Store
-(sharded Cache       (sharded   (S3 + CDN)
-by user) (Redis)     by id)
+(шард    Cache       (шард      (S3 + CDN)
+по user) (Redis)     по id)
   ↓
-Kafka (fanout events)
+Kafka (события fanout)
   ↓
 Fanout Workers
   ↓
-Timeline Cache updates
+Обновления Timeline Cache
 ```
 
 ---
@@ -150,9 +150,9 @@ Timeline Cache updates
 ## 6. Data model
 
 ```sql
--- Tweets (sharded by user_id)
+-- Tweets (шардированы по user_id)
 CREATE TABLE tweets (
-    id BIGINT PRIMARY KEY,  -- Snowflake ID (sortable by time)
+    id BIGINT PRIMARY KEY,  -- Snowflake ID (сортируем по времени)
     user_id BIGINT,
     text TEXT,
     media_urls TEXT[],
@@ -160,19 +160,18 @@ CREATE TABLE tweets (
 );
 CREATE INDEX idx_user_time ON tweets(user_id, created_at DESC);
 
--- Follows (sharded by follower)
+-- Follows (шардированы по follower)
 CREATE TABLE follows (
     follower_id BIGINT,
     followee_id BIGINT,
     created_at TIMESTAMPTZ,
     PRIMARY KEY (follower_id, followee_id)
 );
-CREATE INDEX idx_followee ON follows(followee_id);  -- для reverse lookup
+CREATE INDEX idx_followee ON follows(followee_id);  -- для обратного поиска
 
--- Timeline cache (Redis sorted set per user)
+-- Timeline cache (Redis sorted set на пользователя)
 ZADD timeline:{user_id} {timestamp} {tweet_id}
-ZADD timeline:{user_id} {timestamp} {tweet_id}
--- Keep last ~ 1000 tweets per user (LRU evict older)
+-- Храним последние ~1000 tweets на пользователя (LRU evict старее)
 ```
 
 ---
@@ -180,124 +179,124 @@ ZADD timeline:{user_id} {timestamp} {tweet_id}
 ## 7. Fanout workflow
 
 ```
-1. User posts tweet → API service writes to Post DB
-2. API service publishes event к Kafka topic `tweet-posted`
-3. Fanout worker consumes event:
-   a. Fetch follower list from Follow DB
-   b. If celebrity (>100K) → skip fanout (pull at read time)
-   c. Else: for each follower → ZADD timeline:{follower} (tweet_id, timestamp)
-4. Followers' timelines updated within 1-10 sec
+1. User публикует tweet → API-сервис пишет в Post DB
+2. API публикует событие в Kafka topic `tweet-posted`
+3. Fanout-worker читает событие:
+   a. Берёт список followers из Follow DB
+   b. Если celebrity (>100K) → fanout пропускаем (будет pull при чтении)
+   c. Иначе: на каждого follower → ZADD timeline:{follower} (tweet_id, timestamp)
+4. Timelines followers обновляются в течение 1–10 сек
 ```
 
-**Worker parallelism:** partition Kafka by user_id → many workers process в parallel.
+**Параллелизм worker'ов:** партиционирование Kafka по user_id → много worker'ов работают параллельно.
 
 **Failure handling:**
-- DLQ для permanent failures
+- DLQ для постоянных сбоев
 - Retry с exponential backoff
-- Idempotent ZADD (повторное добавление same tweet — no-op)
+- Идемпотентный ZADD (повторное добавление того же tweet — no-op)
 
 ---
 
 ## 8. Read path
 
 ```
-1. API receives GET /timeline
-2. Fetch timeline IDs from Redis: ZREVRANGE timeline:{user_id} 0 49
-3. Fetch tweets in parallel: MGET posts:{id1} posts:{id2} ...
-   if any miss → fetch from DB, cache
-4. If user follows celebrities:
-   for each celebrity → fetch recent tweets from celebrity_timeline:{celeb_id}
-   merge into base timeline, sort by time
-5. Return top 50
+1. API получает GET /timeline
+2. Берём ID'шки из Redis: ZREVRANGE timeline:{user_id} 0 49
+3. Берём tweets параллельно: MGET posts:{id1} posts:{id2} ...
+   если miss → достаём из БД, кэшируем
+4. Если пользователь подписан на celebrities:
+   для каждого celebrity → берём свежие посты из celebrity_timeline:{celeb_id}
+   merge в base timeline, сортируем по времени
+5. Возвращаем top 50
 ```
 
-Latency: 10-50ms typical (всё в кэше).
+Latency: типично 10–50 мс (всё в кэше).
 
 ---
 
-## 9. Celebrity problem (deeper)
+## 9. Celebrity problem (глубже)
 
 «Hot users» (Justin Bieber 100M+ followers).
 
-### Why fanout doesn't work
+### Почему fanout не работает
 
-- 100M cache writes на каждый tweet → 700ms-7 sec
-- If celebrity posts 10/day → 1B writes/day per celebrity
-- Wasted: most followers inactive
+- 100M cache writes на каждый tweet → 700 мс – 7 сек
+- Если celebrity постит 10 раз в день → 1B writes/день per celebrity
+- Холостая работа: большинство followers неактивны
 
-### Strategy
+### Стратегия
 
-- **Celebrity timeline cache** — separate Redis key `celebrity_timeline:{id}` с recent N tweets
-- **On read**: union normal timeline + pull celebrities' recent tweets
+- **Celebrity timeline cache** — отдельный Redis-ключ `celebrity_timeline:{id}` с последними N tweets
+- **На чтение**: объединение обычного timeline + pull свежих постов celebrities
 
-### Threshold tuning
+### Тюнинг threshold
 
 «Celebrity» threshold:
-- Pure number (>100K) — simple
-- Activity-adjusted (followers × activity rate)
-- Cost-based: fanout cost vs read cost for this user's network
+- Просто число (>100K) — самый простой вариант
+- С учётом активности (followers × activity rate)
+- Cost-based: стоимость fanout vs стоимость pull для конкретной сети пользователя
 
 ---
 
 ## 10. Storage scaling
 
-### Tweets — sharded by user_id
+### Tweets — шардирование по user_id
 
-- ~ 5.5 TB/year → manageable single PG primary, нужно sharding по мере роста
-- Twitter использует Manhattan (custom NoSQL) в реальности
+- ~5.5 ТБ/год → один PG primary справится, шардирование — по мере роста
+- В реальности Twitter использует Manhattan (custom NoSQL)
 
 ### Timeline cache — Redis Cluster
 
-- 300M users × ~ 1000 tweet IDs × ~ 8 bytes = ~ 2 TB working set
-- Redis Cluster с 50+ shards
-- LRU evict cold users — re-compute on demand (lazy)
+- 300M users × ~1000 tweet ID × ~8 байт = ~2 ТБ working set
+- Redis Cluster на 50+ shards
+- LRU evict «холодных» пользователей — пересчитывать по запросу (lazy)
 
-### Follows — sharded by follower_id
+### Follows — шардирование по follower_id
 
-- Forward query «who I follow» — fast (same shard)
-- Reverse «who follows me» — needs `idx_followee` and может быть cross-shard scatter
-- For celebrities: pre-compute follower count, store separately
+- Прямой запрос «на кого я подписан» — быстро (тот же shard)
+- Обратный «кто подписан на меня» — нужен `idx_followee`, может потребоваться cross-shard scatter
+- Для celebrities — храним follower count заранее, отдельно
 
 ---
 
-## 11. Trade-offs / variations
+## 11. Trade-offs / варианты
 
 ### Ranking vs chronological
 
-Twitter (старый) — chronological. Twitter (новый), Facebook, Instagram — ranked (ML).
+Старый Twitter — chronological. Новый Twitter, Facebook, Instagram — ranked (ML).
 
-For ranked: timeline becomes scoring problem; pre-compute candidate set, re-rank with ML at read time.
+В ranked-варианте timeline становится задачей scoring'а: заранее готовим candidate set, на чтении делаем re-rank ML-моделью.
 
 ### Edits / deletes
 
-Tombstone tweets, propagate via Kafka events, remove from timeline caches.
+Tombstones для tweets, событие через Kafka, удаление из timeline-кэшей.
 
-### Privacy (private accounts)
+### Privacy (приватные аккаунты)
 
-При post checking follower has approved follow. Adds latency to fanout.
+При публикации проверяем, что follower подтверждён. Добавляет latency в fanout.
 
 ### Threads / replies
 
-Parent_tweet_id reference. Reading thread: recursive fetch (limit depth).
+Поле `parent_tweet_id`. Чтение треда — рекурсивный fetch с ограничением по глубине.
 
 ### Media
 
-Upload to S3 directly via presigned URL. CDN-delivered. Tweet table stores URLs.
+Upload в S3 напрямую по presigned URL. Доставка через CDN. В таблице tweets — только URL.
 
 ---
 
-## 12. Aнти-abuse
+## 12. Anti-abuse
 
-- Rate limit per user (300 tweets/day)
-- Spam detection (ML on text + behaviour)
-- Reported content review queue
+- Rate limit per user (300 tweets/день)
+- Spam detection (ML по тексту и поведению)
+- Очередь reported content для ручного разбора
 
 ---
 
 ## Источники
 
-- *System Design Interview Vol. 1* (Alex Xu) — Ch. 11 «Design a News Feed System»
+- *System Design Interview Vol. 1* (Alex Xu) — глава 11 «Design a News Feed System»
 - [Twitter Engineering — How we built our timeline](https://blog.twitter.com/engineering/en_us/topics/infrastructure)
 - [Instagram Engineering — Static Profile Sharding](https://instagram-engineering.com/)
 - [Hello Interview — FB News Feed](https://www.hellointerview.com/learn/system-design/problem-breakdowns/fb-news-feed)
-- *Designing Data-Intensive Applications* (Kleppmann) — Ch. 1 (Twitter timeline example)
+- *Designing Data-Intensive Applications* (Kleppmann) — глава 1 (пример Twitter timeline)

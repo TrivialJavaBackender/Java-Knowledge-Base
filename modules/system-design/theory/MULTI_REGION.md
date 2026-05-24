@@ -30,11 +30,11 @@ APAC (passive)    — копия
 
 **Failover:** при failure US-East — promotion EU primary, DNS switch, restart services.
 
-- ✓ Simple: no conflict resolution
-- ✓ Strong consistency (single primary)
-- ✗ Wasted capacity (passive regions idle)
-- ✗ High RTO (recovery 5-30 минут)
-- ✗ EU/APAC user latency = cross-region
+- ✓ Просто: нет conflict resolution
+- ✓ Strong consistency (один primary)
+- ✓ Wasted capacity (passive-регионы простаивают) — обратная сторона
+- ✗ Высокий RTO (восстановление 5–30 минут)
+- ✗ Для пользователей EU/APAC latency = cross-region
 
 ### Active-Active (Hot-Hot)
 

@@ -1,39 +1,39 @@
 # Design Problem: Notification System
 
-Send notifications через multiple channels (email, SMS, push, in-app) к миллионам пользователей. Fan-out, deduplication, retry, user preferences.
+Отправка уведомлений по нескольким каналам (email, SMS, push, in-app) миллионам пользователей. Fan-out, дедупликация, retry, пользовательские preferences.
 
 ---
 
 ## 1. Requirements
 
 ### Functional
-- Send notification via channels: email, SMS, mobile push (APNs/FCM), in-app, web push
-- User preferences (opt-out per channel)
-- Templates (i18n, personalization)
-- Scheduled notifications (send tomorrow 8am)
-- Batch / bulk send (campaigns)
-- Deliver receipts (sent / opened / clicked)
+- Отправка уведомлений по каналам: email, SMS, mobile push (APNs / FCM), in-app, web push
+- Пользовательские preferences (opt-out per channel)
+- Шаблоны (i18n, персонализация)
+- Запланированные уведомления (отправить завтра в 8:00)
+- Batch / bulk send (кампании)
+- Delivery receipts (sent / opened / clicked)
 
 ### Non-functional
-- **Reliability** — at-least-once delivery
-- **Throughput** — millions of notifications / hour for marketing
-- **Latency** — transactional (password reset) < 5 sec
-- **Cost-efficient** — SMS expensive (cents each), use sparingly
+- **Надёжность** — at-least-once delivery
+- **Throughput** — миллионы уведомлений в час для marketing-кампаний
+- **Latency** — transactional (password reset) < 5 сек
+- **Экономия** — SMS дорогие (центы за штуку), использовать аккуратно
 
 ---
 
 ## 2. Estimation
 
 ```
-100M MAU, 30 notifications/user/day avg
-  → 3B notifications/day = 35K/sec average
-  → Peak 10× = 350K/sec (marketing burst, breaking news)
+100M MAU, в среднем 30 уведомлений на пользователя в день
+  → 3B уведомлений/день = 35K/сек в среднем
+  → Пик ×10 = 350K/сек (marketing-всплеск, breaking news)
 
-Channels distribution typical:
+Типичное распределение по каналам:
   Push: 60%
   Email: 30%
   In-app: 8%
-  SMS: 2% (expensive)
+  SMS: 2% (дорогой)
 ```
 
 ---
@@ -57,24 +57,24 @@ GET /api/v1/notifications/:id
 
 ---
 
-## 4. Architecture
+## 4. Архитектура
 
 ```
-Client services (Order, Auth, Marketing) → emit events
+Сервисы-клиенты (Order, Auth, Marketing) → эмитят события
   ↓
 Notification Service (API)
   ↓ (enqueue)
 Kafka topic: notifications
   ↓ (consumer)
-Notification Workers (one per channel type)
+Channel Workers (по одному типу на канал)
   ├── Push Worker → APNs / FCM
   ├── Email Worker → SES / SendGrid / Mailgun
   ├── SMS Worker → Twilio
-  └── In-App Worker → store in DB, push via WebSocket if user online
-       
-Side-data:
-  - User Service (preferences, contacts, device tokens)
-  - Template Service (rendered templates)
+  └── In-App Worker → пишем в БД, push через WebSocket, если пользователь online
+
+Сбоку:
+  - User Service (preferences, контакты, device-токены)
+  - Template Service (рендеринг шаблонов)
   - Delivery DB (audit log)
 ```
 
@@ -86,53 +86,53 @@ Side-data:
 1. Order service: «order shipped, notify user»
 2. → POST /api/v1/notifications
 3. Notification Service:
-   a. Validate request
-   b. Fetch user preferences (cached): «push enabled, email enabled»
-   c. Fetch template (cached): рендерить с data
-   d. Apply rate limiting per user (max 10 notifs/hour для UX)
-   e. Publish event к Kafka topic per channel
-4. Channel Workers consume:
+   a. Валидирует запрос
+   b. Берёт preferences пользователя (кэшированные): «push enabled, email enabled»
+   c. Берёт шаблон (кэш) и рендерит c data
+   d. Применяет rate limit per user (максимум 10 уведомлений/час ради UX)
+   e. Публикует событие в Kafka topic per channel
+4. Channel-workers читают:
    a. Push Worker:
-      - Fetch device tokens from User Service
-      - Call APNs / FCM
-      - Log delivery attempt
-      - Mark delivered (or retry on failure)
+      - Достаёт device-токены из User Service
+      - Шлёт в APNs / FCM
+      - Логирует попытку
+      - Помечает delivered (или retry при сбое)
 ```
 
 ---
 
-## 6. Channel-specific concerns
+## 6. Channel-специфика
 
 ### Email (SES / SendGrid)
 
-- Bounce handling (hard / soft) → mark email invalid
-- Spam complaints → opt-out user
-- Templates: MJML or Handlebars
-- Inline tracking (open pixel, click redirect)
+- Обработка bounce'ов (hard / soft) → помечаем email невалидным
+- Spam-жалобы → opt-out пользователя
+- Шаблоны: MJML или Handlebars
+- Inline-отслеживание (open pixel, click-redirect)
 
 ### SMS (Twilio)
 
-- Expensive (10× more than email)
-- Use sparingly (security codes, urgent only)
-- Geographic restrictions
-- Rate limit globally (Twilio account-level)
+- Дорого (в 10 раз дороже email)
+- Используем аккуратно (security codes, срочное)
+- Гео-ограничения
+- Глобальный rate-limit (на уровне аккаунта Twilio)
 
 ### Push (APNs / FCM)
 
-- APNs (iOS) — Apple's HTTP/2 API
-- FCM (Android + Web) — Google's
-- Device token management — tokens expire, rotate
-- Silent push — no UI alert, just data update
+- APNs (iOS) — HTTP/2 API Apple
+- FCM (Android + Web) — Google
+- Управление device-токенами — токены протухают, нужна ротация
+- Silent push — без UI-уведомления, только обновление данных
 
 ### In-app
 
-- Stored в DB (notifications table)
-- Pushed via WebSocket if user online
-- Mark as read when user views
+- Хранятся в БД (таблица `notifications`)
+- Пушим через WebSocket, если пользователь online
+- Помечаются прочитанными, когда пользователь открыл
 
 ---
 
-## 7. User preferences
+## 7. Пользовательские preferences
 
 ```sql
 CREATE TABLE user_preferences (
@@ -144,15 +144,15 @@ CREATE TABLE user_preferences (
 );
 ```
 
-Rules:
-- Transactional (password reset) — usually cannot opt-out
-- Marketing — must opt-out option (GDPR, CAN-SPAM Act)
+Правила:
+- Transactional (password reset) — обычно нельзя opt-out
+- Marketing — должна быть возможность opt-out (GDPR, CAN-SPAM Act)
 
 ---
 
-## 8. Templates
+## 8. Шаблоны
 
-Multi-language, personalization:
+Многоязычные, с персонализацией:
 
 ```handlebars
 Subject: Your order {{orderId}} has shipped!
@@ -167,7 +167,7 @@ Thanks,
 The Team
 ```
 
-i18n: separate template per language. Fallback к English.
+i18n: отдельный шаблон на язык, fallback на английский.
 
 ---
 
@@ -175,7 +175,7 @@ i18n: separate template per language. Fallback к English.
 
 ### At-least-once delivery
 
-Kafka guarantees + retry workers. Possible duplicates → consumer must dedup на receiver side (idempotency key per notification).
+Гарантии Kafka + retry'и worker'ов. Возможны дубликаты → consumer должен дедуплицировать (idempotency key per notification).
 
 ### Retry policy
 
@@ -183,92 +183,92 @@ Kafka guarantees + retry workers. Possible duplicates → consumer must dedup н
 Channel Worker:
   attempt = 1
   send notification
-  if fail:
-    if transient (5xx, network): retry с exponential backoff
-    if permanent (invalid device token): mark device invalid, don't retry
-    if max attempts exceeded: DLQ
+  если упало:
+    transient (5xx, сеть): retry с exponential backoff
+    permanent (невалидный device token): помечаем устройство, не retry
+    исчерпан лимит попыток: DLQ
 ```
 
-Standard backoff (exponentially growing): 1m, 5m, 30m, 2h, 12h.
+Стандартный backoff (экспоненциальный рост): 1 мин, 5 мин, 30 мин, 2 ч, 12 ч.
 
 ### DLQ (Dead Letter Queue)
 
-Permanently failed notifications → DLQ topic. Manual investigation / customer support.
+Окончательно упавшие уведомления → DLQ topic. Ручной разбор / поддержка.
 
 ---
 
 ## 10. Rate limiting
 
-### Per user
+### На пользователя
 
-Avoid notification spam.
+Чтобы не спамить уведомлениями.
 ```
-max 10 notifications / hour / user (defaults; overridable for system messages)
+максимум 10 уведомлений / час / пользователь (по умолчанию; для системных можно повышать)
 ```
 
-Use bucket: track notifications sent per user per window. Skip new if exceeded.
+Bucket: отслеживаем число уведомлений per user per window. Превысили — новые пропускаем.
 
-### Per channel (global)
+### На канал (глобально)
 
-- SMS — Twilio account-level rate limit
-- APNs — per-device push rate limit
-- Email — sending domain reputation (ramp up gradually for new domains)
+- SMS — rate-limit на уровне аккаунта Twilio
+- APNs — push rate-limit per-device
+- Email — репутация отправляющего домена (новые домены — медленный ramp-up)
 
 ---
 
-## 11. Scheduled notifications
+## 11. Запланированные уведомления
 
 ```
-notification with scheduledAt = future timestamp
-  → enqueue в delayed queue (SQS DelaySeconds, Redis sorted set with score=timestamp)
-  → at time, move к main queue
+notification со scheduledAt = будущий timestamp
+  → кладём в delayed-очередь (SQS DelaySeconds, Redis sorted set со score=timestamp)
+  → в назначенное время переносим в основную очередь
 
-Implementation options:
-  - Cron job: every minute, scan upcoming → publish
-  - Redis ZSET с ZPOPMIN looking at <= now
-  - Dedicated scheduler service (e.g., Quartz, Temporal)
+Варианты реализации:
+  - Cron-job каждую минуту: сканируем upcoming → публикуем
+  - Redis ZSET с ZPOPMIN по score <= now
+  - Отдельный scheduler-сервис (Quartz, Temporal)
 ```
 
 ---
 
-## 12. Campaigns (bulk send)
+## 12. Кампании (bulk send)
 
-Marketing campaign: «Send to all 10M users».
+Marketing-кампания: «Отправить всем 10M пользователей».
 
 ```
 Campaign Service:
-  - Validate campaign config
-  - Materialize recipient list (segment DB query)
-  - Chunk список into batches (10K each)
-  - Publish batch jobs к Kafka
-  - Workers process batches, publish individual notifications
+  - Валидирует конфиг
+  - Материализует список получателей (запрос к сегментам)
+  - Режет список на батчи (по 10K)
+  - Публикует batch-job'ы в Kafka
+  - Worker'ы обрабатывают батчи и публикуют отдельные уведомления
 ```
 
-Throttling: campaign sends gradually (e.g., 1M / hour) to avoid spam complaints + infrastructure burst.
+Throttling: рассылка идёт постепенно (например, 1M в час), чтобы избегать spam-жалоб и всплесков нагрузки.
 
 ---
 
 ## 13. Delivery receipts
 
-Track per notification:
-- sent_at — server attempted send
-- delivered_at — channel confirmed delivery (email service event, push receipt)
-- opened_at — user opened (email pixel, push opened in-app)
-- clicked_at — link clicked
+По каждому уведомлению трекаем:
+- `sent_at` — сервер совершил попытку отправки
+- `delivered_at` — канал подтвердил доставку (событие email-сервиса, push receipt)
+- `opened_at` — пользователь открыл (open-pixel в письме, push открыт в приложении)
+- `clicked_at` — клик по ссылке
 
-Store events в Kafka → aggregate в analytics DB.
+События пишутся в Kafka → агрегируются в analytics DB.
 
 ---
 
 ## 14. Failure modes
 
-| Scenario | Handling |
-|----------|----------|
-| Email service down (SendGrid) | Retry, then fallback к backup provider (SES) |
-| User device token invalid | Mark invalid, stop sending until refresh |
-| User opt-outed | Check preference before send, skip silently |
-| Notification storm (e.g., bug emitting 1000x) | Per-user rate limit catches, alerts ops |
-| Worker crashes | Kafka offset stays, another worker picks up |
+| Сценарий | Обработка |
+|----------|-----------|
+| Email-сервис down (SendGrid) | Retry, затем fallback на backup-провайдера (SES) |
+| Device token невалиден | Помечаем, перестаём слать до обновления |
+| Пользователь opt-out'нулся | Проверяем preferences до отправки, тихо пропускаем |
+| Notification storm (баг шлёт ×1000) | Per-user rate-limit срезает, алёрт оператору |
+| Worker упал | Offset в Kafka остался, его подхватит другой worker |
 
 ---
 
@@ -276,21 +276,21 @@ Store events в Kafka → aggregate в analytics DB.
 
 ### Sync vs async API
 
-- **Sync** — caller waits для delivery confirmation. Slow (mailbox provider может wait seconds).
-- **Async (this design)** — caller returns immediately, status tracked separately
+- **Sync** — caller ждёт подтверждения доставки. Медленно (mailbox-провайдер может секунды ждать).
+- **Async (этот дизайн)** — caller сразу получает ответ, статус трекается отдельно
 
-Default async; rare sync for high-priority (auth code).
+По умолчанию async; sync — редко, для высокоприоритетного (auth-код).
 
-### Single channel worker vs unified
+### Отдельный worker на канал vs универсальный
 
-- Per-channel workers — specialized, scale independently
-- Unified worker — simpler, но один failing channel blocks others
+- Отдельные worker'ы на канал — специализированы, масштабируются независимо
+- Универсальный worker — проще, но один сбойный канал блокирует остальные
 
 ---
 
 ## Источники
 
-- *System Design Interview Vol. 1* (Alex Xu) — Ch. 10 «Design a Notification System»
+- *System Design Interview Vol. 1* (Alex Xu) — глава 10 «Design a Notification System»
 - [Twilio Documentation — SMS best practices](https://www.twilio.com/docs)
 - [SendGrid — Email Deliverability](https://sendgrid.com/blog/category/best-practices/)
 - [APNs Documentation](https://developer.apple.com/documentation/usernotifications/)

@@ -1,37 +1,37 @@
 # Design Problem: Distributed Rate Limiter
 
-Контролировать количество запросов per user / API key. Используется в API Gateway, защита от abuse / DDoS, billing tier enforcement.
+Контролировать количество запросов на пользователя / API key. Используется в API Gateway, для защиты от abuse / DDoS, для enforcement billing tier'ов.
 
-> **Scope**: design-уровень. Concurrent implementation в коде (Token Bucket в Java) — см. [`concurrency/applied/ratelimiter`](../../../concurrency/src/main/java/applied/ratelimiter).
+> **Scope:** уровень дизайна. Concurrent-реализация в коде (Token Bucket в Java) — в [`concurrency/applied/ratelimiter`](../../../concurrency/src/main/java/applied/ratelimiter).
 
 ---
 
 ## 1. Requirements
 
 ### Functional
-- Limit requests per user / IP / API key / endpoint
-- Limit на разных windows (per second / minute / hour / day)
-- Configurable per tier (free / pro / enterprise)
-- Return 429 Too Many Requests + Retry-After header
+- Лимит на запросы per user / IP / API key / endpoint
+- Лимиты на разных окнах (per second / minute / hour / day)
+- Конфигурируется per tier (free / pro / enterprise)
+- Ответ 429 Too Many Requests + заголовок `Retry-After`
 
 ### Non-functional
-- **Low latency** — < 1 ms decision (every request passes through)
-- **Highly available** — failure не блокирует legitimate traffic
-- **Accurate** — близко к configured limit, но not overly strict
-- **Distributed** — works across N instances
+- **Низкая latency** — < 1 мс на принятие решения (через rate limiter проходит каждый запрос)
+- **High availability** — отказ не должен блокировать легитимный трафик
+- **Точность** — близко к настроенному лимиту, без излишней строгости
+- **Distributed** — работает поверх N инстансов
 
 ---
 
 ## 2. Estimation
 
 ```
-API service: 100K RPS peak across cluster
-N application instances: 50
+API-сервис: пик 100K RPS на кластере
+N инстансов приложения: 50
 
-Per-instance rate limiter must:
-  - Decide allow/deny < 1 ms
-  - Coordinate state across instances
-  - Survive Redis temporary outage
+Per-instance rate limiter должен:
+  - Принять решение allow/deny < 1 мс
+  - Координировать состояние между инстансами
+  - Переживать временный сбой Redis
 ```
 
 ---
@@ -40,74 +40,74 @@ Per-instance rate limiter must:
 
 ### Token Bucket
 
-Buсket size = burst. Refill rate = sustainable rate.
+Размер bucket'а = burst. Скорость пополнения = sustainable rate.
 
 ```
 bucket.tokens = capacity
-on request:
+на запросе:
   refill: tokens = min(capacity, tokens + (now - last_refill) × rate)
-  if tokens >= 1: tokens--, allow
-  else: deny
+  если tokens >= 1: tokens--, allow
+  иначе: deny
 ```
 
-- ✓ Allows bursts up to capacity
-- ✓ Smooth average rate
-- Used by: AWS API Gateway, Stripe API
+- ✓ Разрешает burst до capacity
+- ✓ Сглаженная средняя скорость
+- Используют: AWS API Gateway, Stripe API
 
 ### Leaky Bucket
 
-Requests enter a queue, processed at fixed rate. Overflow → drop.
+Запросы попадают в очередь, обрабатываются с фиксированной скоростью. Переполнение → drop.
 
-- ✓ Smooth output rate
-- ✗ Adds latency (queueing)
-- Used: traffic shaping in network gear
+- ✓ Сглаженный output
+- ✗ Добавляет latency (очередь)
+- Используется: traffic shaping на сетевом железе
 
 ### Fixed Window Counter
 
 ```
 key = (user_id, window_start)
 counter = INCR key
-if counter > limit: deny
+если counter > limit: deny
 EXPIRE key (window_size)
 ```
 
-- ✓ Simple, O(1) memory per key
-- ✗ **Edge boundary problem**: 2× burst at window boundaries (e.g., 100 reqs at 11:59:59 + 100 at 12:00:01)
+- ✓ Просто, O(1) памяти на ключ
+- ✗ **Проблема границ окон:** 2× burst на границе (например, 100 запросов в 11:59:59 + 100 в 12:00:01)
 
 ### Sliding Window Log
 
-Store timestamps of all recent requests.
+Храним timestamps всех недавних запросов.
 
 ```
 ZADD requests:user_123 (timestamp) (request_id)
 ZREMRANGEBYSCORE requests:user_123 0 (now - window_size)
 count = ZCARD requests:user_123
-if count > limit: deny
+если count > limit: deny
 ```
 
-- ✓ Accurate, no boundary problem
-- ✗ Memory О(N) per user — scaling concern
+- ✓ Точно, нет проблемы границ
+- ✗ Память O(N) на пользователя — нюанс масштаба
 
-### Sliding Window Counter (рекомендация)
+### Sliding Window Counter (рекомендуется)
 
-Combine fixed window + previous window weighted.
+Комбинация fixed window + взвешенный предыдущий.
 
 ```
 current_count = count_current_window + (count_previous_window × overlap_ratio)
 overlap_ratio = (window_size - time_in_current_window) / window_size
 
-If current_count > limit: deny
+Если current_count > limit: deny
 ```
 
-- ✓ Approximate sliding window, O(2) entries per key
-- ✓ No boundary problem
-- ✓ Memory efficient
+- ✓ Приближённое sliding window, O(2) записей на ключ
+- ✓ Нет проблемы границ
+- ✓ Экономно по памяти
 
 ---
 
-## 4. Distributed implementation (Redis + Lua)
+## 4. Distributed-реализация (Redis + Lua)
 
-Atomic check-and-update via Lua script — eliminates race between INCR and EXPIRE.
+Атомарный check-and-update через Lua-скрипт — устраняет гонку между INCR и EXPIRE.
 
 ```lua
 -- Sliding window log
@@ -120,7 +120,7 @@ redis.call('ZREMRANGEBYSCORE', key, 0, now - window)
 local count = redis.call('ZCARD', key)
 
 if count < limit then
-    redis.call('ZADD', key, now, now)  -- score and member both = now
+    redis.call('ZADD', key, now, now)  -- score и member оба = now
     redis.call('EXPIRE', key, window)
     return 1  -- allowed
 else
@@ -128,7 +128,7 @@ else
 end
 ```
 
-Application:
+Из приложения:
 ```python
 allowed = redis.eval(script, keys=[f"rl:{user_id}"], args=[60, 100, time.time()])
 if not allowed:
@@ -137,14 +137,14 @@ if not allowed:
 
 ---
 
-## 5. Architecture
+## 5. Архитектура
 
 ```
-Client → API Gateway → Application instances
+Client → API Gateway → инстансы приложения
                         ↓
-                   Redis Cluster (rate limit state)
+                   Redis Cluster (состояние rate limit'а)
 
-OR (modern):
+ИЛИ (современный вариант):
                    Envoy / Istio sidecar
                         ↓ (out-of-band)
                    Ratelimit Service (gRPC)
@@ -154,21 +154,21 @@ OR (modern):
 
 ---
 
-## 6. Multiple limit tiers
+## 6. Несколько уровней лимитов
 
-User has multiple limits simultaneously:
-- 100/sec
-- 5000/min
-- 100000/hour
-- 1M/day
+У пользователя несколько лимитов одновременно:
+- 100/сек
+- 5000/мин
+- 100000/час
+- 1M/день
 
-Check ALL limits — deny if any exceeded. Multiple keys (e.g., `rl:second:user123`, `rl:minute:user123`).
+Проверяем ВСЕ — deny при превышении любого. Несколько ключей (например, `rl:second:user123`, `rl:minute:user123`).
 
 ---
 
-## 7. Tier-based limits
+## 7. Tier-based лимиты
 
-Different users have different limits based на subscription:
+У разных пользователей разные лимиты в зависимости от подписки:
 
 ```yaml
 free:
@@ -182,91 +182,91 @@ enterprise:
   per_day: unlimited
 ```
 
-Fetch tier from user DB / cache, apply appropriate limit.
+Tier берём из user DB / кэша, применяем соответствующий лимит.
 
 ---
 
 ## 8. Multi-region
 
-Each region has own Redis cluster. State per region не replicated (would add latency + complexity).
+В каждом регионе — свой Redis-кластер. Состояние между регионами не реплицируется (добавило бы latency и сложности).
 
 ```
-US user в US region → US Redis
-EU user в EU region → EU Redis
-Each region enforces its own limits
+US-пользователь в US-регионе → US Redis
+EU-пользователь в EU-регионе → EU Redis
+Каждый регион ставит свои лимиты
 ```
 
-Issue: user-aware regions могут not know global usage. Acceptable trade-off for low latency.
+Нюанс: пользователь, бьющий по нескольким регионам, не оценивается глобально. Приемлемый trade-off ради низкой latency.
 
-For global limits (rare): central Redis cluster or aggregator service (additional latency cost).
+Для глобальных лимитов (редко) — центральный Redis-кластер или агрегирующий сервис (за счёт дополнительной latency).
 
 ---
 
 ## 9. Graceful degradation
 
-**Redis down** → rate limiter cannot decide. Options:
-1. **Fail open** (allow all) — better UX, but vulnerable к burst attacks
-2. **Fail closed** (deny all) — safe but breaks legitimate users
-3. **Local cache fallback** — each instance has approximate local counter
+**Redis down** → rate limiter не может принять решение. Варианты:
+1. **Fail open** (allow all) — лучше UX, но уязвимость к burst-атакам
+2. **Fail closed** (deny all) — безопасно, но ломает легитимных пользователей
+3. **Локальный кэш-fallback** — у каждого инстанса свой приближённый счётчик
 
-**Best practice:** Fail open для public API (better UX), fail closed для internal sensitive endpoints (e.g., login).
+**Best practice:** fail open для публичного API (UX), fail closed для внутренних чувствительных endpoint'ов (например, login).
 
 ---
 
-## 10. Response headers
+## 10. Ответные заголовки
 
-Best practice: tell client about limit and remaining budget.
+Best practice: сообщать клиенту о лимите и остатке.
 
 ```http
 HTTP/1.1 200 OK
 X-RateLimit-Limit: 100
 X-RateLimit-Remaining: 73
-X-RateLimit-Reset: 1700000000   # Unix timestamp when budget resets
+X-RateLimit-Reset: 1700000000   # Unix-timestamp сброса
 
-OR (when denied):
+ИЛИ (при deny):
 HTTP/1.1 429 Too Many Requests
-Retry-After: 17                  # seconds
+Retry-After: 17                  # секунды
 ```
 
-Stripe и many modern APIs follow this.
+Так делают Stripe и многие современные API.
 
 ---
 
 ## 11. Trade-offs
 
-### Accuracy vs cost
+### Точность vs стоимость
 
-- Sliding window log — accurate, O(N) memory
-- Sliding window counter — approximate, O(2)
-- Fixed window — fastest, edge problem
+- Sliding window log — точно, O(N) памяти
+- Sliding window counter — приближённо, O(2)
+- Fixed window — быстрее всего, но проблема границ
 
-Choose based on tolerance for inaccuracy и memory.
+Выбор — по терпимости к неточности и доступной памяти.
 
 ### Per-instance vs distributed
 
-- **Per-instance** — fast (in-memory), но each instance enforces independently → effective limit = N × instance_limit
-- **Distributed (Redis)** — accurate global limit, but every request += 1 Redis call
+- **Per-instance** — быстро (in-memory), но каждый инстанс enforce'ит независимо → эффективный лимит = N × instance_limit
+- **Distributed (Redis)** — точный глобальный лимит, но каждый запрос — это +1 вызов Redis
 
-Hybrid: in-memory token bucket synced with Redis periodically.
+Гибрид: in-memory token bucket, периодически синхронизируется с Redis.
 
-### Client-side caching
+### Клиентское кэширование
 
-For known limits, client can self-regulate. But cannot trust untrusted clients — server must enforce.
+При известных лимитах клиент может сам себя регулировать. Но недоверенным клиентам верить нельзя — финальный enforcement на сервере.
 
 ---
 
 ## 12. Anti-abuse
 
-- IP-based limiting + user-based — IP может shared (corporate NAT)
-- Adaptive limits — detect anomaly, tighten
-- Geographic limits — block / throttle by country
-- WAF integration — Cloudflare / AWS WAF rate limit rules
+- Лимит по IP + по user — IP может быть общим (corporate NAT)
+- Adaptive лимиты — детектим аномалию, ужесточаем
+- Гео-лимиты — block / throttle по стране
+- Интеграция с WAF — правила rate limit в Cloudflare / AWS WAF
 
 ---
 
 ## Источники
 
-- *System Design Interview Vol. 1* (Alex Xu) — Ch. 4 «Design a Rate Limiter»
+- *System Design Interview Vol. 1* (Alex Xu) — глава 4 «Design a Rate Limiter»
 - [Stripe — Scaling your API with rate limiters](https://stripe.com/blog/rate-limiters)
 - [Cloudflare — How to build a rate limiter](https://blog.cloudflare.com/counting-things-a-lot-of-different-things/)
 - [Hello Interview — Distributed Rate Limiter](https://www.hellointerview.com/learn/system-design/problem-breakdowns/rate-limiter)

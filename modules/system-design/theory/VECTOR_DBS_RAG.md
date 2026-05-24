@@ -1,145 +1,145 @@
 # Vector Databases и RAG
 
-Vector databases — store + search embeddings (high-dimensional vectors representing semantic content). Foundation для RAG (Retrieval-Augmented Generation) систем с LLM. Тема critical для AI-heavy компаний на интервью 2024-2026.
+Vector databases — хранилище и поиск embedding'ов (высокоразмерных векторов, описывающих семантику контента). Основа RAG-систем (Retrieval-Augmented Generation) с LLM. Критическая тема для AI-heavy компаний на интервью 2024–2026.
 
-> **Scope**: vector storage, ANN algorithms, RAG architecture. ML serving overall — [`ML_SERVING.md`](ML_SERVING.md). Traditional inverted index — [`INVERTED_INDEX.md`](INVERTED_INDEX.md).
+> **Scope:** vector storage, ANN-алгоритмы, архитектура RAG. Общий ML serving — [`ML_SERVING.md`](ML_SERVING.md). Классический inverted index — [`INVERTED_INDEX.md`](INVERTED_INDEX.md).
 
 ---
 
 ## Что такое embeddings
 
-Текст (изображение, audio) → fixed-length vector высокой размерности (768, 1536, ...).
+Текст (изображение, аудио) → вектор фиксированной длины и высокой размерности (768, 1536, …).
 
 ```
 "cat" → [0.23, -0.45, 0.81, ...]  (1536 dimensions)
-"dog" → [0.21, -0.43, 0.79, ...]  (close to "cat")
-"car" → [0.92, 0.13, -0.55, ...]  (far)
+"dog" → [0.21, -0.43, 0.79, ...]  (близко к "cat")
+"car" → [0.92, 0.13, -0.55, ...]  (далеко)
 ```
 
-**Свойство:** semantic similarity → vector distance closer.
+**Свойство:** семантическая близость → расстояние между векторами меньше.
 
-`distance(cat, dog) < distance(cat, car)` — embedding model «понимает», что cat и dog ближе по смыслу.
+`distance(cat, dog) < distance(cat, car)` — embedding-модель «понимает», что cat и dog ближе по смыслу.
 
-### Embedding models
+### Embedding-модели
 
 - **OpenAI** — `text-embedding-3-small` / `-large` (1536 / 3072 dim)
 - **Cohere** — `embed-v3` (1024 dim)
-- **Sentence-Transformers** (open source) — many variants, 384-768 dim
-- **BERT / RoBERTa** — older но still used
-- **CLIP** — multimodal (text + image)
+- **Sentence-Transformers** (open source) — много вариантов, 384–768 dim
+- **BERT / RoBERTa** — старее, но всё ещё используются
+- **CLIP** — мультимодальный (text + image)
 
-Output: каждый text → vector. Same vector dim across all your data.
+Каждый текст → вектор. Размерность одна и та же для всех данных в индексе.
 
 ---
 
-## Vector search problem
+## Задача vector search
 
-«Найди top-K closest vectors к query vector».
+«Найти top-K ближайших векторов к запросу».
 
 ```
-Naive: distance(query, doc_i) for all i, sort, return top K
-Cost: O(N × d), N = total docs (millions), d = dimensions (1536)
-→ Slow for large N
+Naive: distance(query, doc_i) для всех i, отсортировать, вернуть top K
+Cost: O(N × d), N = всего документов (миллионы), d = размерность (1536)
+→ Медленно для больших N
 ```
 
-**Solution:** **Approximate Nearest Neighbor (ANN)** algorithms. Trade slight accuracy for huge speedup (10-1000×).
+**Решение:** алгоритмы **Approximate Nearest Neighbor (ANN)**. Жертвуем небольшой точностью ради ускорения в 10–1000 раз.
 
-### Distance metrics
+### Метрики расстояния
 
-- **Cosine similarity** — angle between vectors, ignores magnitude. Most common для text.
-- **Euclidean (L2)** — straight-line distance
-- **Dot product** — when magnitudes matter
+- **Cosine similarity** — угол между векторами, не зависит от длины. Самый частый для текста.
+- **Euclidean (L2)** — прямолинейное расстояние
+- **Dot product** — когда длина имеет значение
 - **Manhattan (L1)** — taxicab distance
 
-Большинство embedding models trained для cosine similarity.
+Большинство embedding-моделей обучаются под cosine similarity.
 
 ---
 
-## ANN Algorithms
+## ANN-алгоритмы
 
 ### HNSW (Hierarchical Navigable Small World)
 
-State-of-art. Multi-layer graph: каждый уровень — sparser subset of points, edges connect nearby. Search descends levels, finds approximate nearest.
+State-of-the-art. Многослойный граф: каждый уровень — более разреженное подмножество точек, рёбра соединяют близких соседей. Поиск спускается по уровням и находит приближённого ближайшего.
 
 ```
-Top layer:    a few "highway" points
-Mid layers:   denser
-Bottom layer: all points
+Верхний слой:   несколько «магистральных» точек
+Средние слои:   плотнее
+Нижний слой:    все точки
 
-Search: start top, navigate towards query, descend, refine
+Поиск: стартуем сверху, движемся к query, спускаемся вниз, уточняем
 ```
 
-- ✓ High recall (95-99%)
-- ✓ Fast query (~ 1-10 ms на 1M+ vectors)
-- ✗ Memory-intensive (graph stored in RAM)
-- ✗ Slow insertions / deletes
+- ✓ Высокий recall (95–99%)
+- ✓ Быстрый запрос (~1–10 мс на 1M+ векторов)
+- ✗ Память — граф целиком в RAM
+- ✗ Медленные insertions и deletes
 
 **Реализации:** FAISS HNSW, hnswlib, Weaviate, Pinecone, Qdrant.
 
 ### IVF (Inverted File Index)
 
-Cluster vectors via k-means → k clusters. At query: find nearest clusters, search only there.
+Кластеризация векторов через k-means → k кластеров. На запросе: находим ближайшие кластеры и ищем только в них.
 
-- ✓ Меньше memory
-- ✓ Faster build than HNSW
-- ✗ Lower recall — query может miss cluster boundary
-- ✗ Cluster count tuning
+- ✓ Меньше памяти
+- ✓ Быстрее построение, чем HNSW
+- ✗ Ниже recall — запрос на границе кластера может уйти не туда
+- ✗ Нужно подбирать число кластеров
 
 ### PQ (Product Quantization)
 
-Compress vectors: split в subvectors, quantize каждый. Approximate distances быстро (lookup table).
+Сжимаем векторы: разбиваем на подвекторы и квантуем каждый. Приближённые расстояния считаются быстро через lookup table.
 
-- ✓ Очень compact (32× smaller)
-- ✓ Fast distance (table lookups)
-- ✗ Lower precision
+- ✓ Очень компактно (в 32 раза меньше)
+- ✓ Быстро (table lookup)
+- ✗ Ниже точность
 
-**IVF-PQ** — combine: clustering + compression. Used в FAISS.
+**IVF-PQ** — комбинация: кластеризация + сжатие. Используется в FAISS.
 
 ### LSH (Locality-Sensitive Hashing)
 
-Hash similar vectors к same bucket. Older approach, replaced by HNSW.
+Хэшируем похожие векторы в один bucket. Более старый подход, вытеснен HNSW.
 
 ---
 
 ## Vector Database vs Library
 
-**Library** (FAISS, Annoy, hnswlib) — embedded, no server. Build index, query in same process. Не handles updates, replication, persistence.
+**Library** (FAISS, Annoy, hnswlib) — встроенный индекс, без сервера. Построение и запрос в одном процессе. Не управляет updates, репликацией, persistence.
 
 **Database** (Pinecone, Weaviate, Qdrant, Milvus, pgvector):
-- Server with HTTP/gRPC API
+- Сервер с HTTP/gRPC API
 - Persistence
 - Updates / deletes
-- Replication, sharding (some)
+- Репликация и шардирование (у части)
 - Hybrid search (vector + filter)
 - Multi-tenancy
 
-### Реализации (2024-2026)
+### Реализации (2024–2026)
 
-| | Type | Notes |
+| | Тип | Заметки |
 |---|---|---|
-| **Pinecone** | Managed cloud | First mover, simple API, pay-per-query |
+| **Pinecone** | Managed cloud | Первопроходец, простой API, pay-per-query |
 | **Weaviate** | Open source + cloud | GraphQL API, hybrid (vector + keyword) |
-| **Qdrant** | Open source + cloud | Rust-based, performant |
-| **Milvus** | Open source | Largest scale, китайский origin (Zilliz) |
-| **pgvector** | PostgreSQL extension | Integration с existing PG, HNSW support |
-| **Elasticsearch dense_vector** | Существующий ES | Hybrid search nice |
-| **Chroma** | Open source | LLM-focused, embeds documents |
-| **Vespa** | Yahoo open source | Multi-modal (vector + text + structured) |
-| **FAISS** | Library (Facebook) | Embed, no server |
+| **Qdrant** | Open source + cloud | На Rust, производительный |
+| **Milvus** | Open source | Максимальный масштаб, родом из Китая (Zilliz) |
+| **pgvector** | Расширение PostgreSQL | Интеграция с уже существующим PG, поддержка HNSW |
+| **Elasticsearch dense_vector** | Существующий ES | Удобный hybrid search |
+| **Chroma** | Open source | Заточен под LLM, удобно embedd'ить документы |
+| **Vespa** | Open source от Yahoo | Multi-modal (vector + text + structured) |
+| **FAISS** | Library (Facebook) | Только embedding, без сервера |
 
-**pgvector special:** PostgreSQL extension. Если у тебя уже Postgres + < 10M vectors — adds vector search without new infra. HNSW support since pgvector 0.5.
+**Особенность pgvector:** расширение PostgreSQL. Если у вас уже Postgres и < 10M векторов — даёт vector search без новой инфраструктуры. HNSW поддерживается с pgvector 0.5.
 
 ---
 
 ## Hybrid Search
 
-Modern need: **vector** + **keyword** + **metadata filter** combined.
+Современный запрос — это **vector** + **keyword** + **metadata filter** одновременно.
 
-Example query: «recent articles about RAG (vector match), in English (filter), from credible sources (filter)»
+Пример: «свежие статьи про RAG (vector match), на английском (filter), из качественных источников (filter)».
 
 ```
 GET /search {
-  vector: [0.23, ...] (semantic query),
+  vector: [0.23, ...] (семантический запрос),
   query: "retrieval augmented generation",
   filter: { language: "en", source_quality: { gt: 0.7 }, date: { gt: "2024-01-01" } },
   k: 10
@@ -147,158 +147,158 @@ GET /search {
 ```
 
 **Реализации:**
-- **Weaviate** — first class hybrid
+- **Weaviate** — hybrid first-class
 - **Elasticsearch dense_vector + filter**
-- **Vespa** — sophisticated multi-modal
-- **Pinecone** — metadata filters
+- **Vespa** — продвинутая мультимодальность
+- **Pinecone** — фильтрация по metadata
 
 ---
 
 ## RAG (Retrieval-Augmented Generation)
 
-Pattern: LLM ответ дополняется retrieved documents (external knowledge).
+Паттерн: ответ LLM дополняется найденными документами (внешнее знание).
 
 ```
 User: "What is HNSW?"
   ↓
 [Embed query] → vector
   ↓
-[Vector DB search] → top-K relevant chunks
+[Vector DB search] → top-K релевантных chunks
   ↓
-[Build prompt with chunks]
+[Собираем prompt с chunks]
   ↓
-[LLM generates answer using chunks as context]
+[LLM генерирует ответ, используя chunks как контекст]
   ↓
-Return answer (+ citations to source chunks)
+Возвращаем ответ (+ ссылки на источники)
 ```
 
-### Why RAG?
+### Зачем RAG
 
-LLM (GPT-4, Claude) обучены до cutoff date, не знают proprietary data, могут hallucinate. RAG **grounds** ответ в reliable source.
+LLM (GPT-4, Claude) обучены до cutoff date, не знают вашу proprietary-информацию и могут галлюцинировать. RAG **grounds** ответ в надёжных источниках.
 
-### Architecture
+### Архитектура
 
 ```
 1. Ingestion pipeline:
-   Documents (PDF, web pages, internal wiki) → 
-   chunking (split into 500-1000 token pieces) →
-   embeddings (per chunk) →
+   Documents (PDF, web, internal wiki) →
+   chunking (куски по 500–1000 токенов) →
+   embeddings (на каждый chunk) →
    vector DB
 
 2. Query pipeline:
    User query → embed → vector search →
-   top-K chunks → 
-   prompt template: "Answer using these documents: {chunks}\nQuestion: {query}" →
+   top-K chunks →
+   prompt-шаблон: "Answer using these documents: {chunks}\nQuestion: {query}" →
    LLM call →
-   parse response, include citations
+   parse response, добавить citations
 ```
 
-### Chunking strategies
+### Стратегии chunking
 
-- **Fixed-size** — 500 tokens, простой
-- **Sentence-aware** — split on sentences (NLTK, spaCy)
-- **Semantic** — chunks based на content similarity (more complex)
-- **Hierarchical** — small chunks для precision + parent context
+- **Fixed-size** — 500 токенов, просто
+- **Sentence-aware** — split по предложениям (NLTK, spaCy)
+- **Semantic** — chunks по семантической близости (сложнее)
+- **Hierarchical** — мелкие chunks для precision + parent-context
 
-**Trade-off:** small chunks — точнее retrieval, но мало context. Large chunks — больше context, но noise.
+**Trade-off:** мелкие chunks дают точнее retrieval, но мало контекста. Крупные chunks — больше контекста, но больше шума.
 
-**Overlapping chunks** — 20-50% overlap, чтобы не разрывать concepts на boundary.
+**Overlapping chunks** — 20–50% перекрытие, чтобы не рвать концепты на границе.
 
 ### Re-ranking
 
-Vector search returns top-K кандидатов (например, 100). Re-ranker (cross-encoder model) re-scores чтобы выбрать top-10.
+Vector search возвращает top-K кандидатов (например, 100). Re-ranker (cross-encoder model) пересчитывает score, чтобы выбрать top-10.
 
 - **Cohere Rerank API**
-- **Custom cross-encoder** (BERT-based)
-- **Reciprocal Rank Fusion** — combine multiple search methods
+- **Кастомный cross-encoder** (на базе BERT)
+- **Reciprocal Rank Fusion** — комбинация нескольких методов поиска
 
-Improves precision значительно (often +20% relevance).
+Сильно повышает precision (часто +20% к relevance).
 
 ### Hybrid RAG
 
-- **Dense + sparse** — vector + BM25 (keyword) combined
-- **Multi-vector per chunk** — multiple representations (Q&A pairs, summaries)
+- **Dense + sparse** — vector + BM25 (keyword) вместе
+- **Multi-vector per chunk** — несколько представлений (Q&A пары, summary)
 - **Knowledge graph + vector** — entity linking + semantic search
-- **Multi-hop retrieval** — iterative search (use first results to refine query)
+- **Multi-hop retrieval** — итеративный поиск (первые результаты уточняют следующий запрос)
 
 ---
 
 ## Production challenges
 
-### Ingestion scale
+### Масштаб ingestion
 
-Re-embedding всех documents при изменении embedding model — expensive.
+Повторный embedding всех документов при смене embedding-модели — дорого.
 
 ```
-1M documents × 1K tokens × $0.0001 (embedding cost) = $100
-1B documents = $100K
+1M документов × 1K токенов × $0.0001 (стоимость embedding) = $100
+1B документов = $100K
 ```
 
-Strategy: embed только new + changed; periodically full re-embed при major model change.
+Стратегия: embed только новые + изменённые; полный re-embed — периодически при major model change.
 
-### Update freshness
+### Свежесть обновлений
 
-User uploads document → expected searchable immediately. Vector DB должен support fast inserts.
+Пользователь загружает документ → ожидает, что он мгновенно искать. Vector DB должна поддерживать быстрые inserts.
 
-### Cost
+### Стоимость
 
-- **Storage:** 1M vectors × 1536 dim × 4 bytes = 6 GB per copy
-- **Query cost:** Pinecone ~ $0.0001 / query (10M queries = $1000)
-- **LLM call cost:** GPT-4o-mini ~ $0.00015 / 1K input tokens; RAG prompt 2K input → $0.0003 / query
+- **Storage:** 1M векторов × 1536 dim × 4 байта = 6 ГБ на копию
+- **Query cost:** Pinecone ~$0.0001 / запрос (10M запросов = $1000)
+- **LLM call cost:** GPT-4o-mini ~$0.00015 / 1K input tokens; RAG-prompt 2K input → $0.0003 / запрос
 
 ### Evaluation
 
-«Is my RAG good?» — hard:
-- **Recall** — relevant docs retrieved? Need ground truth.
-- **Precision** — top results actually relevant?
-- **Answer quality** — LLM uses chunks well?
-- **Latency, cost** — operational
+«Хорош ли мой RAG?» — сложно:
+- **Recall** — нашлись ли релевантные документы? Нужна ground truth.
+- **Precision** — топ результатов действительно релевантен?
+- **Качество ответа** — LLM хорошо использует chunks?
+- **Latency, стоимость** — операционные метрики
 
-**Tools:** Ragas, TruLens, custom LLM-as-judge.
+**Инструменты:** Ragas, TruLens, кастомный LLM-as-judge.
 
 ### Hallucinations
 
-LLM might still invent facts если chunks don't have answer. Mitigation:
-- Strict prompt («only answer using provided chunks»)
+LLM может всё равно выдумать факт, если в chunks нет ответа. Митигации:
+- Жёсткий prompt («отвечать только на основе предоставленных chunks»)
 - Confidence scoring
-- Citation enforcement (each claim must have source)
+- Принуждение цитировать (каждое утверждение → источник)
 
 ---
 
-## Latency budget RAG
+## Latency budget для RAG
 
 ```
-Query embed: 50-100 ms (OpenAI API)
-Vector search: 10-50 ms (HNSW)
-Re-rank (optional): 100-300 ms
-LLM call: 500-3000 ms (depends on model + output length)
+Embedding запроса:  50–100 мс (OpenAI API)
+Vector search:      10–50 мс (HNSW)
+Re-rank (опционально): 100–300 мс
+LLM call:           500–3000 мс (зависит от модели и длины ответа)
 
-Total: 1-3 seconds typical, < 1 sec achievable with smaller LLMs
+Итого: типично 1–3 секунды, < 1 секунды достижимо с малыми LLM
 ```
 
-**Streaming response** — start showing generated tokens as LLM produces them, perceived latency much lower.
+**Streaming response** — показывать токены по мере генерации; воспринимаемая latency значительно ниже.
 
 ---
 
 ## Use cases
 
-- **Customer support chatbot** — answer from product docs
-- **Internal knowledge search** (Glean, Slack AI) — wiki / chat history
-- **Legal research** — case law retrieval
-- **Code search + generation** (Cursor, GitHub Copilot Chat) — RAG over codebase
-- **Medical research** — papers / protocols
-- **Education** — tutor with curated content
+- **Customer support chatbot** — ответ из продуктовой документации
+- **Internal knowledge search** (Glean, Slack AI) — wiki / история чатов
+- **Legal research** — поиск прецедентов
+- **Code search + generation** (Cursor, GitHub Copilot Chat) — RAG по кодовой базе
+- **Medical research** — статьи / протоколы
+- **Education** — tutor на curated content
 
 ---
 
 ## Антипаттерны
 
-- **Vector DB для structured queries** — `WHERE price < 100` не нужна vector. Use SQL.
-- **Embedding всё** — short texts (titles only) — bad embedding quality
-- **Without chunking** — large docs, retrieval returns whole doc (too much context)
-- **Без metadata filtering** — pure vector search возвращает irrelevant (wrong language, old date)
-- **Re-embedding всего при каждом model change** — cost. Plan migrations.
-- **Single retrieval** для сложных queries — multi-hop / decomposed retrieval better
+- **Vector DB для structured-запросов** — `WHERE price < 100` не требует vector, нужен SQL.
+- **Embed всего подряд** — короткие тексты (только заголовки) дают плохое качество embedding'а.
+- **Без chunking** — крупные документы целиком в retrieval (слишком много контекста для LLM).
+- **Без metadata-фильтрации** — чисто vector search возвращает не то (неверный язык, устаревшая дата).
+- **Re-embedding всего при каждой смене модели** — дорого. Планировать миграции.
+- **Один retrieval** на сложные запросы — multi-hop / decomposed retrieval работают лучше.
 
 ---
 
@@ -309,19 +309,19 @@ Total: 1-3 seconds typical, < 1 sec achievable with smaller LLMs
 - [Lewis et al. (2020) — «Retrieval-Augmented Generation for Knowledge-Intensive NLP Tasks»](https://arxiv.org/abs/2005.11401) — оригинал RAG
 - [Karpukhin et al. (2020) — «Dense Passage Retrieval for Open-Domain Question Answering»](https://arxiv.org/abs/2004.04906)
 
-**Tools / docs:**
+**Инструменты и документация:**
 - [Pinecone Documentation](https://docs.pinecone.io/)
 - [Weaviate Docs](https://weaviate.io/developers/weaviate)
 - [pgvector GitHub](https://github.com/pgvector/pgvector)
 - [FAISS Wiki](https://github.com/facebookresearch/faiss/wiki)
-- [LangChain Documentation](https://python.langchain.com/) — RAG framework
+- [LangChain Documentation](https://python.langchain.com/) — RAG-фреймворк
 
-**Engineering blogs:**
+**Инженерные блоги:**
 - [Pinecone Learning Center](https://www.pinecone.io/learn/)
 - [Anthropic — Building effective agents (2024)](https://www.anthropic.com/research/building-effective-agents)
 - [OpenAI Cookbook — Embeddings, RAG examples](https://cookbook.openai.com/)
 - [Cohere — Rerank Documentation](https://docs.cohere.com/docs/rerank-overview)
 
-**Books:**
+**Книги:**
 - *Building LLM Applications for Production* (Chip Huyen, in progress) — RAG, vector search
-- [Hands-On Generative AI with Transformers and Diffusion Models (2024)](https://www.oreilly.com/) — chapter on RAG
+- [Hands-On Generative AI with Transformers and Diffusion Models (2024)](https://www.oreilly.com/) — глава про RAG

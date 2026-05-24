@@ -43,22 +43,22 @@ contains(x) → bool:
 - **LSM-tree** point lookup optimization (Cassandra, RocksDB)
 - **Bitcoin SPV** clients — filter relevant transactions
 
-### Limitations
+### Ограничения
 
-- ✗ **Cannot delete** items from standard Bloom (removing bits breaks other items)
-- ✗ False positive rate растёт со временем (если добавляешь больше, чем планировал)
-- ✗ Cannot iterate items
+- ✗ **Нельзя удалять** элементы из стандартного Bloom (обнуление битов ломает другие элементы)
+- ✗ Доля false positive растёт со временем, если добавили больше, чем планировали
+- ✗ Нельзя итерироваться по элементам
 
 ### Counting Bloom Filter
 
 Вместо bits — counters. `add` increments, `remove` decrements. Можно удалять, но 4-8× больше memory.
 
-### Cuckoo Filter (alternative)
+### Cuckoo Filter (альтернатива)
 
 - ✓ Поддерживает delete
-- ✓ Меньше memory чем Counting Bloom при equal FP rate
-- ✗ Insert может fail при high load factor
-- Используется в современных systems как replacement Counting Bloom
+- ✓ Меньше памяти, чем Counting Bloom, при одинаковом FP rate
+- ✗ Insert может упасть при высоком load factor
+- Используется в современных системах как замена Counting Bloom
 
 ---
 
@@ -191,15 +191,15 @@ Modern alternative to Bloom — better cache locality, supports delete.
 
 ---
 
-## When NOT to use
+## Когда НЕ использовать
 
-Approximate ≠ exact. Не используй когда:
+Приближённое ≠ точное. Не используй, если:
 
-- **Strict correctness needed** — financial transactions (no false positives or negatives)
-- **Small dataset** — overhead не стоит (использовать HashSet, HashMap)
-- **Need exact counts** для billing — HyperLogLog даёт approximate; используй exact counters
+- **Нужна строгая корректность** — финансовые транзакции (никаких false positive или false negative)
+- **Маленький датасет** — overhead не оправдан (используй HashSet, HashMap)
+- **Нужны точные счётчики** для биллинга — HyperLogLog даёт приближение; нужны exact counters
 
-**Pattern:** approximate в hot path (cache, dedup, real-time analytics), exact в batch (nightly aggregation, financial closing).
+**Паттерн:** приближённые структуры в hot-path (cache, dedup, real-time-аналитика), точные — в batch (ночные агрегаты, финансовое закрытие).
 
 ---
 

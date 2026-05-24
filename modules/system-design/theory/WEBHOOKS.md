@@ -226,31 +226,31 @@ Provider → POST your endpoint
 
 ## Anti-patterns
 
-### Synchronous heavy processing
+### Синхронная тяжёлая обработка
 
-Webhook handler does DB queries, calls 3rd-party APIs, sends emails — within HTTP request. Times out → provider retries → cascade.
+Webhook-handler делает запросы в БД, вызовы внешних API, шлёт email — прямо внутри HTTP-запроса. Timeout → provider ретраит → каскад.
 
-→ **Always async after signature verification**.
+→ **Всегда async после проверки подписи.**
 
-### Trust webhook source без verification
+### Доверие источнику без verification
 
-Anyone can send POST к your `/webhooks/stripe` endpoint without signature check. Real attacker can fake events.
+Любой может прислать POST на ваш `/webhooks/stripe` без проверки подписи. Реальный атакующий может подделать события.
 
-### No idempotency
+### Нет идемпотентности
 
-Process duplicate webhook → duplicate side effects (charge user twice, send 2 emails).
+Обработка дубликата → дублирование побочных эффектов (двойной charge, два email).
 
-### Ignoring delivery order
+### Игнорирование порядка доставки
 
-Webhooks **не guaranteed in order** (network, parallel retries). Don't assume «event A always before B». Use event timestamps + state machines to detect.
+Webhook'и **не гарантированно** приходят по порядку (сеть, параллельные retry). Не закладывайтесь, что «событие A всегда раньше B». Используйте event timestamps + state machines.
 
-### Hardcoded webhook URLs in code
+### Захардкоженные URL'ы
 
-Make webhook URLs configurable (DB / env). Easy to rotate, test, debug.
+URL webhook'ов делать конфигурируемыми (БД / env). Легко ротировать, тестировать, дебажить.
 
-### No monitoring
+### Нет мониторинга
 
-«How many webhooks failed today?» — no idea без metrics. Track: receipt rate, processing duration, failure rate, queue depth.
+«Сколько webhook'ов упало сегодня?» — без метрик неясно. Трекать: receipt rate, длительность обработки, failure rate, depth очереди.
 
 ---
 
