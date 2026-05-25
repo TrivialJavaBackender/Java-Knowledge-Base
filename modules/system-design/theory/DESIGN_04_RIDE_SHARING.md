@@ -1,24 +1,24 @@
-# Design Problem: Ride Sharing (Uber / Lyft)
+# Проектная задача: поездки на заказ (Uber / Lyft)
 
-Сопоставить rider'а с ближайшим driver'ом в реальном времени, рассчитать ETA, обработать платёж. Главные challenges: **geospatial matching**, **surge pricing**, **частые обновления локации** драйверов.
+Сопоставить пассажира с ближайшим водителем в реальном времени, рассчитать ETA, обработать платёж. Главные сложности: **геопространственное сопоставление**, **надбавка к цене (surge)**, **частые обновления локации** водителей.
 
 ---
 
-## 1. Requirements
+## 1. Требования
 
-### Functional
-- Rider запрашивает поездку (origin, destination)
-- Система находит ближайшего доступного driver'а
-- Real-time tracking: driver → pickup → drop-off
-- Оценка ETA
-- Обработка платежа
-- Surge pricing при высоком спросе
+### Функциональные
+- пассажир запрашивает поездку (откуда, куда);
+- система находит ближайшего доступного водителя;
+- отслеживание в реальном времени: водитель → подача → высадка;
+- оценка ETA;
+- обработка платежа;
+- надбавка (surge) при высоком спросе.
 
-### Non-functional
-- **Низкая latency matching** — < 5 сек от запроса до уведомления driver'а
-- **High availability** — миллионы поездок в день
-- **Точный location tracking** — driver обновляет позицию каждые 3–5 сек
-- **Geo-масштаб** — глобально, multi-region
+### Нефункциональные
+- **Низкая задержка сопоставления** — < 5 с от запроса до уведомления водителя;
+- **Высокая доступность** — миллионы поездок в день;
+- **Точное отслеживание локации** — водитель обновляет позицию каждые 3–5 с;
+- **Гео-масштаб** — глобально, multi-region.
 
 ---
 
@@ -26,8 +26,8 @@
 
 ```
 100M пользователей в месяц, 10M DAU
-Пик 1M одновременно активных driver'ов
-Обновления локации driver'ов: 1M × раз в 4 сек = 250K writes/sec для location-сервиса
+Пик 1M одновременно активных водителей
+Обновления локации водителей: 1M × раз в 4 сек = 250K writes/sec для location-сервиса
 Запросы поездок: пик 5K/sec
 Всего поездок в день: 10M+ глобально
 ```
@@ -49,7 +49,7 @@ Body: { lat, lon, heading }
 → 204
 
 WebSocket /rides/:id/track
-  ← real-time-обновления позиции driver'а
+  ← обновления позиции водителя в реальном времени
 ```
 
 ---
@@ -62,14 +62,14 @@ Rider App / Driver App
 LB → API Gateway
   ↓
   ├──→ Ride Service (request, match, lifecycle)
-  ├──→ Location Service (позиции driver'ов, geosearch)
+  ├──→ Location Service (позиции водителей, geosearch)
   ├──→ Driver Service (профили, статусы)
   ├──→ Payment Service
-  ├──→ Notification Service (push в driver app)
+  ├──→ Notification Service (отправка в приложение водителя)
   ↓
 БД:
   - Cassandra (история поездок, денормализовано)
-  - Redis (локации driver'ов, hex-ячейки)
+  - Redis (локации водителей, hex-ячейки)
   - PostgreSQL (drivers, riders, payments)
 ```
 
@@ -86,7 +86,7 @@ DriverApp → POST /location { driverId, lat, lon, heading }
   ↓
 Location Service:
   - Вычислить H3-ячейку resolution 9 (~0.1 км²): cellId
-  - Если driver сменил ячейку:
+  - Если водитель сменил ячейку:
       ZREM old_cell:drivers driverId
       ZADD new_cell:drivers driverId
   - Обновить HASH driver:{id} текущими lat, lon
@@ -99,26 +99,26 @@ HSET driver:123 lat 37.7749 lon -122.4194 status available
 ZADD cell:8a283082adbffff drivers 0 driver:123   # score — фиктивный, нужен лишь membership
 ```
 
-**Масштаб:** 1M driver'ов × частота 4 сек = 250K writes/sec → Redis Cluster на 5–10 shards.
+**Масштаб:** 1M водителей × частота 4 сек = 250K writes/sec → Redis Cluster на 5–10 shards.
 
 ---
 
-## 6. Алгоритм matching'а
+## 6. Алгоритм сопоставления
 
 Rider запрашивает поездку из точки (lat, lon).
 
 ```
 1. Вычисляем H3-ячейку для pickup (resolution 9 ~200 м)
 2. Берём соседние ячейки: 1–2 hex ring'а (~1 км радиус)
-3. Достаём доступных driver'ов из этих ячеек из Redis
+3. Достаём доступных водителей из этих ячеек из Redis
 4. Оцениваем кандидатов:
-   - расстояние до rider'а (Haversine)
-   - рейтинг driver'а
+   - расстояние до пассажира (Haversine)
+   - рейтинг водителя
    - ETA с учётом трафика
-   - время ожидания driver'а (справедливость очереди)
+   - время ожидания водителя (справедливость очереди)
 5. Шлём match-запрос top-кандидату
-6. У driver'а 15 сек на подтверждение
-7. При отказе / timeout → следующий driver
+6. У водителя 15 сек на подтверждение
+7. При отказе или таймауте → следующий водитель
 ```
 
 Lookup по ячейкам: O(1), Redis SMEMBERS / ZRANGE.
@@ -139,7 +139,7 @@ for cell in get_cell_with_neighbors(rider_lat, rider_lon, ring=2):
 ### Uber использует H3 (гексагональная сетка)
 
 - Resolution 9 (~0.1 км²) для matching
-- Resolution 7 (~5 км²) для зон surge pricing
+- Resolution 7 (~5 км²) для зон надбавка
 - Resolution 5 для аналитики уровня города
 
 ### Почему hex (а не квадраты или круги)
@@ -170,7 +170,7 @@ State machine в БД, переходы — через библиотеку stat
 ```
 
 **События** в Kafka на каждом переходе:
-- `ride_matched` → уведомить rider'а, диспатчить driver'а
+- `ride_matched` → уведомить пассажира, диспатчить водителя
 - `ride_completed` → запустить обработку платежа
 - `ride_canceled` → очистка, уведомления
 
@@ -178,7 +178,7 @@ State machine в БД, переходы — через библиотеку stat
 
 ## 9. Расчёт ETA
 
-ETA = время в пути от текущей позиции driver'а до pickup.
+ETA = время в пути от текущей позиции водителя до pickup.
 
 ### Naive: прямая дистанция / средняя скорость
 
@@ -197,20 +197,20 @@ ETA = время в пути от текущей позиции driver'а до p
 
 ### Real-time-обновления
 
-Пока driver enroute, пересчитываем ETA каждые 30 сек по реальной позиции. Push в rider app по WebSocket.
+Пока водитель в пути, пересчитываем ETA каждые 30 с по реальной позиции. Отправка в приложение пассажира по WebSocket.
 
 ---
 
-## 10. Surge pricing
+## 10. Надбавка к цене (surge)
 
 При высоком спросе (rides:drivers > 1) — повысить цены, чтобы:
 - Снизить часть спроса → меньше rides
-- Привлечь больше driver'ов в зону → больше supply
+- Привлечь больше водителей в зону → больше supply
 
 ### Алгоритм
 
 ```
-Для каждой surge-зоны (H3-ячейка resolution 7, ~5 км²):
+Для каждой зоны с надбавкой (H3-ячейка разрешения 7, ~5 км²):
   active_rides_in_zone = count
   available_drivers_in_zone = count
   ratio = rides / max(drivers, 1)
@@ -221,7 +221,7 @@ ETA = время в пути от текущей позиции driver'а до p
   если ratio > 5.0: surge_multiplier = 5.0× (максимум)
 ```
 
-Multiplier применяется при расчёте fare. Пользователю сообщаем до подтверждения («surge 2.5×»).
+Множитель применяется при расчёте стоимости поездки. Пользователю сообщаем до подтверждения («надбавка 2,5×»).
 
 ### Хранение
 
@@ -235,15 +235,15 @@ Multiplier применяется при расчёте fare. Пользоват
 Поездка завершена →
   fare = base + (distance × rate) + (time × rate) + (surge × ...) + tip
   ↓
-  Списание с сохранённого способа оплаты rider'а (Stripe, Braintree)
+  Списание с сохранённого способа оплаты пассажира (Stripe, Braintree)
   ↓
-  Async: выплата driver'у (с задержкой в несколько дней)
+  Async: выплата водителю (с задержкой в несколько дней)
 ```
 
 **Идемпотентность:** обработка платежа с idempotency key (rideId) — retry не приводит к двойному списанию.
 
 **Failure handling:**
-- Карта отклонена → уведомить rider'а, придержать поездку
+- Карта отклонена → уведомить пассажира, придержать поездку
 - Stripe down → retry с backoff, очередь на потом
 - Disputes → очередь ручного разбора
 
@@ -253,9 +253,9 @@ Multiplier применяется при расчёте fare. Пользоват
 
 | Сценарий | Обработка |
 |----------|-----------|
-| Driver принял, но перестал отвечать | Timeout 15 сек, переходим к следующему driver'у |
-| У rider'а плохое покрытие сети | Локальный кэш последней известной позиции driver'а, показываем «driver рядом» |
-| Спайк surge — driver'ов нет | Показываем «driver'ы недоступны», предлагаем позже |
+| Driver принял, но перестал отвечать | Timeout 15 сек, переходим к следующему водителю |
+| У пассажира плохое покрытие сети | Локальный кэш последней известной позиции водителя, показываем «driver рядом» |
+| Спайк surge — водителей нет | Показываем «водители недоступны», предлагаем позже |
 | Stripe outage | Платёж в очередь, retry; поездка идёт |
 | Региональный сбой (us-west-2) | Multi-region failover (каждый регион обслуживает свою территорию) |
 
@@ -270,27 +270,27 @@ Uber работает глобально. У каждого региона (Аф
 - **Cross-region** — только агрегированная аналитика
 - **Global-сервисы** — auth, payments (потенциально централизованы с региональными кэшами)
 
-Trip-БД: Cassandra с datacenter-aware replication.
+БД поездок: Cassandra с репликацией, учитывающей принадлежность к ЦОД.
 
 ---
 
 ## 14. Trade-offs
 
-### Push vs pull локаций driver'ов
+### Push vs pull локаций водителей
 
-- **Push (этот дизайн)** — driver app шлёт обновления каждые 4 сек
-- **Pull** — сервер запрашивает по требованию. Не работает: сервер не знает, кого спрашивать
+- **Отправка (этот дизайн)** — приложение водителя шлёт обновления каждые 4 с;
+- **Подтягивание** — сервер запрашивает по требованию. Не работает: сервер не знает, кого спрашивать.
 
 ### Частота обновления локации
 
 - **Чаще (раз в 1 сек)** — точнее, но стоимость в 4 раза выше (250K → 1M writes/sec)
-- **Реже (раз в 10 сек)** — дешевле, но устаревшие данные для matching'а
+- **Реже (раз в 10 сек)** — дешевле, но устаревшие данные для сопоставления
 - **Adaptive** — высокая частота при активном matching'е, низкая в idle
 
-### Centralized matching vs distributed
+### Централизованное против распределённого сопоставления
 
-- **Центральный сервис** — глобальный взгляд на supply/demand
-- **Distributed (per-city)** — масштабируется, изоляция сбоев. Uber фактически использует региональные dispatcher-сервисы
+- **Центральный сервис** — глобальный взгляд на спрос и предложение;
+- **Распределённое (по городам)** — масштабируется, изоляция сбоев. Uber фактически использует региональные сервисы диспетчеризации.
 
 ---
 
@@ -308,6 +308,6 @@ Trip-БД: Cassandra с datacenter-aware replication.
 - *System Design Interview Vol. 2* (Alex Xu) — глава о Proximity Service / Uber
 - [Uber Engineering — H3: Hexagonal Hierarchical Geospatial Indexing](https://www.uber.com/blog/h3/)
 - [Uber Engineering — DISCO: dispatch system](https://www.uber.com/blog/dispatch-optimization/)
-- [Uber's Marketplace — surge pricing](https://www.uber.com/blog/algorithms-tools-for-network-optimization/)
+- [Uber's Marketplace — надбавка](https://www.uber.com/blog/algorithms-tools-for-network-optimization/)
 - [Hello Interview — Uber](https://www.hellointerview.com/learn/system-design/problem-breakdowns/uber)
 - [Lyft Engineering — Matching backend](https://eng.lyft.com/)
