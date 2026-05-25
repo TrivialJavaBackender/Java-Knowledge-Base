@@ -47,19 +47,19 @@ Resolver кэширует на 5 минут → клиенты, делающие
 - **Высокий TTL** (часы-дни): меньше DNS-трафика, быстрее resolve, но **медленные изменения** (если меняешь IP, старые клиенты будут стучаться к старому ещё часы)
 - **Низкий TTL** (60s): мгновенные failover, но больше DNS-запросов
 
-Production tip: для важных endpoint'ов держать TTL=60 (быстрый failover), для стабильных static origins — TTL=3600+.
+Production tip: для важных эндпоинтов держать TTL=60 (быстрый failover), для стабильных static origins — TTL=3600+.
 
 **Negative caching:** NXDOMAIN тоже кэшируется (SOA-specified, обычно 5 мин) — поэтому опечатка домена несколько минут «не существует» даже после исправления.
 
 ---
 
-## DNS routing methods (на уровне authoritative)
+## Методы DNS-маршрутизации (на уровне authoritative)
 
 Современные DNS providers поддерживают «умные» политики: ответ зависит от запрашивающего.
 
 ### Latency-based routing
 
-Возвращает endpoint с наименьшей RTT для resolver'а клиента. Route 53 имеет global latency map.
+Возвращает endpoint с наименьшей RTT для резолвера клиента. Route 53 имеет global latency map.
 
 ```
 US client → example.com → us-east-1 LB
@@ -96,7 +96,7 @@ Primary endpoint + secondary; secondary активируется при health c
 Использование:
 - Root DNS servers (13 IP, тысячи физических серверов)
 - 8.8.8.8, 1.1.1.1 (Google, Cloudflare resolver)
-- CDN PoP'ы
+- CDN POP
 
 См. [LOAD_BALANCER.md](LOAD_BALANCER.md) для общего обзора Anycast.
 
@@ -115,7 +115,7 @@ DNS responses можно подделать (DNS cache poisoning, MITM). **DNSSE
 
 ---
 
-## Real-world DNS incidents
+## Инциденты DNS из реальной практики
 
 - **Dyn DDoS (2016-10-21)** — Mirai botnet атаковал Dyn (DNS provider). Twitter, Netflix, Reddit недоступны 5+ часов. Урок: DNS — критическая dependency, не SPOF.
   → [Wikipedia — 2016 Dyn cyberattack](https://en.wikipedia.org/wiki/2016_Dyn_cyberattack)

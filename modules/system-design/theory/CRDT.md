@@ -1,132 +1,132 @@
-# CRDTs (Conflict-free Replicated Data Types)
+# CRDT (Conflict-free Replicated Data Types)
 
-CRDT — структуры данных с математической гарантией: **merge всегда конвергирует** к одинаковому состоянию, независимо от порядка применения операций и сетевой топологии. Решают проблему multi-leader replication без central coordinator.
+CRDT — структуры данных с математической гарантией: **слияние всегда сходится** к одинаковому состоянию, независимо от порядка применения операций и сетевой топологии. Решают проблему multi-leader репликации без центрального координатора.
 
-> **Scope**: типы CRDT, use cases. Multi-region replication overall — см. [MULTI_REGION.md](MULTI_REGION.md). Anti-entropy / vector clocks — [GOSSIP_PROTOCOL.md](GOSSIP_PROTOCOL.md), [distributed_systems.md](distributed_systems.md).
+> **Область:** типы CRDT, сценарии использования. Multi-region репликация в целом — см. [MULTI_REGION.md](MULTI_REGION.md). Anti-entropy / векторные часы — [GOSSIP_PROTOCOL.md](GOSSIP_PROTOCOL.md), [distributed_systems.md](distributed_systems.md).
 
 ---
 
-## Зачем нужны CRDTs
+## Зачем нужны CRDT
 
-Сценарий: пользователь редактирует Google Doc одновременно с друзьями. Каждый клиент видит свою «оптимистичную» версию, изменения распространяются через сеть. Что происходит при race:
+Сценарий: пользователь редактирует Google Doc одновременно с друзьями. Каждый клиент видит свою «оптимистичную» версию, изменения распространяются через сеть. Что происходит при гонке:
 
-- User A: добавил «hello» в позицию 5
-- User B: одновременно добавил «world» в позицию 5
+- пользователь A: добавил «hello» в позицию 5;
+- пользователь B: одновременно добавил «world» в позицию 5.
 
-Без CRDT: «winner takes all» (LWW) → теряем данные. С CRDT: оба add'а сохраняются, merge даёт `helloworld` (или naturally ordered).
+Без CRDT: «победитель забирает всё» (LWW) → теряем данные. С CRDT: оба добавления сохраняются, слияние даёт `helloworld` (или упорядоченное естественным образом).
 
-**CRDT свойства (мат.):**
-- **Commutative** — порядок операций не важен (`a + b = b + a`)
-- **Associative** — группировка не важна (`(a + b) + c = a + (b + c)`)
-- **Idempotent** — повтор операции не меняет результат
+**Свойства CRDT (математически):**
+- **Коммутативность** — порядок операций не важен (`a + b = b + a`);
+- **Ассоциативность** — группировка не важна (`(a + b) + c = a + (b + c)`);
+- **Идемпотентность** — повтор операции не меняет результат.
 
-→ Любая сходящаяся (convergent) реплика приведёт к одинаковому состоянию после получения всех updates, в любом порядке.
+→ Любая сходящаяся реплика приведёт к одинаковому состоянию после получения всех обновлений, в любом порядке.
 
 ---
 
 ## Два типа CRDT
 
-### Op-based (Operation-based, CmRDT)
+### На операциях (CmRDT)
 
 Узел шлёт **операции** другим: `add(5)`, `remove("X")`. Они должны:
-- Доставляться надёжно (no loss)
-- Доставляться **в causal order** (если A → B, то B применяется после A)
+- доставляться надёжно (без потерь);
+- доставляться **в причинном порядке** (если A → B, то B применяется после A).
 
-Дальше — все узлы применяют операции, merge тривиальный.
+Дальше — все узлы применяют операции, слияние тривиально.
 
-**Реализация:** reliable causal broadcast (vector clocks). Сложнее в transport, но **меньше bandwidth** (только операции, не state).
+**Реализация:** надёжная причинно-упорядоченная рассылка (векторные часы). Сложнее в транспорте, но **меньше полосы** (только операции, не состояние).
 
-### State-based (CvRDT)
+### На состоянии (CvRDT)
 
-Узел шлёт **весь state** другим. Receiver merge'ит с локальным через идемпотентный, коммутативный, ассоциативный `merge`.
+Узел шлёт **всё состояние** другим. Получатель сливает с локальным через идемпотентную, коммутативную, ассоциативную функцию `merge`.
 
-**Реализация:** просто periodic gossip + merge function. Больше bandwidth (full state), но fault-tolerant (lost messages не критичны, gossip eventually догонит).
+**Реализация:** просто периодический gossip + функция слияния. Больше полосы (полное состояние), но устойчиво к сбоям (потерянные сообщения не критичны, gossip в итоге догонит).
 
 ---
 
 ## Базовые CRDT
 
-### G-Counter (Grow-only Counter)
+### G-Counter (счётчик только на увеличение)
 
-Counter, можно только incrementировать.
+Счётчик, можно только инкрементировать.
 
 ```
-State: vector { node1: 5, node2: 3, node3: 2 }
-Value: sum = 10
+Состояние: vector { node1: 5, node2: 3, node3: 2 }
+Значение: sum = 10
 
-Merge: для каждого node — max(local, remote)
+Слияние: для каждого узла — max(local, remote)
        { node1: max(5,4), node2: max(3,7), node3: max(2,2) } = { node1: 5, node2: 7, node3: 2 } = 14
 ```
 
-**Use cases:** number of views, likes, monotonic metric.
+**Сценарии:** число просмотров, лайков, монотонная метрика.
 
-### PN-Counter (Positive-Negative Counter)
+### PN-Counter (положительно-отрицательный счётчик)
 
-Сумма двух G-Counter: incrementers и decrementers.
+Сумма двух G-Counter: для увеличений и уменьшений.
 
 ```
-State: P = G-Counter (increments), N = G-Counter (decrements)
-Value: sum(P) - sum(N)
+Состояние: P = G-Counter (увеличения), N = G-Counter (уменьшения)
+Значение: sum(P) - sum(N)
 ```
 
-**Use cases:** balance in a bank account (увеличение/уменьшение), inventory count.
+**Сценарии:** баланс банковского счёта (увеличение/уменьшение), складские остатки.
 
-### G-Set (Grow-only Set)
+### G-Set (множество только на добавление)
 
 Множество, можно только добавлять.
 
 ```
-State: set of elements
-Merge: union of two sets
+Состояние: множество элементов
+Слияние: объединение двух множеств
 ```
 
-**Use cases:** observed events, unique visitor set (но размер растёт без bound).
+**Сценарии:** наблюдаемые события, множество уникальных посетителей (но размер растёт без ограничений).
 
-### 2P-Set (Two-Phase Set)
+### 2P-Set (двухфазное множество)
 
-G-Set + tombstone set. Элемент можно удалить **раз** (после удаления уже не вернуть).
+G-Set + множество tombstone. Элемент можно удалить **один раз** (после удаления уже не вернуть).
 
 ```
-State: { A: {x, y, z}, R: {y} }     # added, removed
-Value: A - R = {x, z}
+Состояние: { A: {x, y, z}, R: {y} }     # добавленные, удалённые
+Значение: A - R = {x, z}
 
-Merge: A1 ∪ A2, R1 ∪ R2
+Слияние: A1 ∪ A2, R1 ∪ R2
 ```
 
-**Limitation:** Можно удалить только то, что добавлено. После удаления — не вернуть.
+**Ограничение:** можно удалить только то, что добавлено. После удаления — не вернуть.
 
 ### OR-Set (Observed-Remove Set)
 
-Каждое добавление имеет уникальный tag (`element + unique_id`). Удаляются только те tags, что наблюдались.
+Каждое добавление имеет уникальную метку (`element + unique_id`). Удаляются только те метки, что наблюдались.
 
 ```
 add("apple") → ("apple", uuid-1)
 add("apple") (другой узел) → ("apple", uuid-2)
 remove("apple") (видит только uuid-1) → tombstone uuid-1
 
-Result: apple still present (uuid-2 не удалён)
+Результат: apple всё ещё присутствует (uuid-2 не удалён)
 ```
 
-→ **«Add wins» semantics:** add параллельный с remove побеждает.
+→ **Семантика «add побеждает»:** добавление параллельно с удалением побеждает.
 
-**Use cases:** shopping cart items (если двое одновременно добавили — оба в корзине).
+**Сценарии:** товары в корзине (если двое одновременно добавили — оба в корзине).
 
 ### LWW-Element-Set
 
-Каждый элемент имеет timestamp. На merge — выбираем по latest timestamp.
+Каждый элемент имеет метку времени. При слиянии — выбираем по последней метке.
 
 ```
-add("X", t=10), remove("X", t=20) → X removed
-add("X", t=10), remove("X", t=5)  → X present
+add("X", t=10), remove("X", t=20) → X удалён
+add("X", t=10), remove("X", t=5)  → X присутствует
 ```
 
-**Use cases:** key-value stores где timestamp известен (Riak, Cassandra с LWW timestamp).
+**Сценарии:** key-value хранилища, где метка времени известна (Riak, Cassandra с меткой LWW).
 
-**Caveat:** требует синхронизированные часы → potential loss при clock skew.
+**Оговорка:** требуются синхронизированные часы → потенциальная потеря при расхождении часов.
 
 ### LWW-Register
 
-Single value, replaced by latest write по timestamp.
+Одно значение, заменяется последней записью по метке времени.
 
 ```
 write("hello", t=10) → "hello"
@@ -134,139 +134,139 @@ write("world", t=15) → "world"
 write("X", t=5) → "world" (старее — игнорируется)
 ```
 
-**Use cases:** profile fields (name, avatar), single-value config.
+**Сценарии:** поля профиля (имя, аватар), одно значение конфигурации.
 
-### MV-Register (Multi-Value Register)
+### MV-Register (многозначный регистр)
 
-Когда два concurrent write (на разных репликах) — хранит **обе** версии. Application resolution.
+Когда две конкурентные записи (на разных репликах) — хранит **обе** версии. Разрешение на уровне приложения.
 
 ```
 A: write("X")
-B: write("Y") (concurrent)
+B: write("Y") (конкурентно)
 
 read → {"X", "Y"} — пользователь выбирает
 ```
 
-**Use cases:** Riak — конфликтующие версии возвращаются клиенту.
+**Сценарии:** Riak — конфликтующие версии возвращаются клиенту.
 
 ---
 
 ## Сложные CRDT
 
-### RGA / Treedoc / WOOT — collaborative text editing
+### RGA / Treedoc / WOOT — совместное редактирование текста
 
-Сложные ordered sequence CRDT для редактирования text concurrent.
+Сложные упорядоченные CRDT для конкурентного редактирования текста.
 
-- **RGA** (Replicated Growable Array)
-- **Treedoc** — древовидная индексация
-- **WOOT** (Without Operational Transformation)
-- **YATA** / **Y.js** — самая популярная современная реализация
+- **RGA** (Replicated Growable Array);
+- **Treedoc** — древовидная индексация;
+- **WOOT** (Without Operational Transformation);
+- **YATA** / **Y.js** — самая популярная современная реализация.
 
-**Use cases:** Google Docs (использует OT — Operational Transformation, alternative), Figma, Notion (CRDT-based), Linear, Trello (для частей).
+**Сценарии:** Google Docs (использует OT — Operational Transformation, альтернатива), Figma, Notion (на основе CRDT), Linear, Trello (для частей).
 
 **Сложности:**
-- Position identifiers могут стать большими (между двумя точками — нужна позиция «между»)
-- Tombstones для удалённых символов — растут без bound (нужна garbage collection)
+- идентификаторы позиций могут стать большими (между двумя точками — нужна позиция «между»);
+- tombstone для удалённых символов — растут без ограничений (нужна сборка мусора).
 
 ### CRDT JSON / OR-Map
 
-Map с CRDT-семантикой: keys могут быть added/removed (как OR-Set), values — сами CRDT.
+Map с CRDT-семантикой: ключи могут быть добавлены/удалены (как OR-Set), значения — сами CRDT.
 
-**Use cases:** Automerge (генеральный JSON CRDT), используется в Local-first apps.
+**Сценарии:** Automerge (универсальный JSON CRDT), используется в local-first приложениях.
 
-### CRDT Counter с bound
+### CRDT-счётчик с границей
 
-PN-Counter unbounded. Если нужен `counter <= 100` (например, ticket sales), нужны протоколы reservation:
+PN-Counter без границ. Если нужен `counter <= 100` (например, продажа билетов), нужны протоколы резервирования:
 
-- **Bounded counter** через escrow (каждая реплика «арендует» право увеличить на N)
-- Pattern Atlassian / Salesforce CRDT works
+- **Ограниченный счётчик** через эскроу (каждая реплика «арендует» право увеличить на N);
+- шаблоны работы CRDT в Atlassian / Salesforce.
 
 ---
 
-## Use cases
+## Сценарии использования
 
-### Real-time collaboration
+### Совместная работа в реальном времени
 
-- **Figma** — own CRDT for vector graphics
-- **Notion / Linear / Trello** — CRDT для document state
-- **Automerge / Yjs** — open source CRDT libraries (Yjs самая популярная)
-- **Google Docs** — OT (Operational Transformation), не CRDT, но решает ту же проблему
+- **Figma** — собственный CRDT для векторной графики;
+- **Notion / Linear / Trello** — CRDT для состояния документа;
+- **Automerge / Yjs** — open source библиотеки CRDT (Yjs самая популярная);
+- **Google Docs** — OT (Operational Transformation), не CRDT, но решает ту же проблему.
 
-### Distributed databases
+### Распределённые БД
 
-- **Riak** — CRDT data types (counter, set, map, register)
-- **Redis CRDT** (Enterprise) — sets, counters
-- **Cassandra LWT** — не CRDT, но conditional updates
-- **Antidote DB** — research DB, full CRDT
+- **Riak** — типы данных CRDT (счётчик, множество, map, регистр);
+- **Redis CRDT** (Enterprise) — множества, счётчики;
+- **Cassandra LWT** — не CRDT, но условные обновления;
+- **Antidote DB** — исследовательская БД, полностью на CRDT.
 
-### Multi-region eventual consistency
+### Multi-region итоговая согласованность
 
-- **Multi-master MySQL/PostgreSQL** с CRDT app-level
-- **Cassandra** counter — на CRDT (PN-Counter под капотом)
-- **Yandex Metrica / Google Analytics** — counters с eventual aggregation
+- **Multi-master MySQL/PostgreSQL** с CRDT на уровне приложения;
+- **Cassandra** counter — на CRDT (под капотом PN-Counter);
+- **Yandex Metrica / Google Analytics** — счётчики с итоговой агрегацией.
 
-### Offline-first apps
+### Приложения с режимом оффлайн
 
-- **Mobile apps offline-mode** — CRDT для local edits → merge при reconnect
-- **IPFS, OrbitDB** — peer-to-peer data sync
-- **CouchDB / PouchDB** — replication conflicts → CRDT-like resolution
+- **Мобильные приложения в режиме оффлайн** — CRDT для локальных правок → слияние при переподключении;
+- **IPFS, OrbitDB** — peer-to-peer синхронизация данных;
+- **CouchDB / PouchDB** — конфликты репликации → разрешение в стиле CRDT.
 
 ---
 
 ## Когда CRDT не подходят
 
-CRDT — **eventual consistency**. Не подходят для:
+CRDT — **итоговая согласованность**. Не подходят для:
 
-- **Strong consistency** (финансовые транзакции, inventory с жёстким лимитом) — нужен консенсус
-- **Последовательных workflow** (state machines с конкретными переходами) — CRDT не обеспечивает логику переходов
-- **Атомарных multi-key операций** (транзакции по нескольким ключам) — CRDT обычно per-key
-- **Когда conflict resolution имеет бизнес-логику** (ручной выбор «победителя») — application-level merge удобнее
+- **строгой согласованности** (финансовые транзакции, склад с жёстким лимитом) — нужен консенсус;
+- **последовательных рабочих процессов** (автоматы состояний с конкретными переходами) — CRDT не обеспечивает логику переходов;
+- **атомарных операций по нескольким ключам** (транзакции по нескольким ключам) — CRDT обычно работает на один ключ;
+- **когда разрешение конфликтов имеет бизнес-логику** (ручной выбор «победителя») — слияние на уровне приложения удобнее.
 
-**Контрпример:** «У нас 100 билетов на концерт». PN-Counter с CRDT мог бы продать 110 (concurrent writes на разных узлах). Нужен escrow / консенсус / шардированная резервация.
+**Контрпример:** «У нас 100 билетов на концерт». PN-Counter с CRDT мог бы продать 110 (конкурентные записи на разных узлах). Нужен эскроу / консенсус / шардированное резервирование.
 
 ---
 
-## Trade-offs
+## Компромиссы
 
-| | CRDT | Operational Transformation (OT) | Strong Consensus (Raft/Paxos) |
+| | CRDT | Operational Transformation (OT) | Строгий консенсус (Raft/Paxos) |
 |---|---|---|---|
-| Convergence | Mathematically guaranteed | Algorithmic transform | Atomic |
-| Network | Eventually consistent | Often central server | Round trips for commit |
-| Offline | ✓ Yes | Limited | ✗ No |
-| Complexity (data side) | Higher (need CRDT-aware) | Operations transform | Standard types |
-| Complexity (algo side) | Moderate (per-type) | High (transform functions) | Moderate |
-| Server required | No (P2P possible) | Often yes | Yes |
+| Сходимость | Математически гарантирована | Алгоритмическое преобразование | Атомарно |
+| Сеть | Итогово согласовано | Часто центральный сервер | Round-trip на коммит |
+| Оффлайн | ✓ да | Ограниченно | ✗ нет |
+| Сложность (данных) | Выше (нужно понимание CRDT) | Преобразование операций | Стандартные типы |
+| Сложность (алгоритма) | Умеренная (на каждый тип) | Высокая (функции преобразования) | Умеренная |
+| Сервер обязателен | Нет (возможно P2P) | Часто да | Да |
 
 ---
 
-## Best practices
+## Лучшие практики
 
-- **Используй existing libs** — Yjs, Automerge для общих cases. Не пиши свой OR-Set с нуля.
-- **GC tombstones** — без cleanup state растёт навсегда. Trade-off: convergence guarantee vs storage.
-- **Vector clocks для causality** — vital для op-based CRDT; учитывай space cost.
-- **Profile real workload** — CRDT cost scales с amount of edits и tombstones.
-- **Hybrid**: используй CRDT для merge logic + strong consensus для critical decisions (auth, billing).
+- **Используйте существующие библиотеки** — Yjs, Automerge для общих случаев. Не пишите свой OR-Set с нуля.
+- **Собирайте tombstone в мусор** — без очистки состояние растёт навсегда. Компромисс: гарантия сходимости vs хранилище.
+- **Векторные часы для причинности** — жизненно важно для CRDT на операциях; учитывайте затраты на хранилище.
+- **Профилируйте реальную нагрузку** — стоимость CRDT масштабируется с количеством правок и tombstone.
+- **Гибрид:** используйте CRDT для логики слияния + строгий консенсус для критичных решений (авторизация, биллинг).
 
 ---
 
 ## Источники
 
-**Papers:**
+**Статьи:**
 - [Shapiro, Preguiça, Baquero, Zawirski (2011) — «Conflict-free Replicated Data Types» (Tech Report)](https://hal.inria.fr/inria-00555588/document) — фундаментальное определение
 - [Shapiro et al. (2011) — «A comprehensive study of Convergent and Commutative Replicated Data Types»](https://hal.inria.fr/inria-00555588/)
 - [Roh et al. (2011) — «Replicated Abstract Data Types: Building Blocks for Collaborative Applications»](https://www.cs.unc.edu/~prashant/CRDT-talk.pdf)
 
-**Implementations / docs:**
+**Реализации и документация:**
 - [Yjs — shared editing CRDT library](https://github.com/yjs/yjs) — JavaScript, used by Notion, Linear
 - [Automerge](https://automerge.org/) — JSON-like CRDT for local-first apps
-- [Riak Data Types Documentation](https://docs.riak.com/riak/kv/2.2.3/developing/data-types/) — production CRDTs
+- [Riak Data Types Documentation](https://docs.riak.com/riak/kv/2.2.3/developing/data-types/) — продакшен CRDT
 - [Redis CRDT (Enterprise)](https://redis.io/docs/latest/operate/rs/databases/active-active/)
 
-**Engineering:**
+**Инжиниринг:**
 - [Martin Kleppmann — CRDTs and the Quest for Distributed Consistency (talk)](https://www.youtube.com/watch?v=B5NULPSiOGw)
 - [Local-First Software (Ink & Switch, 2019)](https://www.inkandswitch.com/local-first/) — манифест P2P + CRDT
 - [Figma — How Figma's multiplayer technology works](https://www.figma.com/blog/how-figmas-multiplayer-technology-works/)
-- *Designing Data-Intensive Applications* (Kleppmann) — Ch. 5 (CRDTs briefly), Ch. 9
+- *Designing Data-Intensive Applications* (Kleppmann) — гл. 5 (CRDT кратко), гл. 9
 
-**Books:**
-- *Distributed Systems* (van Steen, Tanenbaum, 3rd ed.) — replication models
+**Книги:**
+- *Distributed Systems* (van Steen, Tanenbaum, 3rd ed.) — модели репликации

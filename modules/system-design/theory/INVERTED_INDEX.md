@@ -1,6 +1,6 @@
-# Inverted Index
+# Инвертированный индекс
 
-Структура для full-text search. **Inverted** = «term → список документов, его содержащих», обратно к стандартному «документ → список терминов».
+Структура для полнотекстового поиска. **Инвертированный** = «термин → список документов, его содержащих», обратно к стандартному «документ → список терминов».
 
 Основа всех поисковых движков: Elasticsearch, Solr, Lucene.
 
@@ -61,7 +61,7 @@ Inverted index:
 
 ---
 
-## Indexing pipeline
+## Пайплайн индексации
 
 ```
 Текст документа →
@@ -93,7 +93,7 @@ Inverted index:
 
 ---
 
-## Query processing
+## Обработка запроса
 
 ### Boolean query
 
@@ -139,7 +139,7 @@ Posting lists с **позициями**:
 
 ---
 
-## Relevance Ranking
+## Ранжирование по релевантности
 
 «Найти подходящие документы» — просто. «Отсортировать по релевантности» — сложнее. Стандартные алгоритмы:
 
@@ -225,7 +225,7 @@ Index:
 
 ---
 
-## Use cases
+## Сценарии
 
 - **Application search** — поисковая строка в продуктах, knowledge base
 - **Log search** (Kibana, Loki) — поиск по миллиардам строк логов
@@ -235,7 +235,7 @@ Index:
 
 ---
 
-## Pitfalls
+## Подводные камни
 
 - **Размер индекса** — inverted index часто 50–200% от исходного текста. Закладывайте storage.
 - **Стоимость update'а** — каждое обновление документа создаёт новый segment, который затем merge'ится. Тяжёлая update-нагрузка → дорогие merges.
@@ -260,7 +260,7 @@ Index:
 
 ---
 
-## Real-world examples
+## Примеры из продакшена
 
 - **GitHub** — code search на Elasticsearch (исторически), переходят на Blackbird (custom)
 - **Wikipedia** — Elasticsearch (раньше — чистый Lucene)
@@ -271,7 +271,7 @@ Index:
 
 ---
 
-## PostgreSQL FTS (small–medium scale)
+## PostgreSQL FTS (малый и средний масштаб)
 
 ```sql
 ALTER TABLE articles ADD COLUMN tsv tsvector;

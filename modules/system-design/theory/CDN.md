@@ -1,8 +1,8 @@
 # CDN (Content Delivery Network)
 
-CDN — географически распределённая сеть кэш-серверов (PoP — Point of Presence), приближающая контент к пользователю. Snowflake-style: один origin → 200+ edge locations → конечный пользователь.
+CDN — географически распределённая сеть кэш-серверов (POP — Point of Presence), приближающая контент к пользователю. В стиле «снежинки»: один источник → 200+ пограничных локаций → конечный пользователь.
 
-> **Scope**: модели работы CDN, push vs pull, signed URLs, providers. HTTP-уровень кэширования (Cache-Control, ETag, Vary) — см. [`caching-deep-dive/HTTP_CDN_CACHE.md`](../../caching-deep-dive/theory/HTTP_CDN_CACHE.md).
+> **Область:** модели работы CDN, push против pull, подписанные URL, провайдеры. HTTP-уровень кэширования (Cache-Control, ETag, Vary) — см. [`caching-deep-dive/HTTP_CDN_CACHE.md`](../../caching-deep-dive/theory/HTTP_CDN_CACHE.md).
 
 ---
 
@@ -10,153 +10,153 @@ CDN — географически распределённая сеть кэш-
 
 Три причины:
 
-1. **Latency** — пользователь в Сингапуре получает контент с PoP в Сингапуре (~10 ms RTT), не из US-East (~200 ms RTT)
-2. **Bandwidth offload** — origin (твой backend) не отдаёт каждый GET; >90% запросов отвечает CDN edge
-3. **DDoS mitigation** — атака распределяется по 200 PoP'ам, нагрузка на origin минимальна
+1. **Задержка** — пользователь в Сингапуре получает контент с POP в Сингапуре (~10 мс RTT), не из US-East (~200 мс RTT);
+2. **Разгрузка полосы источника** — источник (ваш бэкенд) не отдаёт каждый GET; >90% запросов отвечает пограничный узел CDN;
+3. **Защита от DDoS** — атака распределяется по 200 POP, нагрузка на источник минимальна.
 
-Типичная экономия: 80-95% requests handled at edge → cost reduction × 5-10 на egress + меньше application servers.
+Типичная экономия: 80–95% запросов обрабатываются на границе → сокращение стоимости в 5–10 раз на исходящий трафик + меньше серверов приложения.
 
 ---
 
-## Push vs Pull
+## Push против pull
 
-### Pull CDN (lazy, по требованию)
+### Pull CDN (ленивый, по требованию)
 
 ```
-User → CDN edge: GET /image.png
-CDN edge: cache miss → fetch from origin
+Пользователь → пограничный узел CDN: GET /image.png
+Узел: промах кэша → запрос к источнику
         ← image.png
-CDN: cache it (по Cache-Control max-age)
-CDN ← User: image.png
+CDN: кэширует (по Cache-Control max-age)
+CDN ← Пользователь: image.png
 
-Следующий пользователь в той же регионе:
-User → CDN edge: GET /image.png
-CDN: cache hit → серверим из кэша (без origin)
+Следующий пользователь в том же регионе:
+Пользователь → пограничный узел CDN: GET /image.png
+CDN: попадание в кэш → отдаём из кэша (без обращения к источнику)
 ```
 
-- ✓ Просто: origin не делает ничего особенного, любой ассет на любом URL автоматически кэшируется
-- ✓ Подходит для динамичных каталогов
-- ✗ Первый запрос на каждом PoP — cold miss (тормозит для глобального запуска)
+- ✓ просто: источник не делает ничего особенного, любой ассет на любом URL автоматически кэшируется;
+- ✓ подходит для динамичных каталогов;
+- ✗ первый запрос на каждом POP — холодный промах (тормозит для глобального запуска).
 
 **Используют:** Cloudflare, AWS CloudFront, Fastly, Akamai — практически все современные CDN по умолчанию pull-based.
 
-### Push CDN (proactive)
+### Push CDN (активный)
 
-Контент **загружается** на CDN заранее (API/upload), origin не имеет копии (или копия только для backup).
+Контент **загружается** на CDN заранее (API/upload), источник не имеет копии (или копия только для бэкапа).
 
-- ✓ Контроль над тем, что закэшировано
-- ✓ Нет cold miss
-- ✗ Нужно явно публиковать каждый ассет
-- Используется для: big video files (CDN — основное хранилище), low-traffic huge assets
+- ✓ контроль над тем, что закэшировано;
+- ✓ нет холодного промаха;
+- ✗ нужно явно публиковать каждый ассет;
+- используется для: больших видеофайлов (CDN — основное хранилище), редкого огромного контента.
 
-**Используют:** legacy CDN (KeyCDN, Bunny CDN push tier), некоторые object storage с CDN привязкой.
+**Используют:** унаследованные CDN (KeyCDN, Bunny CDN push tier), некоторые объектные хранилища с привязкой к CDN.
 
 ---
 
-## Cache hierarchy внутри CDN
+## Иерархия кэша внутри CDN
 
 Современные CDN имеют **несколько уровней**:
 
 ```
-User → Edge PoP (closest) → Regional shield/parent → Origin shield → Origin
-       (200+ locations)    (~10 regions)            (1 per provider)
+Пользователь → ближайший пограничный POP → региональный щит / родитель → щит источника → источник
+               (200+ локаций)              (~10 регионов)                  (1 на провайдера)
 ```
 
-- **Edge PoP** — closest to user, обычно tiny cache (~50 GB SSD per node)
-- **Regional shield** — больше, агрегирует запросы от edge: меньше bandwidth к origin
-- **Origin shield** — single chokepoint к origin, дополнительно агрегирует
+- **Пограничный POP** — ближе всего к пользователю, обычно крошечный кэш (~50 ГБ SSD на узел);
+- **Региональный щит** — больше, агрегирует запросы от пограничных узлов: меньше полосы к источнику;
+- **Щит источника** — единая точка к источнику, дополнительно агрегирует.
 
-Cloudflare: edge + Tiered Cache. AWS CloudFront: edge + regional edge cache. Akamai: edge + parent.
+Cloudflare: пограничный узел + Tiered Cache. AWS CloudFront: пограничный + региональный кэш. Akamai: пограничный + родительский.
 
-**Benefit:** если 50 edge PoP'ов имели cache miss одновременно — все идут к regional shield, который имеет одну копию; к origin доходит один запрос.
+**Выгода:** если 50 пограничных POP имели промах кэша одновременно — все идут к региональному щиту, у которого одна копия; к источнику доходит один запрос.
 
 ---
 
-## Cache key и Vary
+## Ключ кэша и Vary
 
 Что определяет «уникальный ресурс» в CDN?
 
 ```
-Default cache key: scheme + host + path + query string
+Ключ кэша по умолчанию: scheme + host + path + query string
   https://example.com/img.png?v=1   != https://example.com/img.png?v=2
 ```
 
-**Vary header** говорит «ответ зависит от этих request headers»:
+**Заголовок Vary** говорит «ответ зависит от этих заголовков запроса»:
 
 ```
-Vary: Accept-Encoding    → разные cache entries для gzip / br / identity
+Vary: Accept-Encoding    → разные записи кэша для gzip / br / identity
 Vary: Accept-Language    → разные для en / ru / ...
-Vary: Cookie             → ⚠ часто disable CDN caching (т.к. cookie уникальна)
+Vary: Cookie             → ⚠ часто отключает кэширование CDN (т. к. cookie уникальна)
 ```
 
-**Best practice:** для CDN кешируемых ресурсов **не использовать cookie/Auth headers** в качестве варианта; для personalised content — не кэшировать на CDN.
+**Лучшая практика:** для кэшируемых ресурсов CDN **не использовать cookie / заголовки авторизации** в качестве варианта; для персонализированного контента — не кэшировать на CDN.
 
 ---
 
-## Cache invalidation
+## Инвалидация кэша
 
 Когда контент изменился — нужно убрать старую версию из CDN. Два подхода:
 
-### Purge (instant invalidation)
+### Очистка (мгновенная инвалидация)
 
-API-запрос к CDN: «выкини `/img.png` из кэша». Идёт ко всем PoP'ам.
+API-запрос к CDN: «выкини `/img.png` из кэша». Идёт ко всем POP.
 
-- ✓ Мгновенный (~30 секунд на глобальное распространение)
-- ✗ Платный у крупных провайдеров (у Cloudflare unlimited, у AWS — за деньги)
-- Поддерживают: purge по URL, по тегу (если выставлен заголовок `Cache-Tag`), purge всего
+- ✓ мгновенно (~30 секунд на глобальное распространение);
+- ✗ платно у крупных провайдеров (у Cloudflare безлимит, у AWS — за деньги);
+- поддерживают: очистка по URL, по тегу (если выставлен заголовок `Cache-Tag`), очистка всего.
 
-### Versioned URLs (recommended)
+### Версионированные URL (рекомендуется)
 
-Используй версионированный URL — новая версия = новый URL.
+Используем версионированный URL — новая версия = новый URL.
 
 ```
-old: <script src="/app.js">
-new: <script src="/app.v2.js"> или /app.js?v=2 или /app.abc123.js (content hash)
+старое: <script src="/app.js">
+новое: <script src="/app.v2.js"> или /app.js?v=2 или /app.abc123.js (хэш содержимого)
 ```
 
-- ✓ Не нужен purge — старая версия живёт в CDN до TTL, новая идёт через свежий URL
-- ✓ Cache forever (`Cache-Control: immutable, max-age=31536000`)
-- ✓ Atomicity — атомарный rollback (просто переключить ссылки)
+- ✓ не нужна очистка — старая версия живёт в CDN до TTL, новая идёт через свежий URL;
+- ✓ кэш навсегда (`Cache-Control: immutable, max-age=31536000`);
+- ✓ атомарность — атомарный откат (просто переключить ссылки).
 
-**Pattern:** static assets — hashed filenames через webpack/vite + immutable cache. HTML — короткий TTL (`Cache-Control: no-cache` или max-age=60).
+**Шаблон:** статические ассеты — имена файлов с хэшем через webpack/vite + неизменяемый кэш. HTML — короткий TTL (`Cache-Control: no-cache` или max-age=60).
 
 ---
 
-## Signed URLs / Tokens
+## Подписанные URL и токены
 
-Для приватного контента (платные видео, user uploads) — CDN не должен отдавать каждому. **Signed URL** — URL с временной подписью.
+Для приватного контента (платные видео, загрузки пользователей) — CDN не должен отдавать каждому. **Подписанный URL** — URL с временной подписью.
 
 ```
-Origin генерирует:
+Источник генерирует:
   /video/123?expires=1234567890&signature=HMAC(secret, "/video/123?expires=...")
 
 CDN при запросе:
   1. Проверить expires > now
   2. Проверить signature == HMAC(secret, ...)
-  → если ОК — серверить (cache hit/miss), иначе 403
+  → если ОК — отдаём (попадание/промах кэша), иначе 403
 ```
 
 Реализации: AWS CloudFront Signed URLs / Signed Cookies, Cloudflare Signed Exchanges, Fastly token authentication.
 
 ---
 
-## Push patterns: image / video optimization
+## Шаблоны: оптимизация изображений и видео
 
 Современные CDN умеют **трансформировать** контент на лету:
 
-### Image optimization
+### Оптимизация изображений
 
 ```
 GET /image.png?w=300&format=webp&quality=80
 ```
 
-CDN на лету: resize, convert (PNG → WebP/AVIF), lossy quality, blur, watermark. Кэшируется по полному URL.
+CDN на лету: изменение размера, конвертация (PNG → WebP/AVIF), сжатие с потерями, размытие, водяной знак. Кэшируется по полному URL.
 
-**Providers:** Cloudflare Image Resizing/Polish, AWS CloudFront + Lambda@Edge, imgix, Cloudinary.
+**Провайдеры:** Cloudflare Image Resizing/Polish, AWS CloudFront + Lambda@Edge, imgix, Cloudinary.
 
-### Video streaming
+### Видеостриминг
 
-CDN отдаёт **HLS** (HTTP Live Streaming) или **MPEG-DASH** — видео разбивается на 2-10 секундные chunks разного качества.
+CDN отдаёт **HLS** (HTTP Live Streaming) или **MPEG-DASH** — видео разбивается на 2–10-секундные сегменты разного качества.
 
 ```
 manifest.m3u8 (плейлист)
@@ -165,60 +165,60 @@ manifest.m3u8 (плейлист)
   → 480p/segment_001.ts ...
 ```
 
-Player выбирает качество по доступному bandwidth. CDN cache отдаёт chunks. Аналогично — Netflix, YouTube, Twitch.
+Плеер выбирает качество по доступной полосе. Кэш CDN отдаёт сегменты. Так работают Netflix, YouTube, Twitch.
 
 ---
 
 ## Multi-CDN
 
-**Сценарий:** один CDN может упасть (Dyn 2016, Fastly 2021 — пол-интернета лежало). Решение — multi-CDN: 2+ провайдера, маршрутизация через DNS или smart resolver.
+**Сценарий:** один CDN может упасть (Dyn 2016, Fastly 2021 — пол-интернета лежало). Решение — multi-CDN: 2+ провайдера, маршрутизация через DNS или умный резолвер.
 
 ```
-DNS Geo-routing:
-  US → CloudFront (primary), Fastly (fallback)
-  EU → Cloudflare (primary), CloudFront (fallback)
+DNS-маршрутизация по гео:
+  US → CloudFront (основной), Fastly (запасной)
+  EU → Cloudflare (основной), CloudFront (запасной)
 
-Or smart load balancer (NS1, Cedexis):
-  выбирает CDN по real-time RUM data (real user monitoring)
+Или умный балансировщик (NS1, Cedexis):
+  выбирает CDN по данным RUM (мониторинг реальных пользователей)
 ```
 
-Trade-off: 2× cost, сложнее purge invalidation (нужно вызывать API у каждого), но zero downtime при падении одного CDN.
+Компромисс: двойная стоимость, сложнее очистка кэша (нужно вызывать API у каждого), но нулевой простой при падении одного CDN.
 
 ---
 
-## Real-world incidents
+## Инциденты из реальной жизни
 
-- **Fastly outage (2021-06-08)** — config bug в Fastly → 1 час недоступны Amazon, Reddit, Twitch, NYTimes, gov.uk. Урок: даже tier-1 CDN падают.
-- **AWS CloudFront (2021-12-15)** — частичный outage, latency spike. Urging multi-CDN strategy для critical services.
-- **Cloudflare Quicksilver (2020-07-17)** — config push без staged rollout → 27 мин global outage.
-
----
-
-## CDN providers — short comparison
-
-| Provider | Сильные стороны | Слабые места |
-|----------|----------------|---------------|
-| **Cloudflare** | Free tier, large PoP network, edge compute (Workers), DDoS, R2 storage | Сложный pricing для enterprise |
-| **AWS CloudFront** | AWS integration, Lambda@Edge, signed URLs out of box | Меньше PoPs чем Cloudflare, дороже |
-| **Fastly** | VCL для гибкой логики на edge, instant purge, фокус на news/media | Меньше PoPs, дороже на старте |
-| **Akamai** | Enterprise-grade, самая большая сеть, корпоративные фичи | Дорого, complex setup |
-| **Bunny CDN** | Самый дешёвый, хороший perf | Меньше features |
+- **Сбой Fastly (2021-06-08)** — баг конфигурации в Fastly → 1 час недоступны Amazon, Reddit, Twitch, NYTimes, gov.uk. Урок: даже tier-1 CDN падают.
+- **AWS CloudFront (2021-12-15)** — частичный сбой, всплеск задержки. Подталкивает к multi-CDN-стратегии для критичных сервисов.
+- **Cloudflare Quicksilver (2020-07-17)** — выкатка конфигурации без поэтапной раскатки → 27 мин глобального сбоя.
 
 ---
 
-## CDN в SD-интервью
+## Провайдеры CDN — короткое сравнение
 
-- «Как ускорить статические assets?» — CDN с long TTL + versioned URLs
-- «Как защититься от DDoS?» — CDN + WAF (Cloudflare, AWS Shield)
-- «Как стримить видео при scale?» — HLS/DASH chunks через CDN
-- «Как сделать global low-latency для API?» — edge compute (Workers, Lambda@Edge) — но не подходит для stateful (БД остаётся в одном регионе)
-- «Multi-CDN strategy?» — DNS geo-routing с health checks, RUM-based switching
+| Провайдер | Сильные стороны | Слабые места |
+|-----------|-----------------|--------------|
+| **Cloudflare** | Бесплатный уровень, большая сеть POP, edge compute (Workers), DDoS, R2 storage | Сложное ценообразование для энтерпрайза |
+| **AWS CloudFront** | Интеграция с AWS, Lambda@Edge, подписанные URL из коробки | Меньше POP, чем у Cloudflare, дороже |
+| **Fastly** | VCL для гибкой логики на пограничном узле, мгновенная очистка, фокус на медиа и новостях | Меньше POP, дороже на старте |
+| **Akamai** | Энтерпрайз-уровень, самая большая сеть, корпоративные фичи | Дорого, сложная настройка |
+| **Bunny CDN** | Самый дешёвый, хорошая производительность | Меньше возможностей |
+
+---
+
+## CDN на собеседовании по System Design
+
+- «Как ускорить статические ассеты?» — CDN с длинным TTL + версионированные URL;
+- «Как защититься от DDoS?» — CDN + WAF (Cloudflare, AWS Shield);
+- «Как передавать видео потоком на масштабе?» — HLS/DASH-сегменты через CDN;
+- «Как сделать глобальную низкую задержку для API?» — edge compute (Workers, Lambda@Edge) — но не подходит для систем с состоянием (БД остаётся в одном регионе);
+- «Стратегия multi-CDN?» — DNS-маршрутизация по гео с health-проверками, переключение на основе RUM.
 
 ---
 
 ## Источники
 
-- [HTTP caching — Cache-Control, ETag, Vary — see caching-deep-dive/HTTP_CDN_CACHE.md](../../caching-deep-dive/theory/HTTP_CDN_CACHE.md)
+- [HTTP caching — Cache-Control, ETag, Vary — см. caching-deep-dive/HTTP_CDN_CACHE.md](../../caching-deep-dive/theory/HTTP_CDN_CACHE.md)
 - [Cloudflare Learning Center — What is a CDN?](https://www.cloudflare.com/learning/cdn/what-is-a-cdn/)
 - [AWS CloudFront Documentation](https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/Introduction.html)
 - [Fastly: How CDNs Work](https://www.fastly.com/learning/what-is-a-cdn)

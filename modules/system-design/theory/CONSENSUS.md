@@ -1,8 +1,8 @@
-# Consensus Algorithms
+# Алгоритмы консенсуса
 
-Consensus — несколько узлов договариваются об одном значении при наличии сбоев. Базовая проблема распределённых систем: как сохранить consistency при partition / node failure.
+Консенсус — несколько узлов договариваются об одном значении при наличии сбоев. Базовая проблема распределённых систем: как сохранить согласованность при разделении или сбое узла.
 
-> **Scope**: Raft и Paxos концептуально, ZAB (ZooKeeper), use cases. Quorum / CAP теория — см. [`distributed_systems.md`](distributed_systems.md). Leader election — см. [LEADER_ELECTION.md](LEADER_ELECTION.md).
+> **Область:** Raft и Paxos концептуально, ZAB (ZooKeeper), сценарии. Кворум / теория CAP — см. [`distributed_systems.md`](distributed_systems.md). Выборы лидера — см. [LEADER_ELECTION.md](LEADER_ELECTION.md).
 
 ---
 
@@ -142,7 +142,7 @@ Phases: **Discovery → Synchronization → Broadcast**.
 
 ---
 
-## Use cases
+## Сценарии
 
 ### etcd / Consul — distributed configuration
 
@@ -192,7 +192,7 @@ ZAB протокол. Used by: HBase, Solr, Kafka (до 3.3), Pinot, Druid, Flin
 
 ---
 
-## Quorum-based protocols (alternative)
+## Протоколы на основе кворума (альтернатива)
 
 В Dynamo-style (Cassandra/DynamoDB) — нет central consensus, используется **quorum** для consistency:
 
@@ -211,7 +211,7 @@ R + W > N → strong consistency (последний write точно виден
 
 ---
 
-## Performance considerations
+## Соображения производительности
 
 ### Latency
 
@@ -244,7 +244,7 @@ Single Raft leader limit: ~ 10K-50K writes/sec (network bound). Для боль�
 
 ---
 
-## Common pitfalls
+## Типичные подводные камни
 
 - **One-node «cluster»** — нет fault tolerance. 3 nodes minimum.
 - **Even number nodes** — split votes возможны, нет benefit над odd-2 nodes

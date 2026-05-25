@@ -1,8 +1,8 @@
-# Microservice Patterns — System Design
+# Шаблоны микросервисов — System Design
 
-> **Scope**: архитектурные паттерны микросервисов. Фундаментальная теория распределённых систем (CAP, PACELC, Lamport, Quorum, consistency models) — см. [distributed_systems.md](distributed_systems.md).
+> **Область:** архитектурные шаблоны микросервисов. Фундаментальная теория распределённых систем (CAP, PACELC, Lamport, кворум, модели согласованности) — см. [distributed_systems.md](distributed_systems.md).
 
-## Monolith vs Microservices
+## Монолит против микросервисов
 
 | | Monolith | Microservices |
 |---|---|---|
@@ -19,7 +19,7 @@
 
 ---
 
-## Deployment Стратегии
+## Стратегии развёртывания
 
 ### Blue/Green
 
@@ -109,7 +109,7 @@ Hash: shard = hash(user_id) % N
 
 ---
 
-## Distributed Transactions
+## Распределённые транзакции
 
 **Проблема:** атомарность между несколькими сервисами/БД. Классический ACID не работает.
 
@@ -164,7 +164,7 @@ Web App    →             → Order Service
 
 ---
 
-## Service Discovery
+## Обнаружение сервисов
 
 Сервисы появляются и исчезают динамически → нельзя hardcode IP.
 
@@ -192,7 +192,7 @@ CLOSED             OPEN
 
 ---
 
-## Message Queue / Event Streaming
+## Очередь сообщений / потоковая передача событий
 
 **Зачем:** decoupling, async processing, буферизация spike трафика.
 
@@ -219,7 +219,7 @@ CLOSED             OPEN
 
 ---
 
-## Rate Limiting
+## Ограничение скорости
 
 **Token Bucket:** в бакете N токенов, добавляются по rate/sec. Запрос тратит токен. Позволяет burst.
 
@@ -233,7 +233,7 @@ CLOSED             OPEN
 
 ---
 
-## Database Patterns
+## Шаблоны работы с БД
 
 ### Read Replicas
 
@@ -301,7 +301,7 @@ Event Sourcing почти всегда идёт в паре с CQRS:
 
 ---
 
-## Observability: Metrics, Logs, Traces
+## Наблюдаемость: метрики, логи, трассировки
 
 **Три столпа наблюдаемости:**
 
@@ -335,7 +335,7 @@ Event Sourcing почти всегда идёт в паре с CQRS:
 
 ---
 
-## Sync vs Async коммуникация
+## Синхронная против асинхронной коммуникации
 
 ### Synchronous (REST, gRPC)
 

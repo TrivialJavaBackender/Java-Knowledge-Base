@@ -1,8 +1,8 @@
-# Leader Election
+# Выборы лидера
 
 Распределённый процесс выбора одного узла как «лидера» для координации (запись в БД, обработка задач, агрегация).
 
-> **Scope**: подходы (Bully, Raft-based, ZK-based, gossip-based). Полный Raft consensus — см. [CONSENSUS.md](CONSENSUS.md).
+> **Область:** подходы (Bully, на основе Raft, на основе ZK, на основе gossip). Полный консенсус Raft — см. [CONSENSUS.md](CONSENSUS.md).
 
 ---
 
@@ -18,7 +18,7 @@
 
 ---
 
-## Bully Algorithm (Garcia-Molina, 1982)
+## Алгоритм Bully (Garcia-Molina, 1982)
 
 Простейший. Каждый узел имеет статический rank (priority). Высший rank в живых узлах = leader.
 
@@ -36,7 +36,7 @@
 
 ---
 
-## Raft-based leader election
+## Выборы лидера на основе Raft
 
 Современный standard. Каждый кандидат — `candidate state`, ждёт majority votes. Подробнее: [CONSENSUS.md](CONSENSUS.md#leader-election).
 
@@ -46,7 +46,7 @@
 
 ---
 
-## ZooKeeper-based election
+## Выборы на основе ZooKeeper
 
 ZooKeeper предоставляет **ephemeral sequential znodes** — идеальный primitive.
 
@@ -75,7 +75,7 @@ else:
 
 ---
 
-## Gossip-based election (Cassandra, Riak)
+## Выборы на основе gossip (Cassandra, Riak)
 
 В Dynamo-style — нет одного leader. Каждый узел — peer. Gossip protocol распространяет cluster state.
 
@@ -85,7 +85,7 @@ else:
 
 ---
 
-## Lease-based leader
+## Лидер на основе временной аренды (lease)
 
 Лидер берёт **lease** (аренду) на время T. После expiry должен переавтор izировать. Если умер — lease истекает → новый лидер.
 
@@ -105,7 +105,7 @@ Other nodes: watch lease expiry timestamp
 
 ---
 
-## Split-brain prevention
+## Предотвращение расщепления кластера (split-brain)
 
 **Проблема:** network partition → две части кластера, обе думают что leader.
 
@@ -142,7 +142,7 @@ Hardware fencing: новый leader physically выключает старого
 
 ---
 
-## Common patterns
+## Распространённые шаблоны
 
 ### Multi-Paxos / Raft + multi-region
 
@@ -167,7 +167,7 @@ Continuous Raft подходит для long-running leader. Per-task — often 
 
 ---
 
-## Implementation tools
+## Инструменты реализации
 
 | Tool | Mechanism | Use |
 |------|-----------|-----|
@@ -180,7 +180,7 @@ Continuous Raft подходит для long-running leader. Per-task — often 
 
 ---
 
-## Real-world examples
+## Примеры из продакшена
 
 ### K8s — controller manager leader election
 
@@ -209,7 +209,7 @@ Cluster master (handles cluster state changes). Использует **quorum-ba
 
 ---
 
-## Pitfalls
+## Подводные камни
 
 - **Не использовать quorum** (Bully на even nodes) — split-brain possible
 - **Слишком short lease** — частые re-elections под нагрузкой

@@ -1,6 +1,6 @@
-# System Design Interview — Framework
+# System Design Interview — методология
 
-Структурированный подход к SD-интервью. Время — обычно 45-60 минут. Цель — продемонстрировать systematic thinking, не «правильный ответ» (его не существует).
+Структурированный подход к SD-собеседованию. Время — обычно 45–60 минут. Цель — продемонстрировать системное мышление, не «правильный ответ» (его не существует).
 
 ---
 
@@ -23,13 +23,13 @@
 
 ---
 
-## Phase 1 — Clarify Requirements
+## Фаза 1 — уточнение требований
 
 **Цель:** ограничить scope, разобраться, что строим.
 
 ### Functional requirements
 
-Что система **делает**? Какие endpoint'ы / use cases?
+Что система **делает**? Какие эндпоинты / use cases?
 
 Примеры вопросов:
 - «Дизайним Twitter — пользователь постит tweet и читает feed?»
@@ -56,11 +56,11 @@
 
 ### Out of scope (явно сказать)
 
-«Я не буду fokus'ить на: detailed UI, payment processing details, ML recommendations, full security audit» — освобождает время на architectural concerns.
+«Я не буду фокусироваться на: detailed UI, payment processing details, ML recommendations, full security audit» — освобождает время на architectural concerns.
 
 ---
 
-## Phase 2 — Back-of-Envelope Estimation
+## Фаза 2 — прикидочная оценка
 
 5 минут. Применяй [CAPACITY_ESTIMATION.md](CAPACITY_ESTIMATION.md) шаблон.
 
@@ -82,9 +82,9 @@ RAM (cache) = hot_set × per_record_size
 
 ---
 
-## Phase 3 — API Design
+## Фаза 3 — дизайн API
 
-Определи 5-10 ключевых endpoint'ов:
+Определи 5-10 ключевых эндпоинтов:
 
 ```
 POST /api/v1/tweets
@@ -113,7 +113,7 @@ DELETE /api/v1/tweets/:id
 
 ---
 
-## Phase 4 — High-Level Architecture
+## Фаза 4 — высокоуровневая архитектура
 
 15-25 мин. Рисуй boxes + arrows. Стандартные компоненты:
 
@@ -142,7 +142,7 @@ DELETE /api/v1/tweets/:id
 
 ---
 
-## Phase 5 — Deep Dive
+## Фаза 5 — глубокое погружение
 
 Интервьюер выберет 2-3 темы для углубления. Готов к любой:
 
@@ -195,7 +195,7 @@ DELETE /api/v1/tweets/:id
 
 ---
 
-## Phase 6 — Bottlenecks & Scaling
+## Фаза 6 — узкие места и масштабирование
 
 «Если завтра 10× users — что сломается?»
 
@@ -220,7 +220,7 @@ DELETE /api/v1/tweets/:id
 
 ---
 
-## Trade-off framework
+## Методология компромиссов
 
 Каждое решение — trade-off. Обсуди:
 

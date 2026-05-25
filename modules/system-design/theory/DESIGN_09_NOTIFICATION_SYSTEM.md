@@ -105,7 +105,7 @@ Kafka topic: notifications
 
 ### Email (SES / SendGrid)
 
-- Обработка bounce'ов (hard / soft) → помечаем email невалидным;
+- Обработка возвратов (bounce) (hard / soft) → помечаем email невалидным;
 - жалобы на спам → отписка пользователя;
 - шаблоны: MJML или Handlebars;
 - встроенное отслеживание (open pixel, click-redirect).

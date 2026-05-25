@@ -1,8 +1,8 @@
-# Distributed Systems
+# Распределённые системы
 
-> **Scope**: фундаментальная теория и примитивы координации. Архитектурные паттерны (Outbox, CQRS, SAGA, API Gateway, Circuit Breaker, deployment) — см. [microservice_patterns.md](microservice_patterns.md).
+> **Область:** фундаментальная теория и примитивы координации. Архитектурные шаблоны (Outbox, CQRS, SAGA, API Gateway, Circuit Breaker, развёртывание) — см. [microservice_patterns.md](microservice_patterns.md).
 
-## Distributed Lock (Redis / Redisson)
+## Распределённая блокировка (Redis / Redisson)
 
 In-memory `synchronized` не работает при нескольких инстансах. Нужен распределённый lock.
 
@@ -25,7 +25,7 @@ try {
 
 ---
 
-## Idempotency Key
+## Ключ идемпотентности
 
 Клиент генерирует уникальный ключ (UUID) и передаёт с каждым запросом. Сервер хранит `(key → result)` в Redis с TTL.
 
@@ -45,7 +45,7 @@ Outbox, CQRS, Event Sourcing, SAGA, Circuit Breaker и прочие архите
 
 ---
 
-## Clock Skew
+## Расхождение часов (clock skew)
 
 `LocalDate.now()` на разных инстансах может вернуть разное значение из-за рассинхронизации часов или разных таймзон.
 
@@ -53,7 +53,7 @@ Outbox, CQRS, Event Sourcing, SAGA, Circuit Breaker и прочие архите
 
 ---
 
-## CAP Theorem
+## Теорема CAP
 
 > «In a distributed data store you can only have 2 out of 3 of: Consistency, Availability, Partition Tolerance» — Eric Brewer, PODC 2000 keynote.
 
@@ -66,7 +66,7 @@ Outbox, CQRS, Event Sourcing, SAGA, Circuit Breaker и прочие архите
 
 **Практика:** большинство NoSQL баз — AP (eventual consistency). PostgreSQL в кластере — CP.
 
-**Уточнение от самого Brewer (2012):** «CAP — это упрощение. На практике partitions редки, и важнее как система ведёт себя в **отсутствие partition'ов** — потому что 99.99% времени всё работает. CAP не отвечает на этот вопрос.»
+**Уточнение от самого Brewer (2012):** «CAP — это упрощение. На практике partitions редки, и важнее как система ведёт себя в **отсутствие разделений** — потому что 99.99% времени всё работает. CAP не отвечает на этот вопрос.»
 
 ---
 
@@ -91,7 +91,7 @@ PACELC объясняет, почему «AP-системы» не теряют 
 
 ---
 
-## Quorum: R + W > N
+## Кворум: R + W > N
 
 Классический trade-off в Dynamo-style системах (Cassandra, Riak): из `N` реплик читай с `R`, пиши на `W`. Если `R + W > N` — read и write пересекаются хотя бы в одной реплике, значит чтение увидит последнюю запись.
 
@@ -102,11 +102,11 @@ N=3, W=3, R=1 → write-all/read-one — медленные записи, быс
 N=3, W=1, R=3 → быстрые записи, медленные чтения (анти-pattern для write-heavy)
 ```
 
-**Sloppy quorum + hinted handoff** (Dynamo): если W узлов недоступны, запись идёт на «соседей» с пометкой передать настоящему владельцу позже. Жертвует строгим quorum'ом ради availability.
+**Sloppy quorum + hinted handoff** (Dynamo): если W узлов недоступны, запись идёт на «соседей» с пометкой передать настоящему владельцу позже. Жертвует строгим кворумом ради availability.
 
 ---
 
-## Lamport Timestamps & Vector Clocks
+## Lamport Timestamps и векторные часы
 
 Без глобальных часов как сравнить порядок событий на разных узлах? Lamport (1978) предложил логические часы:
 
@@ -115,18 +115,18 @@ N=3, W=1, R=3 → быстрые записи, медленные чтения (
 - Отправка сообщения: добавить `L` к сообщению
 - Получение сообщения с `L_msg`: `L = max(L, L_msg) + 1`
 
-Гарантирует: если `A → B` (causally), то `L(A) < L(B)`. Но обратное **не верно** — два события с разными timestamp'ами могут быть concurrent.
+Гарантирует: если `A → B` (causally), то `L(A) < L(B)`. Но обратное **не верно** — два события с разными метками времени могут быть concurrent.
 
 **Vector clocks** решают: каждый узел держит вектор `[L_node1, L_node2, ...]`. Сравнение векторов даёт точный partial order: A → B, B → A, или concurrent.
 
 **Где это в проде:**
-- Cassandra использует **last-write-wins** на основе wall-clock timestamp'ов (упрощение, может терять конкурентные записи).
+- Cassandra использует **last-write-wins** на основе wall-clock меток времени (упрощение, может терять конкурентные записи).
 - Riak / Voldemort — vector clocks, конфликты разрешает приложение.
 - Postgres logical replication — LSN (log sequence number), вариант Lamport-clock'а.
 
 ---
 
-## Eventual Consistency vs Strong Consistency
+## Итоговая против строгой согласованности
 
 **Strong consistency** (linearizable: PostgreSQL, ZooKeeper, Spanner): после записи все читают актуальные данные. Цена — latency и availability.
 
@@ -157,7 +157,7 @@ N=3, W=1, R=3 → быстрые записи, медленные чтения (
 
 ---
 
-## SAGA — coordinated transactions across services
+## SAGA — координированные транзакции между сервисами
 
 Подробнее в [`microservice_patterns.md`](microservice_patterns.md). Ключевая идея: вместо 2PC (блокирующего) — последовательность локальных транзакций с компенсирующими действиями. Choreography (события) vs Orchestration (центральный координатор).
 

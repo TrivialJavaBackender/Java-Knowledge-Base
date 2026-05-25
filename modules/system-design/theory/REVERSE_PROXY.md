@@ -1,12 +1,12 @@
-# Reverse Proxy
+# Обратный прокси (reverse proxy)
 
-Reverse proxy — сервер, принимающий запросы клиентов и пересылающий их к backend, возвращая ответ клиенту. С точки зрения клиента видится как «приложение».
+Обратный прокси — сервер, принимающий запросы клиентов и пересылающий их к бэкенду, возвращая ответ клиенту. С точки зрения клиента видится как «приложение».
 
-> **Scope**: разница с forward proxy и LB, сравнение Nginx/Envoy/HAProxy. Алгоритмы балансировки — см. [LOAD_BALANCER.md](LOAD_BALANCER.md).
+> **Область:** разница с прямым прокси и балансировщиком, сравнение Nginx/Envoy/HAProxy. Алгоритмы балансировки — см. [LOAD_BALANCER.md](LOAD_BALANCER.md).
 
 ---
 
-## Forward vs Reverse Proxy
+## Прямой против обратного прокси
 
 **Forward proxy** — на стороне **клиента**, скрывает identity клиента от сервера. Корпоративный internet gateway, censorship circumvention, ISP cache (1990s).
 
@@ -187,7 +187,7 @@ X-Forwarded-Host: example.com       (оригинальный Host)
 X-Real-IP: <client_ip>              (Nginx-specific, single client IP)
 ```
 
-**Security pitfall:** клиент может **подделать** `X-Forwarded-For` если LB / proxy его не перезаписывает. Trust только если LB enforce'ит (CloudFront, ALB перезаписывают).
+**Security pitfall:** клиент может **подделать** `X-Forwarded-For` если LB / proxy его не перезаписывает. Trust только если LB обеспечивает (CloudFront, ALB перезаписывают).
 
 **Modern alternative:** `Forwarded` header (RFC 7239), стандартизированный формат, но менее распространён.
 

@@ -1,12 +1,12 @@
-# Reliability Patterns
+# Шаблоны надёжности
 
-Паттерны устойчивости к сбоям: retry, backoff, circuit breaker, bulkhead, hedged requests, load shedding, graceful degradation. Каждый — про **управление failure modes**, а не их предотвращение.
+Шаблоны устойчивости к сбоям: повторы, экспоненциальная задержка, circuit breaker, bulkhead, дублирующие запросы (hedged requests), сброс нагрузки, плавная деградация. Каждый — про **управление сценариями сбоев**, а не их предотвращение.
 
-> **Scope:** паттерны. Базовое описание Circuit Breaker и Bulkhead — в [`microservice_patterns.md`](microservice_patterns.md), здесь — углубление и связанные подходы. Chaos engineering — в [`software-engineering/TESTING.md`](../../software-engineering/theory/TESTING.md).
+> **Область:** шаблоны. Базовое описание Circuit Breaker и Bulkhead — в [`microservice_patterns.md`](microservice_patterns.md), здесь — углубление и связанные подходы. Chaos engineering — в [`software-engineering/TESTING.md`](../../software-engineering/theory/TESTING.md).
 
 ---
 
-## Retry с exponential backoff + jitter
+## Повторы с экспоненциальной задержкой и разбросом
 
 Базовый паттерн: повторять упавший запрос с увеличивающейся задержкой.
 
@@ -130,7 +130,7 @@ HTTP-клиент к внешнему API: 10 соединений
 
 ---
 
-## Hedged Requests (Tail at Scale)
+## Дублирующие запросы (hedged requests, Tail at Scale)
 
 **Проблема:** высокий p99 latency из-за tail — одна медленная реплика делает медленным весь запрос.
 
@@ -150,7 +150,7 @@ T=A_resp или T=B_resp: берём первый, второй cancel'им
 
 ---
 
-## Load Shedding
+## Сброс нагрузки (load shedding)
 
 **Идея:** когда нагрузка превышает capacity → **намеренно отказывать** части запросов, чтобы остальные обрабатывались нормально.
 
@@ -187,7 +187,7 @@ T=A_resp или T=B_resp: берём первый, второй cancel'им
 
 ---
 
-## Adaptive Concurrency
+## Адаптивная конкурентность
 
 Автоматическая подстройка числа одновременных запросов, которое downstream выдерживает.
 
@@ -207,7 +207,7 @@ Ceiling: limit = 1000
 
 ---
 
-## Graceful Degradation
+## Плавная деградация
 
 Когда downstream сломан → не падать целиком, а **работать в degraded mode**.
 
@@ -237,7 +237,7 @@ Ceiling: limit = 1000
 
 ---
 
-## Dead Letter Queue (DLQ)
+## Очередь недоставленных сообщений (DLQ)
 
 В асинхронных (queue-based) системах: что делать с сообщениями, которые consumer не смог обработать?
 
@@ -265,7 +265,7 @@ Producer → Queue → Consumer (retry 5×)
 
 ---
 
-## Idempotency keys
+## Ключи идемпотентности
 
 См. [`distributed_systems.md`](distributed_systems.md#idempotency-key) для базы. Здесь — production-практика.
 
@@ -291,7 +291,7 @@ def process_payment(idempotency_key, amount, account):
 
 ---
 
-## Retry Storm Prevention (multi-layer)
+## Защита от шторма повторов (на нескольких уровнях)
 
 Cascading retry — один из самых опасных failure-режимов. Меры предосторожности:
 
@@ -306,7 +306,7 @@ Cascading retry — один из самых опасных failure-режимо
 
 ---
 
-## SLO-driven design
+## Проектирование на основе SLO
 
 Reliability — не «100% uptime», а **«приемлемый error budget»** (Google SRE).
 

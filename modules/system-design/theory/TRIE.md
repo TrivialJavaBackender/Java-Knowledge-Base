@@ -1,6 +1,6 @@
-# Trie (Prefix Tree)
+# Trie (префиксное дерево)
 
-Tree structure для prefix-based queries. Каждый node — character; path от root до node = string. Ideal для autocomplete, spell check, IP routing.
+Древовидная структура для запросов по префиксу. Каждый узел — символ; путь от корня до узла = строка. Идеален для автодополнения, проверки орфографии, IP-маршрутизации.
 
 ---
 
@@ -66,7 +66,7 @@ def starts_with(prefix) → list[str]:
 
 ---
 
-## Autocomplete с rankings
+## Автодополнение с ранжированием
 
 Real autocomplete (Google, Amazon search box) показывает **top-K most popular** suggestions, не все.
 
@@ -107,7 +107,7 @@ Cache top-K только для popular prefixes (first 2-3 chars). Otherwise �
 
 ---
 
-## Compressed Trie (Radix / Patricia)
+## Сжатый Trie (Radix / Patricia)
 
 **Idea:** if a node has only one child — merge them.
 
@@ -158,7 +158,7 @@ Web framework matches `/users/:id/posts` → router uses trie (or radix trie) ov
 
 ---
 
-## Distributed autocomplete (scale)
+## Распределённое автодополнение (масштаб)
 
 Single-node trie:
 - Memory: ~ 1 GB для 10M words

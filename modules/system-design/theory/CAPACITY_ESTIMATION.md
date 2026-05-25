@@ -1,4 +1,4 @@
-# Capacity Estimation (Back-of-the-Envelope)
+# Оценка ёмкости (прикидочные расчёты)
 
 Способность быстро оценить «сколько» — критичный навык для system design интервью и реальной работы. Цель — приблизительные числа в правильном **порядке величины**, не точные.
 
@@ -70,7 +70,7 @@ Per-user data cached = 5 KB
 
 ---
 
-## Worked example: Twitter timeline
+## Разобранный пример: лента Twitter
 
 **Параметры:**
 - 300M DAU
@@ -111,7 +111,7 @@ KEY DECISIONS:
 
 ---
 
-## Worked example: Distributed cache
+## Разобранный пример: распределённый кэш
 
 **Параметры:**
 - 1M items cached
@@ -146,7 +146,7 @@ For HA:
 
 ---
 
-## Worked example: URL shortener
+## Разобранный пример: сокращатель URL
 
 **Параметры:**
 - 100M URLs created/year
@@ -185,7 +185,7 @@ CACHE:
 
 ---
 
-## Powers of two cheatsheet
+## Шпаргалка по степеням двойки
 
 | 2^n | Decimal | Use case |
 |-----|---------|----------|
@@ -215,7 +215,7 @@ CACHE:
 
 ---
 
-## Peak/Average factors
+## Пиковые и средние коэффициенты
 
 | Pattern | Peak/Avg |
 |---------|----------|
@@ -229,7 +229,7 @@ CACHE:
 
 ---
 
-## Sanity checks
+## Проверки на здравый смысл
 
 После расчёта проверь себя:
 
@@ -240,7 +240,7 @@ CACHE:
 
 ---
 
-## Frequent mistakes на интервью
+## Частые ошибки на собеседовании
 
 - **Считаешь только average, не peak** — миграция в prod failt в первую же пик-нагрузку
 - **Игнорируешь replication factor** — данные × 3 для RF=3

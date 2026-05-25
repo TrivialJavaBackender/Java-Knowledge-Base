@@ -1,8 +1,8 @@
-# Vector Databases и RAG
+# Векторные БД и RAG
 
-Vector databases — хранилище и поиск embedding'ов (высокоразмерных векторов, описывающих семантику контента). Основа RAG-систем (Retrieval-Augmented Generation) с LLM. Критическая тема для AI-heavy компаний на интервью 2024–2026.
+Векторные БД — хранилище и поиск эмбеддингов (высокоразмерных векторов, описывающих семантику контента). Основа RAG-систем (Retrieval-Augmented Generation) с LLM. Критическая тема для AI-ориентированных компаний на собеседованиях 2024–2026.
 
-> **Scope:** vector storage, ANN-алгоритмы, архитектура RAG. Общий ML serving — [`ML_SERVING.md`](ML_SERVING.md). Классический inverted index — [`INVERTED_INDEX.md`](INVERTED_INDEX.md).
+> **Область:** хранилище векторов, ANN-алгоритмы, архитектура RAG. Общий ML serving — [`ML_SERVING.md`](ML_SERVING.md). Классический инвертированный индекс — [`INVERTED_INDEX.md`](INVERTED_INDEX.md).
 
 ---
 
@@ -101,7 +101,7 @@ State-of-the-art. Многослойный граф: каждый уровень
 
 ---
 
-## Vector Database vs Library
+## Векторная БД против библиотеки
 
 **Library** (FAISS, Annoy, hnswlib) — встроенный индекс, без сервера. Построение и запрос в одном процессе. Не управляет updates, репликацией, persistence.
 
@@ -131,7 +131,7 @@ State-of-the-art. Многослойный граф: каждый уровень
 
 ---
 
-## Hybrid Search
+## Гибридный поиск
 
 Современный запрос — это **vector** + **keyword** + **metadata filter** одновременно.
 
@@ -223,7 +223,7 @@ Vector search возвращает top-K кандидатов (например,
 
 ---
 
-## Production challenges
+## Сложности в продакшене
 
 ### Масштаб ingestion
 
@@ -265,7 +265,7 @@ LLM может всё равно выдумать факт, если в chunks �
 
 ---
 
-## Latency budget для RAG
+## Бюджет задержки для RAG
 
 ```
 Embedding запроса:  50–100 мс (OpenAI API)
@@ -280,7 +280,7 @@ LLM call:           500–3000 мс (зависит от модели и дли�
 
 ---
 
-## Use cases
+## Сценарии
 
 - **Customer support chatbot** — ответ из продуктовой документации
 - **Internal knowledge search** (Glean, Slack AI) — wiki / история чатов

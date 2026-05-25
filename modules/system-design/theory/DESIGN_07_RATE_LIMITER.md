@@ -40,7 +40,7 @@ N экземпляров приложения: 50
 
 ### Token Bucket
 
-Размер bucket'а = burst. Скорость пополнения = sustainable rate.
+Размер корзины = burst. Скорость пополнения = sustainable rate.
 
 ```
 bucket.tokens = capacity
@@ -142,7 +142,7 @@ if not allowed:
 ```
 Client → API Gateway → инстансы приложения
                         ↓
-                   Redis Cluster (состояние rate limit'а)
+                   Redis Cluster (состояние ограничения скорости)
 
 ИЛИ (современный вариант):
                    Envoy / Istio sidecar
@@ -209,7 +209,7 @@ EU-пользователь в EU-регионе → EU Redis
 2. **Fail closed** (запретить всё) — безопасно, но ломает легитимных пользователей;
 3. **Запасной локальный кэш** — у каждого экземпляра свой приближённый счётчик.
 
-**Лучшая практика:** fail open для публичного API (UX), fail closed для внутренних чувствительных endpoint'ов (например, login).
+**Лучшая практика:** fail open для публичного API (UX), fail closed для внутренних чувствительных эндпоинтов (например, login).
 
 ---
 

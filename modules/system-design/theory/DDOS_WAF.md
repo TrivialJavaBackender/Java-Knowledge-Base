@@ -1,6 +1,6 @@
 # DDoS Protection и WAF
 
-Защита от атак: DDoS (исчерпание ресурсов), application-level (SQLi, XSS, SSRF), credential attacks. Многоуровневая защита — единого средства от всего нет.
+Защита от атак: DDoS (исчерпание ресурсов), на уровне приложения (SQLi, XSS, SSRF), credential attacks. Многоуровневая защита — единого средства от всего нет.
 
 > **Scope:** edge-уровень защиты (rate limiting, WAF, DDoS mitigation). Application-level auth (JWT/OAuth) — [`identity_providers.md`](identity_providers.md). Secrets ops — [`infrastructure/SECRETS.md`](../../infrastructure/theory/SECRETS.md). Тестирование безопасности (SAST/DAST/pentest) — [`software-engineering/TESTING.md`](../../software-engineering/theory/TESTING.md).
 
@@ -20,7 +20,7 @@
 
 **Масштаб:** атаки уровня 1 Тбит/с уже случались (Dyn 2016, GitHub 2018).
 
-**Защита:** absorb на edge (Cloudflare / Akamai / AWS Shield — суммарная capacity сети 100+ Тбит/с).
+**Защита:** поглощение на пограничных узлах (Cloudflare / Akamai / AWS Shield — суммарная пропускная способность сети 100+ Тбит/с).
 
 ### Protocol (Layer 4)
 
@@ -40,7 +40,7 @@
 - **Login brute force** — credential stuffing
 - **API enumeration** — обнаружение endpoints
 
-**Сложнее обнаружить:** выглядит как реальный трафик, и даже небольшого объёма достаточно, если каждый запрос дорого обходится backend'у.
+**Сложнее обнаружить:** выглядит как реальный трафик, и даже небольшого объёма достаточно, если каждый запрос дорого обходится бэкенду.
 
 **Защита:** rate limit per user / IP, CAPTCHA, behavioral analysis, WAF.
 
@@ -48,9 +48,9 @@
 
 ## DDoS Mitigation
 
-### Edge absorption (CDN)
+### Поглощение на пограничных узлах (CDN)
 
-Cloudflare / Akamai / AWS Shield распределяют атаку по 200+ PoP. **Anycast** — атакующий трафик уходит на ближайший PoP, не на ваш origin.
+Cloudflare / Akamai / AWS Shield распределяют атаку по 200+ POP. **Anycast** — атакующий трафик уходит на ближайший POP, не на ваш источник.
 
 - Cloudflare заявляет «unmetered DDoS protection» на всех планах
 - AWS Shield Standard — бесплатно для пользователей CloudFront / Route 53
@@ -63,7 +63,7 @@ Cloudflare / Akamai / AWS Shield распределяют атаку по 200+ P
 - ✓ Решает проблему исчерпания памяти на SYN flood
 - В Linux включается через `net.ipv4.tcp_syncookies = 1`
 
-### Rate limiting на edge
+### Ограничение скорости на пограничных узлах
 
 Ограничение по IP / сессии / API key.
 
@@ -81,7 +81,7 @@ Application-level (Redis + Lua):
 
 ### Кэширование
 
-Статика кэшируется на edge — 99% запросов обслуживаются без обращения к origin. Атаки на cacheable endpoints просто absorbing'аются.
+Статика кэшируется на edge — 99% запросов обслуживаются без обращения к origin. Атаки на cacheable endpoints просто поглощаются.
 
 ### Geofencing
 

@@ -1,6 +1,6 @@
-# Probabilistic Data Structures
+# Вероятностные структуры данных
 
-Структуры с приближёнными ответами в обмен на меньший memory/CPU. Используются на scale, где точные алгоритмы не помещаются в RAM.
+Структуры с приближёнными ответами в обмен на меньшие память и нагрузку на CPU. Используются на масштабе, где точные алгоритмы не помещаются в RAM.
 
 ---
 
@@ -159,7 +159,7 @@ PFCOUNT result            → union cardinality
 
 ---
 
-## Other approximate structures
+## Другие приближённые структуры
 
 ### Top-K (Misra-Gries / Space-Saving)
 
@@ -203,7 +203,7 @@ Modern alternative to Bloom — better cache locality, supports delete.
 
 ---
 
-## Real-world systems
+## Системы в продакшене
 
 - **Redis** — Bloom Filter (RedisBloom module), HyperLogLog (`PFADD`/`PFCOUNT`)
 - **Cassandra** — Bloom Filter per SSTable для read optimization

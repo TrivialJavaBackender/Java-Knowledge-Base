@@ -1,6 +1,6 @@
-# Merkle Tree
+# Merkle tree
 
-Hash tree, каждый non-leaf node — hash of children. Корневой hash = compact fingerprint всего dataset. Используется для эффективного **diff** между двумя dataset'ами.
+Дерево хэшей: каждый внутренний узел — хэш детей. Корневой хэш = компактный отпечаток всего датасета. Используется для эффективного **сравнения** двух датасетов.
 
 ---
 
@@ -26,7 +26,7 @@ Hash tree, каждый non-leaf node — hash of children. Корневой has
 
 ---
 
-## Anti-Entropy
+## Anti-entropy (фоновая синхронизация)
 
 Distributed system periodically synchronize replicas. Naive: send all data → expensive. С Merkle tree:
 
@@ -61,7 +61,7 @@ Original paper упоминает Merkle trees для replica synchronization.
 
 ---
 
-## Use cases
+## Сценарии
 
 ### Distributed Systems
 
@@ -87,7 +87,7 @@ Original paper упоминает Merkle trees для replica synchronization.
 
 ---
 
-## Merkle Proof
+## Доказательство Merkle (Merkle proof)
 
 «Доказать, что элемент X — часть dataset с известным root», не отправляя весь dataset.
 
@@ -111,7 +111,7 @@ Size of proof: `O(log N)` — height of tree.
 
 ---
 
-## Build cost
+## Стоимость построения
 
 Building Merkle tree:
 - Hash all N leaves: O(N)
@@ -122,7 +122,7 @@ Storage: 2N − 1 nodes (full binary tree), but only **logarithmic** part needed
 
 ---
 
-## Update cost
+## Стоимость обновления
 
 Insert / update one leaf:
 - Recompute hashes along path к root: **O(log N)**
@@ -131,7 +131,7 @@ Updates are cheap, hence Merkle tree works for dynamic datasets.
 
 ---
 
-## Variants
+## Варианты
 
 ### Sparse Merkle Tree
 
@@ -147,7 +147,7 @@ Replacement for Merkle Patricia trie in Ethereum future. Vector commitments → 
 
 ---
 
-## Pitfalls
+## Подводные камни
 
 - **Pre-image attack** — if hash function broken (MD5, SHA-1), tree integrity compromised. Use SHA-256 or stronger.
 - **Tree depth** — too deep → slow updates. Wide trees (more children per node) reduce depth but increase update cost.
@@ -155,7 +155,7 @@ Replacement for Merkle Patricia trie in Ethereum future. Vector commitments → 
 
 ---
 
-## Real-world numbers
+## Числа из продакшена
 
 - **Cassandra:** Merkle trees per partition during repair, depth 15
 - **Git:** SHA-1 (legacy) → moving to SHA-256

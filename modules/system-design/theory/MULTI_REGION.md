@@ -1,17 +1,17 @@
-# Multi-Region Architecture
+# Многорегиональная архитектура
 
-Многорегиональное развёртывание для latency, availability, и data residency. Главный trade-off — **consistency vs latency** (PACELC: при отсутствии partition latency vs consistency).
+Многорегиональное развёртывание для задержки, доступности и локализации данных. Главный компромисс — **согласованность против задержки** (PACELC: при отсутствии разделения — задержка против согласованности).
 
-> **Scope**: топологии (active-active vs passive), conflict resolution, real-world systems. CRDT — см. [CRDT.md](CRDT.md). Consensus — [CONSENSUS.md](CONSENSUS.md).
+> **Область:** топологии (active-active против active-passive), разрешение конфликтов, системы из реальной практики. CRDT — см. [CRDT.md](CRDT.md). Консенсус — [CONSENSUS.md](CONSENSUS.md).
 
 ---
 
 ## Зачем multi-region
 
-1. **Latency** — пользователь в Сингапуре получает данные с региона Сингапура (~10 ms) вместо US (~200 ms)
-2. **Availability** — region outage (AWS us-east-1 — happens 1-2× в год) → failover в другой регион
-3. **Data residency** — GDPR требует, чтобы EU данные не покидали EU. China — российские данные не покидают РФ
-4. **Disaster Recovery** — natural disaster, datacenter destruction → данные в другом geo
+1. **Задержка** — пользователь в Сингапуре получает данные из региона Сингапура (~10 мс) вместо US (~200 мс);
+2. **Доступность** — сбой региона (AWS us-east-1 случается 1–2 раза в год) → переключение на резерв в другой регион;
+3. **Локализация данных** — GDPR требует, чтобы данные ЕС не покидали ЕС. Российские данные не покидают РФ;
+4. **Аварийное восстановление** — стихийное бедствие, уничтожение ЦОДа → данные в другой географии.
 
 ---
 
@@ -71,9 +71,9 @@ APAC read replica
 
 ---
 
-## Conflict Resolution в Active-Active
+## Разрешение конфликтов в Active-Active
 
-Когда два user'а concurrent редактируют (или upload'ят) одну entity в разных regions.
+Когда два пользователя concurrent редактируют (или загружают) одну entity в разных regions.
 
 ### Last-Write-Wins (LWW)
 
@@ -131,7 +131,7 @@ Google Spanner — uses **TrueTime API** (GPS + atomic clocks) для bounded ti
 
 ---
 
-## Data Residency (GDPR, etc)
+## Локализация данных (GDPR и др.)
 
 **GDPR Article 44**: персональные данные EU пользователей не могут leave EU без adequate protection.
 
@@ -164,7 +164,7 @@ Real-world примеры:
 
 ---
 
-## Distributed SQL (Spanner-like)
+## Распределённый SQL (в стиле Spanner)
 
 Современные распределённые SQL DB претендуют на «multi-region active-active с strong consistency»:
 
@@ -218,7 +218,7 @@ Real-world примеры:
 
 ---
 
-## Network considerations
+## Соображения сети
 
 **Cross-region bandwidth:** не free
 - AWS inter-region transfer: $0.02-0.09 / GB
@@ -234,7 +234,7 @@ Real-world примеры:
 
 ---
 
-## Failover patterns
+## Шаблоны переключения на резерв (failover)
 
 ### Manual failover
 
@@ -272,7 +272,7 @@ Latency: DNS TTL determines failover speed (60s TTL → ~ 1 min for global propa
 
 ---
 
-## Anti-patterns
+## Анти-шаблоны
 
 - **Synchronous replication cross-region** — каждый write 100ms+. Невыносимо для interactive apps.
 - **Multi-region writes без conflict resolution** — silent data loss. Always plan.
@@ -284,7 +284,7 @@ Latency: DNS TTL determines failover speed (60s TTL → ~ 1 min for global propa
 
 ---
 
-## Real-world examples
+## Примеры из продакшена
 
 - **AWS DynamoDB Global Tables** — active-active multi-region, LWW conflict resolution
 - **Aurora Global Database** — active-passive с promoted region option; RTO ~ 1 min

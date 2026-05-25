@@ -1,12 +1,12 @@
-# Scaling Fundamentals
+# Основы масштабирования
 
-Эволюция архитектуры под рост пользователей. Задача типа «scale from 1 user to 100 million» — классический SD-вопрос, проверяющий понимание узких мест.
+Эволюция архитектуры под рост пользователей. Задача типа «масштабирование от 1 пользователя до 100 миллионов» — классический SD-вопрос, проверяющий понимание узких мест.
 
-> **Scope**: vertical vs horizontal scaling, паттерны масштабирования, stateless vs stateful. DNS/CDN/LB как компоненты — см. соответствующие файлы. Capacity estimation — см. [CAPACITY_ESTIMATION.md](CAPACITY_ESTIMATION.md).
+> **Область:** вертикальное против горизонтального масштабирования, шаблоны масштабирования, без состояния против с состоянием. DNS/CDN/балансировщик как компоненты — см. соответствующие файлы. Оценка ёмкости — см. [CAPACITY_ESTIMATION.md](CAPACITY_ESTIMATION.md).
 
 ---
 
-## Vertical vs Horizontal Scaling
+## Вертикальное против горизонтального масштабирования
 
 **Vertical (scale up)** — увеличить мощность одного узла: больше CPU/RAM/SSD. Дёшево до определённого предела (AWS x1e.32xlarge — 128 vCPU, 3.9 ТБ RAM), просто (код не меняем), но имеет жёсткий лимит и cost factor (одна нода = один SPOF).
 
@@ -107,11 +107,11 @@ DB отделяется от приложения. Можно скейлить a
 
 ### Этап 9 — Edge / CDN-heavy (любая шкала)
 
-Static assets на CDN, API через PoP'ы (Cloudflare Workers, Lambda@Edge). Latency измеряется в км от пользователя.
+Static assets на CDN, API через POP (Cloudflare Workers, Lambda@Edge). Latency измеряется в км от пользователя.
 
 ---
 
-## Stateless vs Stateful
+## Без состояния против с состоянием
 
 **Stateless service** — каждый запрос независим, состояние externalised (в Redis / БД / S3). Любой инстанс может обработать любой запрос. Тривиальный horizontal scaling.
 
@@ -139,7 +139,7 @@ Static assets на CDN, API через PoP'ы (Cloudflare Workers, Lambda@Edge).
 
 ---
 
-## Capacity progression rules of thumb
+## Эмпирические правила прогрессии ёмкости
 
 - **1 server** ~ 1K concurrent users (web app), 10K RPS на простой endpoint
 - **1 PostgreSQL primary** ~ 10K writes/sec, 50K reads/sec (без replica)
@@ -164,7 +164,7 @@ Static assets на CDN, API через PoP'ы (Cloudflare Workers, Lambda@Edge).
 
 ---
 
-## Real-world inflection points
+## Точки перелома из реальной практики
 
 - **Twitter** ~ 2008: monolith Ruby on Rails → Java/Scala микросервисы (fail whale era). Точка перехода — 100M tweets/day.
 - **Instagram** ~ 2012: pure Postgres + memcached до 30M users (купили Facebook). Демонстрация «можно далеко зайти на простом стеке».
