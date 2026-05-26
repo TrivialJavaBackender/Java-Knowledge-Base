@@ -8,22 +8,22 @@
 
 ### L4 (Transport Layer)
 
-Работает на уровне TCP/UDP. **Не разбирает payload** — только адреса/порты.
+Работает на уровне TCP/UDP. **Не разбирает полезную нагрузку** — только адреса/порты.
 
 ```
 Client → LB (читает TCP SYN) → Backend (выбран по IP hash или round-robin)
 ```
 
-- ✓ **Очень быстро** — никакого парсинга, просто proxy bytes
+- ✓ **Очень быстро** — никакого парсинга, просто проксирование байтов
 - ✓ Поддерживает любые протоколы (gRPC, WebSocket, базы данных)
-- ✗ Нет content-based routing (нельзя «/api/* → backend pool 1, /static/* → pool 2»)
-- ✗ TCP termination — LB держит TCP с клиентом и отдельный TCP с backend (или passthrough — клиент видит backend IP)
+- ✗ Нет маршрутизации по содержимому (нельзя «/api/* → backend pool 1, /static/* → pool 2»)
+- ✗ TCP termination — LB держит TCP с клиентом и отдельный TCP с бэкендом (или passthrough — клиент видит IP бэкенда)
 
 **Реализации:** AWS NLB (Network Load Balancer), HAProxy в TCP mode, Nginx Stream module, Envoy (TCP mode), F5 BIG-IP, LVS.
 
 ### L7 (Application Layer)
 
-Работает на уровне HTTP / gRPC / WebSocket. Разбирает headers, path, body.
+Работает на уровне HTTP / gRPC / WebSocket. Разбирает заголовки, путь, тело запроса.
 
 ```
 Client → LB (читает HTTP request) → routes:
@@ -32,11 +32,11 @@ Client → LB (читает HTTP request) → routes:
   /static/* → CDN origin
 ```
 
-- ✓ Content-based routing (path, headers, cookies, JWT claims)
-- ✓ TLS termination — LB разворачивает HTTPS, backend получает HTTP
-- ✓ Rich features: rate limit, auth, caching, A/B testing, sticky sessions
+- ✓ Маршрутизация по содержимому (path, headers, cookies, JWT claims)
+- ✓ TLS termination — LB разворачивает HTTPS, бэкенд получает HTTP
+- ✓ Богатые возможности: rate limit, auth, кэширование, A/B-тестирование, стики-сессии
 - ✗ Медленнее (парсинг)
-- ✗ Видит **только** HTTP — gRPC требует HTTP/2 support
+- ✗ Видит **только** HTTP — gRPC требует поддержки HTTP/2
 
 **Реализации:** AWS ALB (Application Load Balancer), Nginx, HAProxy в HTTP mode, Envoy, Traefik, Kong, Istio Gateway.
 
@@ -48,12 +48,12 @@ Client → LB (читает HTTP request) → routes:
 
 Последовательно по узлам: 1 → 2 → 3 → 1 → 2 → ...
 
-- ✓ Простой, equal distribution в идеале
-- ✗ Не учитывает текущую нагрузку backend'ов (slow backend = slow requests)
+- ✓ Простой, равномерное распределение в идеале
+- ✗ Не учитывает текущую нагрузку бэкендов (медленный бэкенд = медленные запросы)
 
 ### Weighted Round-Robin
 
-Backend'ы с разными «весами»: мощный сервер получает 3 запроса на каждый 1 слабого.
+Бэкенды с разными «весами»: мощный сервер получает 3 запроса на каждый 1 слабого.
 
 ```
 backend_A weight=3
@@ -63,34 +63,34 @@ backend_B weight=1
 
 ### Least Connections
 
-Запрос идёт в backend с **минимальным** числом активных соединений. Лучше для long-lived connections (WebSocket, чаты).
+Запрос идёт в бэкенд с **минимальным** числом активных соединений. Лучше для длительных соединений (WebSocket, чаты).
 
 ### Least Time
 
-Backend с минимальным response time (требует health metrics).
+Бэкенд с минимальным временем ответа (требует health metrics).
 
 ### IP Hash
 
-`shard = hash(client_ip) % N_backends` — один клиент всегда попадает на тот же backend. Альтернатива sticky session.
+`shard = hash(client_ip) % N_backends` — один клиент всегда попадает на тот же бэкенд. Альтернатива стики-сессии.
 
 - ✓ Простая sticky session без cookies
-- ✗ NAT-ed клиенты (corporate networks) — все за одним IP → один backend перегружен
+- ✗ NAT-ed клиенты (корпоративные сети) — все за одним IP → один бэкенд перегружен
 
 ### Consistent Hashing
 
 То же что [`databases/SHARDING.md`](../../databases/theory/SHARDING.md) consistent hashing — на L4/L7 LB используется для:
-- Sticky routing с минимальным remap при изменении pool
-- Cache locality (один key всегда идёт в один backend — backend кэширует)
+- Sticky routing с минимальным remap при изменении пула
+- Cache locality (один ключ всегда идёт в один бэкенд — бэкенд кэширует)
 
 ### Random
 
-Случайный backend. Удивительно: **на больших pools показывает себя сравнимо** с round-robin (закон больших чисел), и проще в реализации.
+Случайный бэкенд. Удивительно: **на больших пулах показывает себя сравнимо** с round-robin (закон больших чисел), и проще в реализации.
 
 ---
 
 ## Health-проверки
 
-LB периодически проверяет каждый backend; unhealthy выводится из ротации.
+LB периодически проверяет каждый бэкенд; неработоспособный выводится из ротации.
 
 ```yaml
 health_check:
@@ -103,59 +103,59 @@ health_check:
 
 **Виды:**
 - **TCP** — просто `connect()` — самый дешёвый, не ловит «зависший процесс»
-- **HTTP** — `GET /health` — backend implements endpoint (deep vs shallow check)
+- **HTTP** — `GET /health` — бэкенд реализует эндпоинт (deep vs shallow check)
 - **Custom** — gRPC health check protocol, SQL ping
 
 **Liveness vs Readiness** (K8s terminology):
 - **Liveness** — «приложение жив?» — если нет, рестартовать pod
 - **Readiness** — «готов принимать трафик?» — если нет, исключить из LB pool
 
-**Антипаттерн:** одна `/health` endpoint для обоих — каскадные restarts под load.
+**Антипаттерн:** один `/health` эндпоинт для обоих — каскадные перезапуски под нагрузкой.
 
 ---
 
 ## Стики-сессии (Session Affinity)
 
-Запрос от клиента всегда идёт в **один и тот же** backend. Реализации:
+Запрос от клиента всегда идёт в **один и тот же** бэкенд. Реализации:
 
 ### Cookie-based
 
-LB ставит cookie `LB_SESSION=backend_id`; на следующих запросах роутит туда.
+LB ставит cookie `LB_SESSION=backend_id`; последующие запросы маршрутизирует туда.
 
-- ✓ Гибко, не зависит от network topology
+- ✓ Гибко, не зависит от сетевой топологии
 - ✗ Браузер должен принимать cookie
 
 ### IP-based (Source IP affinity)
 
-Hash от client IP → backend. NAT issue (см. выше).
+Хэш от client IP → бэкенд. Проблема NAT (см. выше).
 
 **Когда нужно:**
-- Stateful backend (in-memory cache per user, WebSocket session)
-- В большинстве cases — **избегать**, делать backend stateless
+- Бэкенд с состоянием (in-memory cache per user, WebSocket session)
+- В большинстве случаев — **избегать**, делать бэкенд без состояния
 
 **Trade-off:**
-- Sticky = неравномерное распределение, потеря данных при failure backend'а
-- Stateless + external state (Redis) — стандартная практика
+- Sticky = неравномерное распределение, потеря данных при отказе бэкенда
+- Без состояния + внешнее хранилище (Redis) — стандартная практика
 
 ---
 
 ## Терминация TLS
 
-LB разворачивает HTTPS, backend получает plain HTTP.
+LB разворачивает HTTPS, бэкенд получает нешифрованный HTTP.
 
 ```
 Client --HTTPS--> LB --HTTP--> Backend
        (TLS handshake)        (внутренняя сеть)
 ```
 
-- ✓ Backend не тратит CPU на crypto (важно при высоком QPS)
-- ✓ Централизованное управление сертификатами (renewal через Let's Encrypt автоматически)
+- ✓ Бэкенд не тратит CPU на криптографию (важно при высоком QPS)
+- ✓ Централизованное управление сертификатами (обновление через Let's Encrypt автоматически)
 - ✗ Внутренний трафик не зашифрован (исправимо через mTLS или Service Mesh)
-- ✓ LB может смотреть HTTP headers (L7 routing)
+- ✓ LB может читать HTTP-заголовки (L7 routing)
 
 **Альтернатива — TLS Passthrough:** LB не разворачивает, проксирует TLS как L4. Используется когда:
-- Backend должен видеть client certificate (mTLS требует)
-- Compliance требует end-to-end encryption (PCI-DSS, HIPAA)
+- Бэкенд должен видеть клиентский сертификат (требует mTLS)
+- Требования соответствия стандартам требуют сквозного шифрования (PCI-DSS, HIPAA)
 
 ---
 
@@ -174,9 +174,9 @@ User в Лондоне → BGP shortest path → EU PoP
 User в Сан-Франциско → US-West PoP
 ```
 
-- ✓ Geo-distributed «один IP» с автоматическим routing
+- ✓ Геораспределённый «один IP» с автоматической маршрутизацией
 - ✓ DDoS resilience (трафик размазывается по всем PoP)
-- ✗ Не подходит для long-lived TCP (BGP route change → connection reset)
+- ✗ Не подходит для длительных TCP-соединений (смена BGP-маршрута → сброс соединения)
 
 **Используют:** Cloudflare (1.1.1.1, all their CDN), AWS Global Accelerator, Google Cloud Anycast IP.
 
@@ -186,14 +186,14 @@ User в Сан-Франциско → US-West PoP
 
 | Кейс | Выбор |
 |------|-------|
-| Internal microservice traffic | L7 (для routing), L4 если нужна максимальная скорость |
-| Public web API | L7 ALB / Cloudflare |
-| gRPC | L7 с HTTP/2 support (ALB, Envoy) или L4 для passthrough |
+| Внутренний трафик между микросервисами | L7 (для маршрутизации), L4 если нужна максимальная скорость |
+| Публичный веб-API | L7 ALB / Cloudflare |
+| gRPC | L7 с поддержкой HTTP/2 (ALB, Envoy) или L4 для passthrough |
 | WebSocket | L7 (длительный upgrade handshake) или L4 passthrough |
 | Database proxy (PgBouncer, ProxySQL) | L4 |
 | TCP-based protocol (Redis, MQTT) | L4 |
-| TLS termination + routing | L7 |
-| Pure DDoS protection | L4 (наша задача — proxy bytes быстро) |
+| Терминация TLS + маршрутизация | L7 |
+| Pure DDoS protection | L4 (наша задача — быстро проксировать байты) |
 
 ---
 
@@ -225,12 +225,12 @@ Service A → Envoy sidecar → mTLS → Envoy sidecar → Service B
 
 ## Антипаттерны
 
-- **Sticky sessions для всего** — мешает auto-scaling, потеря при failover. Externalise state в Redis.
+- **Sticky sessions для всего** — мешает auto-scaling, потеря при failover. Выносите состояние в Redis.
 - **Single LB instance** — SPOF. Нужно минимум 2 в HA pair (active-passive или active-active).
-- **No health checks** — LB шлёт трафик на мёртвый backend пока не получит timeout (10+ сек).
-- **Deep health check на каждый запрос** — `GET /health` делает SELECT * FROM users → load на DB.
-- **Aggressive timeout** — 1 sec может убить legitimate slow requests (file uploads, complex queries).
-- **TLS termination без internal mTLS** — security posture зависит от того, насколько «приватна» внутренняя сеть.
+- **No health checks** — LB шлёт трафик на мёртвый бэкенд, пока не получит таймаут (10+ сек).
+- **Deep health check на каждый запрос** — `GET /health` делает SELECT * FROM users → нагрузка на БД.
+- **Aggressive timeout** — 1 sec может убить легитимные медленные запросы (загрузка файлов, сложные запросы).
+- **TLS termination без internal mTLS** — уровень защищённости зависит от того, насколько «приватна» внутренняя сеть.
 
 ---
 

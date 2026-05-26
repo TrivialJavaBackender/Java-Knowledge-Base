@@ -17,7 +17,7 @@
 
 **Главные правила:**
 1. **Думай вслух** — собеседующий оценивает мышление, не молчание
-2. **Спрашивай прежде чем строить** — design зависит от requirements
+2. **Спрашивай прежде чем строить** — дизайн зависит от требований
 3. **Trade-off, не «правильное решение»** — обосновывай выбор
 4. **Простое сначала** — не лезь в multi-region если single region хватает
 
@@ -27,7 +27,7 @@
 
 **Цель:** ограничить scope, разобраться, что строим.
 
-### Functional requirements
+### Функциональные требования
 
 Что система **делает**? Какие эндпоинты / use cases?
 
@@ -38,25 +38,25 @@
 - «Edit / delete tweet?»
 - «Media (фото/видео) или только текст?»
 
-**Сократить scope** — выбрать 3-5 core features, остальное explicitly out of scope. Интервьюер часто хочет, чтобы ты focused, не всё сразу.
+**Сократить охват** — выбрать 3–5 ключевых функций, остальное явно вынести за рамки. Интервьюер часто хочет, чтобы ты сосредоточился, а не охватывал всё сразу.
 
-### Non-functional requirements
+### Нефункциональные требования
 
 Как система должна работать?
 
-- **Scale** — DAU, total users, размер dataset
-- **Latency** — какие p99 endpoint expectations? (10ms / 100ms / 1s — разные архитектуры)
-- **Availability** — 99.9% (8h downtime / year) vs 99.99% (52 min) vs 99.999% (5 min)
-- **Consistency** — strong vs eventual? Где какая допустима?
-- **Durability** — потеря данных допустима? (logs vs financial transactions)
-- **Read/Write ratio** — read-heavy vs write-heavy?
-- **Read patterns** — random access? Range queries? Aggregations?
-- **Geography** — single region? Global? Data residency требования?
-- **Cost** — есть бюджетные ограничения? (обычно не критично на интервью)
+- **Масштаб** — DAU, total users, размер dataset
+- **Задержка** — какие p99 ожидания по эндпоинтам? (10ms / 100ms / 1s — разные архитектуры)
+- **Доступность** — 99.9% (8h downtime / year) vs 99.99% (52 min) vs 99.999% (5 min)
+- **Согласованность** — strong vs eventual? Где какая допустима?
+- **Долговечность** — потеря данных допустима? (logs vs financial transactions)
+- **Соотношение чтений/записей** — read-heavy vs write-heavy?
+- **Паттерны чтения** — random access? Range queries? Aggregations?
+- **География** — single region? Global? Data residency требования?
+- **Стоимость** — есть бюджетные ограничения? (обычно не критично на интервью)
 
-### Out of scope (явно сказать)
+### За рамками (явно сказать)
 
-«Я не буду фокусироваться на: detailed UI, payment processing details, ML recommendations, full security audit» — освобождает время на architectural concerns.
+«Я не буду фокусироваться на: детальный UI, детали обработки платежей, ML рекомендации, полный аудит безопасности» — освобождает время на архитектурные вопросы.
 
 ---
 
@@ -73,12 +73,12 @@ RAM (cache) = hot_set × per_record_size
 ```
 
 **Зачем нужно:** результат estimation определяет архитектуру.
-- 100 QPS → single server вполне.
-- 10K QPS → multi-instance, LB.
-- 1M QPS → sharding, distributed cache.
-- 100M QPS → multi-region, edge compute.
+- 100 QPS → один сервер вполне.
+- 10K QPS → несколько инстансов, LB.
+- 1M QPS → шардирование, распределённый кэш.
+- 100M QPS → multi-region, граничные вычисления.
 
-Конкретные числа — это **ваш input** в design. Не пропускайте.
+Конкретные числа — это **ваши входные данные** для дизайна. Не пропускайте.
 
 ---
 
@@ -105,11 +105,11 @@ DELETE /api/v1/tweets/:id
   → 204 No Content
 ```
 
-**Sub-decisions:**
+**Подрешения:**
 - **REST vs gRPC vs GraphQL** — public API → REST (cacheable, simple); internal microservice → gRPC; client-driven → GraphQL
-- **Pagination** — cursor-based (lexicographic) для streams; offset-based — антипаттерн при scale (slow OFFSET в БД)
-- **Authentication** — JWT (Bearer token), API key для server-to-server
-- **Versioning** — `/v1/` в path, или Accept header
+- **Пагинация** — cursor-based (lexicographic) для потоков; offset-based — антипаттерн при масштабировании (медленный OFFSET в БД)
+- **Аутентификация** — JWT (Bearer token), API key для server-to-server
+- **Версионирование** — `/v1/` в path, или Accept header
 
 ---
 
@@ -134,11 +134,11 @@ DELETE /api/v1/tweets/:id
 ```
 
 **Что обсудить:**
-1. **Statelessness** — сервисы stateless, state в БД/Redis
-2. **Data model** — какие таблицы, какие индексы, sharding strategy
-3. **Caching strategy** — что кэшируем, на каком уровне, TTL
-4. **Async vs Sync** — что в response cycle, что в очередь
-5. **Failure modes** — что если DB down? Cache down? LB down?
+1. **Без состояния** — сервисы без состояния, состояние в БД/Redis
+2. **Модель данных** — какие таблицы, какие индексы, sharding strategy
+3. **Стратегия кэширования** — что кэшируем, на каком уровне, TTL
+4. **Async vs Sync** — что в цикле ответа на запрос, что в очередь
+5. **Сценарии сбоев** — что если DB down? Cache down? LB down?
 
 ---
 
@@ -146,74 +146,74 @@ DELETE /api/v1/tweets/:id
 
 Интервьюер выберет 2-3 темы для углубления. Готов к любой:
 
-### Data model deep dive
+### Детальный разбор модели данных
 
-- Конкретные таблицы / schemas
-- Primary / secondary indexes
+- Конкретные таблицы / схемы
+- Primary / secondary индексы
 - Sharding key — обоснование
-- Consistency requirements
+- Требования к согласованности
 
-### Cache deep dive
+### Детальный разбор кэша
 
-- Cache pattern (cache-aside / read-through)
-- Eviction (LRU / LFU / W-TinyLFU)
-- TTL strategy, refresh-ahead
-- Stampede prevention (single-flight)
-- Hot key problem
+- Паттерн кэширования (cache-aside / read-through)
+- Вытеснение (LRU / LFU / W-TinyLFU)
+- Стратегия TTL, refresh-ahead
+- Защита от захлёста кэша (single-flight)
+- Проблема горячего ключа
 
-### Fan-out (newsfeed, notification)
+### Веерное распределение (fan-out): лента новостей, уведомления
 
-- Fan-out on write vs read
-- Celebrity problem
+- Веерное распределение при записи vs при чтении
+- Проблема «звезды» (celebrity problem)
 - Push vs pull
-- Materialized timeline
+- Материализованная лента
 
-### Storage deep dive
+### Детальный разбор хранилища
 
 - LSM vs B-tree выбор
-- Replication factor, consistency level
-- Backup / recovery strategy
+- Фактор репликации, уровень согласованности
+- Стратегия резервного копирования и восстановления
 
-### Search / indexing
+### Поиск / индексирование
 
 - Inverted index
-- Trie для autocomplete
-- Search engine (Elasticsearch) sync через CDC
+- Trie для автодополнения
+- Синхронизация поискового движка (Elasticsearch) через CDC
 
-### Rate limiting
+### Ограничение частоты запросов (rate limiting)
 
 - Token bucket / leaky bucket / sliding window
-- Distributed (Redis + Lua)
-- Per-user / per-API-key / global
+- Распределённое (Redis + Lua)
+- Для пользователя / для API-ключа / глобальное
 
-### Failure handling
+### Обработка сбоев
 
-- Circuit breaker semantics
-- Retry с jitter
-- Dead letter queue
-- Graceful degradation
+- Семантика circuit breaker
+- Повторные попытки с jitter
+- Очередь недоставленных сообщений (DLQ)
+- Плавная деградация
 
 ---
 
 ## Фаза 6 — узкие места и масштабирование
 
-«Если завтра 10× users — что сломается?»
+«Если завтра 10× пользователей — что сломается?»
 
 Проанализируй каждый компонент:
 
-| Компонент | Bottleneck | Mitigation |
+| Компонент | Узкое место | Способ защиты |
 |-----------|-----------|------------|
-| LB | NIC bandwidth | Anycast IP, multi-LB |
-| App servers | CPU | Auto-scaling, more replicas |
-| DB primary writes | IOPS | Sharding |
-| DB reads | Connection pool | Read replicas, caching |
-| Cache | RAM, hot key | Cluster, replication for hot |
-| Message broker | Partitions | Repartition, more brokers |
-| External API | Their rate limit | Caching, batching |
-| Network egress | Bandwidth cost | CDN |
+| LB | Пропускная способность NIC | Anycast IP, multi-LB |
+| App servers | CPU | Auto-scaling, больше реплик |
+| DB primary writes | IOPS | Шардирование |
+| DB reads | Connection pool | Реплики для чтения, кэширование |
+| Cache | RAM, горячий ключ | Кластер, репликация для горячих ключей |
+| Message broker | Партиции | Repartition, больше брокеров |
+| External API | Лимит их запросов | Кэширование, батчинг |
+| Network egress | Стоимость трафика | CDN |
 
 Обсуди monitoring:
-- **Golden signals**: latency, traffic, errors, saturation (RED + S)
+- **Golden signals**: задержка, трафик, ошибки, насыщение (RED + S)
 - **SLO**: 99.9% availability, p99 < 500ms
 - **Alerting**: burn rate alerts, anomaly detection
 - **Tracing**: distributed traces для debugging
@@ -224,42 +224,42 @@ DELETE /api/v1/tweets/:id
 
 Каждое решение — trade-off. Обсуди:
 
-- **Consistency vs Availability** (CAP)
-- **Consistency vs Latency** (PACELC — EC vs EL)
-- **Read latency vs Write latency** (denormalization, materialized views)
-- **Storage cost vs Compute cost** (caching trade)
-- **Operational simplicity vs Optimal performance** (monolith vs microservices)
-- **Developer velocity vs Reliability** (move fast vs strict review)
+- **Согласованность vs Доступность** (CAP)
+- **Согласованность vs Задержка** (PACELC — EC vs EL)
+- **Задержка чтения vs Задержка записи** (денормализация, материализованные представления)
+- **Стоимость хранения vs Стоимость вычислений** (компромисс кэширования)
+- **Операционная простота vs Оптимальная производительность** (монолит vs микросервисы)
+- **Скорость разработки vs Надёжность** (move fast vs strict review)
 
 ---
 
 ## Антипаттерны на интервью
 
-### Jumping to implementation
+### Переход к реализации без анализа требований
 
-«Используем Cassandra, потому что NoSQL» — без обсуждения requirements. Сначала **зачем**, потом **что**.
+«Используем Cassandra, потому что NoSQL» — без обсуждения требований. Сначала **зачем**, потом **что**.
 
-### Ignoring scale
+### Игнорирование масштаба
 
 Рисуешь single DB вне зависимости от estimation. Если 1M QPS — single DB не справится.
 
-### Over-engineering
+### Излишнее усложнение (over-engineering)
 
 Дизайн URL shortener на 10 микросервисов с Kafka и Spark. Простой — лучше. Простой + готовый scale up — отлично.
 
-### Single-region thinking
+### Мышление в масштабе одного региона
 
-Не учитываешь geo distribution для global service.
+Не учитываешь географическое распределение для глобального сервиса.
 
-### Avoiding trade-offs
+### Избегание компромиссов
 
 «Решение Х — лучшее». Покажи **почему**: сравни с альтернативой, объясни trade-off.
 
-### Buzzword soup
+### Набор модных слов без смысла (buzzword soup)
 
 «Будем использовать Kubernetes, Istio, Kafka, Spark, Flink, Cassandra, Redis» — без понимания, зачем каждое.
 
-### Silent thinking
+### Молчаливое обдумывание
 
 Молчание 5 минут — собеседующий не знает, что ты думаешь. Думай вслух.
 
@@ -285,19 +285,19 @@ DELETE /api/v1/tweets/:id
 
 Помимо самой архитектуры — будь готов к **глубоким** вопросам:
 
-- **БД**: какой index? как пагинация? Sharding key выбран как?
-- **Кэш**: cache patterns, eviction, TTL, stampede, hot key
-- **Очереди**: at-least vs exactly-once, идемпотентность consumer, DLQ
+- **БД**: какой индекс? как пагинация? Sharding key выбран как?
+- **Кэш**: паттерны кэширования, вытеснение, TTL, stampede, горячий ключ
+- **Очереди**: at-least vs exactly-once, идемпотентность потребителя, DLQ
 - **Auth**: JWT lifecycle, refresh rotation, revocation
-- **Failure**: что если DB down? Cache lost?
-- **Monitoring**: SLI/SLO, golden signals
-- **Cost**: где деньги тратятся, как сократить (CDN cuts egress)
+- **Сбои**: что если DB down? Cache lost?
+- **Мониторинг**: SLI/SLO, golden signals
+- **Стоимость**: где деньги тратятся, как сократить (CDN cuts egress)
 
 ---
 
 ## Источники
 
-- *System Design Interview Vol. 1, 2* (Alex Xu, ByteByteGo) — каноничный template + 30+ design problems
+- *System Design Interview Vol. 1, 2* (Alex Xu, ByteByteGo) — канонический шаблон + 30+ design problems
 - [Hello Interview — Delivery (Interview Frame)](https://www.hellointerview.com/learn/system-design/in-a-hurry/delivery)
 - [donnemartin/system-design-primer — How to approach](https://github.com/donnemartin/system-design-primer#how-to-approach-a-system-design-interview-question)
 - *Cracking the System Design Interview* (Hewlin) — старая, но фундаменты те же

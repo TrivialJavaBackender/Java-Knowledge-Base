@@ -6,21 +6,21 @@
 
 ---
 
-## Зачем leader
+## Зачем лидер
 
 - **Database replication** — primary получает writes, реплики только reads
-- **Distributed lock holder** — единственный обработчик resource
+- **Distributed lock holder** — единственный обработчик ресурса
 - **Task coordinator** — scheduler decides what runs where (Kafka group coordinator, K8s controller-manager)
 - **Cluster config decisions** — кто авторитет на rebalance, sharding
 - **Aggregation point** — global counter, monotonic ID generator
 
-Без leader — нужен distributed consensus per operation. С leader — leader решает, потом replicates.
+Без лидера — нужен distributed consensus per operation. С лидером — лидер решает, потом реплицирует.
 
 ---
 
 ## Алгоритм Bully (Garcia-Molina, 1982)
 
-Простейший. Каждый узел имеет статический rank (priority). Высший rank в живых узлах = leader.
+Простейший. Каждый узел имеет статический rank (priority). Высший rank в живых узлах = лидер.
 
 ```
 Узел замечает: leader не отвечает на ping
@@ -30,7 +30,7 @@
 ```
 
 **Плюсы:** простой, не требует consensus library.
-**Минусы:** unstable при flapping (узел уходит/приходит → постоянные re-elections), коммуникация O(N²) в worst case.
+**Минусы:** нестабильность при flapping (узел уходит/приходит → постоянные re-elections), коммуникация O(N²) в worst case.
 
 Используется редко на практике в чистом виде; идея присутствует в простых scripts.
 
@@ -38,11 +38,11 @@
 
 ## Выборы лидера на основе Raft
 
-Современный standard. Каждый кандидат — `candidate state`, ждёт majority votes. Подробнее: [CONSENSUS.md](CONSENSUS.md#leader-election).
+Современный стандарт. Каждый кандидат — `candidate state`, ждёт majority votes. Подробнее: [CONSENSUS.md](CONSENSUS.md#leader-election).
 
 **Use cases:** etcd, Consul, CockroachDB, KRaft, TiKV, RethinkDB.
 
-**Trade-off:** требует stable membership (Joint Consensus для config changes), нужен fsync.
+**Компромисс:** требует stable membership (Joint Consensus для config changes), нужен fsync.
 
 ---
 
@@ -67,8 +67,8 @@ else:
 ```
 
 **Свойства:**
-- **Fairness** — leader = с наименьшим sequence (first arrived)
-- **Liveness** — ephemeral znode пропадает при disconnect → next в queue получает notification
+- **Fairness** — лидер = с наименьшим sequence (first arrived)
+- **Liveness** — ephemeral znode пропадает при disconnect → следующий в очереди получает уведомление
 - **Уведомление** — watcher на предыдущий znode, не «herd effect» (только следующий узнаёт)
 
 **Use cases:** Kafka до KRaft (consumer group coordinator), HBase RegionServer master, Solr Overseer, легаси HDFS.
@@ -77,17 +77,17 @@ else:
 
 ## Выборы на основе gossip (Cassandra, Riak)
 
-В Dynamo-style — нет одного leader. Каждый узел — peer. Gossip protocol распространяет cluster state.
+В Dynamo-style — нет одного лидера. Каждый узел — peer. Gossip protocol распространяет cluster state.
 
 Для специфичных задач (per-token range coordinator) — choose by deterministic function (consistent hashing).
 
-→ Не «leader election» в классическом смысле; нет single point координации.
+→ Не «выборы лидера» в классическом смысле; нет единой точки координации.
 
 ---
 
 ## Лидер на основе временной аренды (lease)
 
-Лидер берёт **lease** (аренду) на время T. После expiry должен переавтор izировать. Если умер — lease истекает → новый лидер.
+Лидер берёт **lease** (аренду) на время T. После истечения должен переавторизоваться. Если умер — lease истекает → новый лидер.
 
 ```
 Leader: каждые T/2 секунд renew lease через consensus
@@ -98,8 +98,8 @@ Other nodes: watch lease expiry timestamp
 ```
 
 **Преимущества:**
-- **Fencing token** — каждый lease имеет epoch/term; stale leader не может commit
-- **Bounded staleness** — старый leader не более T секунд после network partition
+- **Fencing token** — каждый lease имеет epoch/term; устаревший лидер не может commit
+- **Bounded staleness** — старый лидер не более T секунд после network partition
 
 **Используют:** Google Chubby (Paxos-based с leases), Spanner (TrueTime + leases для linearizable reads без round trips).
 
@@ -107,11 +107,11 @@ Other nodes: watch lease expiry timestamp
 
 ## Предотвращение расщепления кластера (split-brain)
 
-**Проблема:** network partition → две части кластера, обе думают что leader.
+**Проблема:** network partition → две части кластера, обе думают что лидер.
 
 ### Quorum-based
 
-Election requires **majority votes**. При partition только большая сторона может выбрать leader.
+Выборы требуют **большинства голосов**. При partition только большая сторона может выбрать лидера.
 
 ```
 5-node cluster, partition 3 vs 2:
@@ -119,11 +119,11 @@ Election requires **majority votes**. При partition только больша
   2-side: no quorum, cannot elect → stays read-only / refuses writes
 ```
 
-→ Raft / Paxos уже это делают. **Поэтому odd number nodes (3, 5, 7).**
+→ Raft / Paxos уже это делают. **Поэтому нечётное число узлов (3, 5, 7).**
 
 ### Fencing token
 
-Каждый new leader получает monotonic **token**. Старый leader (network partition recovery) пытается write с stale token → reject.
+Каждый новый лидер получает monotonic **token**. Старый лидер (после восстановления из network partition) пытается сделать запись с устаревшим токеном → отказ.
 
 ```
 Lease N=5, leader L1 expires.
@@ -136,7 +136,7 @@ Storage: latest epoch is 6 → reject L1's write with stale token.
 
 ### STONITH (Shoot The Other Node In The Head)
 
-Hardware fencing: новый leader physically выключает старого через iLO / IPMI / cloud API.
+Hardware fencing: новый лидер физически выключает старого через iLO / IPMI / cloud API.
 
 Используется в high-availability HBase, традиционных Pacemaker clusters.
 
@@ -146,30 +146,30 @@ Hardware fencing: новый leader physically выключает старого
 
 ### Multi-Paxos / Raft + multi-region
 
-Не делайте Raft cross-region (latency × 3-10). Вместо: **regional Raft group** + cross-region async replication (с conflict resolution).
+Не делайте Raft cross-region (задержка × 3-10). Вместо: **regional Raft group** + cross-region async replication (с conflict resolution).
 
 CockroachDB doing this with «replication zones», Spanner with multiple Paxos groups per region.
 
 ### One-shot vs continuous
 
 - **One-shot leader** — выбрать раз, держать долго. Раз в день кто-то делает backup.
-- **Per-task leader** — выбирается на каждое задание (часто в queue-based systems): кто next available worker.
+- **Per-task leader** — выбирается на каждое задание (часто в queue-based systems): кто следующий доступный обработчик.
 
-Continuous Raft подходит для long-running leader. Per-task — often simpler через distributed lock (через Redis SETNX или etcd lease).
+Continuous Raft подходит для долгоживущего лидера. Per-task — often simpler через distributed lock (через Redis SETNX или etcd lease).
 
 ### Distributed locks vs leader election
 
 Похоже, но не одно и то же:
-- **Distributed lock** — exclusive access to a **resource** (file, row, queue). Может быть много locks.
-- **Leader election** — exclusive role в **cluster**. Один leader.
+- **Distributed lock** — эксклюзивный доступ к **ресурсу** (file, row, queue). Может быть много locks.
+- **Leader election** — эксклюзивная роль в **кластере**. Один лидер.
 
-Тонкость: lock без fencing token = вы можете потерять leadership и не знать (см. Kleppmann's critique of Redlock).
+Тонкость: lock без fencing token = вы можете потерять роль лидера и не знать (см. Kleppmann's critique of Redlock).
 
 ---
 
 ## Инструменты реализации
 
-| Tool | Mechanism | Use |
+| Инструмент | Механизм | Применение |
 |------|-----------|-----|
 | **etcd** | Raft + leases | K8s, modern services |
 | **Consul** | Raft + sessions | Service discovery, locks |
@@ -197,7 +197,7 @@ spec:
   renewTime: "2024-01-01T12:00:00Z"
 ```
 
-Реализация: каждый кандидат пытается update Lease через optimistic concurrency. Если update success → leader, renew каждые `leaseDuration × 0.7`.
+Реализация: каждый кандидат пытается обновить Lease через optimistic concurrency. Если обновление успешно → лидер, продлевает каждые `leaseDuration × 0.7`.
 
 ### Elasticsearch — master election
 
@@ -211,11 +211,11 @@ Cluster master (handles cluster state changes). Использует **quorum-ba
 
 ## Подводные камни
 
-- **Не использовать quorum** (Bully на even nodes) — split-brain possible
-- **Слишком short lease** — частые re-elections под нагрузкой
-- **Слишком long lease** — медленный failover
-- **No fencing** — stale leader продолжает writes после recovery
-- **GC pause** (JVM) длиннее lease → false leader change, два «leader» одновременно
+- **Не использовать quorum** (Bully на even nodes) — расщепление кластера возможно
+- **Слишком короткий lease** — частые re-elections под нагрузкой
+- **Слишком длинный lease** — медленное переключение на резерв (failover)
+- **No fencing** — устаревший лидер продолжает записи после восстановления
+- **GC pause** (JVM) длиннее lease → ложная смена лидера, два «лидера» одновременно
 - **Clock skew** — leases assumed synchronized clocks; используй monotonic clocks где можно
 
 ---

@@ -1,6 +1,6 @@
 # DNS
 
-DNS (Domain Name System) — распределённая иерархическая система имён, превращающая `example.com` в IP. Часто упоминается на интервью как первый стейдж request flow (`browser → DNS → LB → app`).
+DNS (Domain Name System) — распределённая иерархическая система имён, превращающая `example.com` в IP. Часто упоминается на интервью как первый этап потока запросов (`browser → DNS → LB → app`).
 
 ---
 
@@ -40,14 +40,14 @@ Root (.) → TLD (.com) → Authoritative (example.com) → Records (www.example
 
 ```
 Authoritative: A example.com → 1.2.3.4 TTL=300
-Resolver кэширует на 5 минут → клиенты, делающие resolve в это окно, получают 1.2.3.4 без сетевого запроса
+Resolver кэширует на 5 минут → клиенты, делающие разрешение имени в это окно, получают 1.2.3.4 без сетевого запроса
 ```
 
-**Trade-off:**
-- **Высокий TTL** (часы-дни): меньше DNS-трафика, быстрее resolve, но **медленные изменения** (если меняешь IP, старые клиенты будут стучаться к старому ещё часы)
-- **Низкий TTL** (60s): мгновенные failover, но больше DNS-запросов
+**Компромисс:**
+- **Высокий TTL** (часы-дни): меньше DNS-трафика, быстрее разрешение имён, но **медленные изменения** (если меняешь IP, старые клиенты будут стучаться к старому ещё часы)
+- **Низкий TTL** (60s): мгновенное переключение на резерв (failover), но больше DNS-запросов
 
-Production tip: для важных эндпоинтов держать TTL=60 (быстрый failover), для стабильных static origins — TTL=3600+.
+Production tip: для важных конечных точек держать TTL=60 (быстрое переключение на резерв), для стабильных статичных источников — TTL=3600+.
 
 **Negative caching:** NXDOMAIN тоже кэшируется (SOA-specified, обычно 5 мин) — поэтому опечатка домена несколько минут «не существует» даже после исправления.
 
@@ -57,35 +57,35 @@ Production tip: для важных эндпоинтов держать TTL=60 (
 
 Современные DNS providers поддерживают «умные» политики: ответ зависит от запрашивающего.
 
-### Latency-based routing
+### Маршрутизация по задержке (Latency-based routing)
 
-Возвращает endpoint с наименьшей RTT для резолвера клиента. Route 53 имеет global latency map.
+Возвращает конечную точку с наименьшей RTT для резолвера клиента. Route 53 имеет глобальную карту задержек.
 
 ```
 US client → example.com → us-east-1 LB
 EU client → example.com → eu-west-1 LB
 ```
 
-### Geo-DNS / GeoLocation routing
+### Маршрутизация по геолокации (Geo-DNS / GeoLocation routing)
 
-Маршрутизация по country/continent. Хорошо для data residency (GDPR — EU пользователи → EU endpoint).
+Маршрутизация по стране/континенту. Хорошо для data residency (GDPR — EU пользователи → EU конечная точка).
 
-### Weighted routing
+### Взвешенная маршрутизация (Weighted routing)
 
-Распределяет трафик по весам (для canary / A/B testing на DNS уровне).
+Распределяет трафик по весам (для canary / A/B testing на уровне DNS).
 
 ```
 70% → new.app.example.com (v2)
 30% → old.app.example.com (v1)
 ```
 
-### Failover routing
+### Маршрутизация с переключением на резерв (Failover routing)
 
-Primary endpoint + secondary; secondary активируется при health check failure primary.
+Основная конечная точка + резервная; резервная активируется при сбое проверки работоспособности основной.
 
-### Multi-value routing
+### Мультизначная маршрутизация (Multi-value routing)
 
-До 8 healthy записей возвращаются — клиент сам выбирает (round-robin). Простой L4 LB через DNS.
+До 8 работоспособных записей возвращаются — клиент сам выбирает (round-robin). Простой L4 LB через DNS.
 
 ---
 
@@ -104,23 +104,23 @@ Primary endpoint + secondary; secondary активируется при health c
 
 ## DNSSEC
 
-DNS responses можно подделать (DNS cache poisoning, MITM). **DNSSEC** — подпись зоны цифровой подписью, валидация от root до record через chain of trust.
+DNS-ответы можно подделать (DNS cache poisoning, MITM). **DNSSEC** — подпись зоны цифровой подписью, валидация от root до record через цепочку доверия.
 
-- ✓ Гарантирует authenticity и integrity
-- ✗ Не обеспечивает privacy (DNS queries в plain text видны)
+- ✓ Гарантирует подлинность и целостность данных
+- ✗ Не обеспечивает конфиденциальность (DNS-запросы передаются открытым текстом)
 - ✗ Сложная операционно (key rollover)
 - Покрытие: ~30% доменов
 
-**DoH** (DNS over HTTPS, RFC 8484) и **DoT** (DNS over TLS) — шифрование DNS трафика для privacy (Cloudflare 1.1.1.1, Google 8.8.8.8, Quad9 поддерживают).
+**DoH** (DNS over HTTPS, RFC 8484) и **DoT** (DNS over TLS) — шифрование DNS-трафика для обеспечения конфиденциальности (Cloudflare 1.1.1.1, Google 8.8.8.8, Quad9 поддерживают).
 
 ---
 
 ## Инциденты DNS из реальной практики
 
-- **Dyn DDoS (2016-10-21)** — Mirai botnet атаковал Dyn (DNS provider). Twitter, Netflix, Reddit недоступны 5+ часов. Урок: DNS — критическая dependency, не SPOF.
+- **Dyn DDoS (2016-10-21)** — Mirai botnet атаковал Dyn (DNS provider). Twitter, Netflix, Reddit недоступны 5+ часов. Урок: DNS — критическая зависимость, не SPOF.
   → [Wikipedia — 2016 Dyn cyberattack](https://en.wikipedia.org/wiki/2016_Dyn_cyberattack)
 - **Cloudflare 1.1.1.1 BGP leak (2022-06-21)** — region down 90 мин из-за BGP misconfiguration. DNS resolver был частично недоступен.
-- **Facebook outage (2021-10-04)** — внутренний BGP misconfig сделал DNS unreachable; даже инженеры не могли войти в офис (badge readers зависели от DNS).
+- **Facebook outage (2021-10-04)** — внутренний BGP misconfig сделал DNS недоступным; даже инженеры не могли войти в офис (badge readers зависели от DNS).
   → [Cloudflare blog — Facebook DNS-via-BGP outage](https://blog.cloudflare.com/october-2021-facebook-outage/)
 
 **Урок:** имейте альтернативный DNS provider (multi-CDN setup или secondary DNS), не полагайтесь на единственный.
@@ -132,7 +132,7 @@ DNS responses можно подделать (DNS cache poisoning, MITM). **DNSSE
 - «Что происходит, когда я набираю `example.com` в браузере?» — начни с DNS (recursive resolver → root → TLD → authoritative)
 - «Как сделать failover между двумя DC?» — DNS failover routing + health checks
 - «Как направить EU пользователей в EU?» — Geo-DNS
-- «Что если DNS-провайдер недоступен?» — multi-provider DNS, fallback на secondary
+- «Что если DNS-провайдер недоступен?» — multi-provider DNS, переключение на резервный
 
 ---
 

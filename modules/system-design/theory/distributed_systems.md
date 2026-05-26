@@ -72,7 +72,7 @@ Outbox, CQRS, Event Sourcing, SAGA, Circuit Breaker и прочие архите
 
 ## PACELC — расширение CAP
 
-Daniel Abadi (2010) дополнил CAP: при отсутствии partition (`Else`) система всё равно делает trade-off между **L**atency и **C**onsistency.
+Daniel Abadi (2010) дополнил CAP: при отсутствии partition (`Else`) система всё равно делает компромисс между **L**atency и **C**onsistency.
 
 ```
 IF partition (P) THEN     A or C ?       // CAP-выбор
@@ -84,16 +84,16 @@ ELSE                      L or C ?       // PACELC-выбор
 | PostgreSQL (single primary) | **PC** (refuse writes) | **EC** (consistency, sync replication) |
 | Cassandra (default) | **PA** | **EL** (быстрее, eventual) |
 | DynamoDB | **PA** | **EL** (или EC при strongly consistent reads, дороже) |
-| Spanner | **PC** | **EC** (TrueTime даёт consistency почти без latency-цены) |
+| Spanner | **PC** | **EC** (TrueTime даёт consistency почти без цены задержки) |
 | MongoDB (default) | **PA** (после Raft в 4.x — PC) | **EC** для primary reads |
 
-PACELC объясняет, почему «AP-системы» не теряют consistency только при partition — они платят eventual consistency **постоянно**, ради низкой latency.
+PACELC объясняет, почему «AP-системы» не теряют consistency только при partition — они платят eventual consistency **постоянно**, ради низкой задержки.
 
 ---
 
 ## Кворум: R + W > N
 
-Классический trade-off в Dynamo-style системах (Cassandra, Riak): из `N` реплик читай с `R`, пиши на `W`. Если `R + W > N` — read и write пересекаются хотя бы в одной реплике, значит чтение увидит последнюю запись.
+Классический компромисс в Dynamo-style системах (Cassandra, Riak): из `N` реплик читай с `R`, пиши на `W`. Если `R + W > N` — read и write пересекаются хотя бы в одной реплике, значит чтение увидит последнюю запись.
 
 ```
 N=3, W=2, R=2 → R+W=4 > 3 → strong consistency, выдержит падение 1 узла
@@ -122,19 +122,19 @@ N=3, W=1, R=3 → быстрые записи, медленные чтения (
 **Где это в проде:**
 - Cassandra использует **last-write-wins** на основе wall-clock меток времени (упрощение, может терять конкурентные записи).
 - Riak / Voldemort — vector clocks, конфликты разрешает приложение.
-- Postgres logical replication — LSN (log sequence number), вариант Lamport-clock'а.
+- Postgres logical replication — LSN (log sequence number), вариант часов Lamport.
 
 ---
 
 ## Итоговая против строгой согласованности
 
-**Strong consistency** (linearizable: PostgreSQL, ZooKeeper, Spanner): после записи все читают актуальные данные. Цена — latency и availability.
+**Strong consistency** (linearizable: PostgreSQL, ZooKeeper, Spanner): после записи все читают актуальные данные. Цена — задержка и доступность.
 
 **Eventual consistency** (Cassandra, DynamoDB, Redis cache): данные рано или поздно синхронизируются. Читающий может увидеть старое значение. Цена — сложность обработки конфликтов.
 
 **Между ними — целый спектр** (Adya, 2000):
 - **Read-your-writes** — пользователь видит свои собственные обновления (sticky session или чтение с primary).
-- **Monotonic reads** — нельзя «откатиться назад» во времени (читать всегда с одной реплики или с timestamp'ом-границей).
+- **Monotonic reads** — нельзя «откатиться назад» во времени (читать всегда с одной реплики или с меткой времени в качестве границы).
 - **Causal consistency** — если A → B, то все видят их в этом порядке (vector clocks).
 - **Bounded staleness** — отставание не больше X секунд / N версий (Cosmos DB).
 
@@ -144,13 +144,13 @@ N=3, W=1, R=3 → быстрые записи, медленные чтения (
 
 ---
 
-## Real-world failures — чему учиться
+## Реальные сбои — чему учиться
 
 - **GitHub MySQL split-brain (2018-10-21)** — сетевой обрыв 43 секунды между East/West coast привёл к тому, что оба primary приняли записи. Восстановление заняло 24 часа, ~4% данных за окно требовали ручного reconciliation. Постмортем: важность Orchestrator/RAFT-based failover, отказ от auto-failover при cross-region partition.  
   → [GitHub blog — «October 21 post-incident analysis»](https://github.blog/2018-10-30-oct21-post-incident-analysis/)
-- **AWS DynamoDB outage (2015-09-20)** — metadata-сервис не справился с volume запросов после восстановления, всё us-east-1 деградировало на 5 часов. Урок: graceful degradation вместо hard failure.  
+- **AWS DynamoDB outage (2015-09-20)** — metadata-сервис не справился с volume запросов после восстановления, всё us-east-1 деградировало на 5 часов. Урок: плавная деградация вместо жёсткого отказа.  
   → [AWS Service Health Dashboard postmortem](https://aws.amazon.com/message/5467D2/)
-- **Cloudflare Quicksilver (2020-07-17)** — bad config push размножился по всему миру за секунды (нет staged rollout) → 27-минутный глобальный outage.  
+- **Cloudflare Quicksilver (2020-07-17)** — bad config push размножился по всему миру за секунды (нет поэтапного развёртывания) → 27-минутный глобальный сбой.  
   → [Cloudflare blog — «July 17, 2020 — Cloudflare outage»](https://blog.cloudflare.com/cloudflare-outage-on-july-17-2020/)
 - **Knight Capital (2012)** — rolling deployment на 8 серверов, на одном остался старый dead-code flag → $440M потери за 45 минут. Не distributed-incident в строгом смысле, но классика как НЕ катить.  
   → [«A 45-minute, $440M loss» (postmortem reconstruction)](https://www.henricodolfing.ch/en/project-failure-case-studies/)

@@ -16,19 +16,19 @@
       Data: a       Data: b       Data: c       Data: d
 ```
 
-`Root` зависит от **всех** leaf values. Изменение любого `a/b/c/d` → меняется его hash → меняется hash родительского → ... → меняется root.
+`Root` зависит от **всех** значений листьев. Изменение любого `a/b/c/d` → меняется его hash → меняется hash родительского → ... → меняется root.
 
-**Свойство:** comparison двух Merkle trees:
-- Same root → datasets identical
-- Different root → есть differences. Descend tree, finding which branch differs.
+**Свойство:** сравнение двух Merkle trees:
+- Одинаковый корень → датасеты идентичны
+- Разные корни → есть различия. Спускаемся по дереву, находя расходящуюся ветвь.
 
-→ **O(log N)** comparisons вместо O(N) для full diff.
+→ **O(log N)** сравнений вместо O(N) для полного diff.
 
 ---
 
 ## Anti-entropy (фоновая синхронизация)
 
-Distributed system periodically synchronize replicas. Naive: send all data → expensive. С Merkle tree:
+Распределённые системы периодически синхронизируют реплики. Наивный подход: отправить все данные → дорого. С Merkle tree:
 
 ```
 Node A and Node B want to sync:
@@ -45,51 +45,51 @@ Node A and Node B want to sync:
 4. Найти конкретные differing leaves → exchange those data items
 ```
 
-Total bytes sent ≈ proportional к **number of differences**, not total dataset size.
+Итого байт ≈ пропорционально **количеству различий**, а не общему размеру датасета.
 
-### Cassandra example
+### Пример: Cassandra
 
-`nodetool repair` строит Merkle trees на партиции, sync с replicas. Cassandra использует 32-bit hash range = 2^32 = 4 B possible values; tree depth ~ 15 (configurable).
+`nodetool repair` строит Merkle trees на партиции, синхронизируется с репликами. Cassandra использует 32-bit hash range = 2^32 = 4 B possible values; tree depth ~ 15 (configurable).
 
 ### Riak
 
-Active anti-entropy через Merkle trees. Continuous background sync.
+Активная anti-entropy через Merkle trees. Непрерывная фоновая синхронизация.
 
 ### DynamoDB / Amazon Dynamo
 
-Original paper упоминает Merkle trees для replica synchronization.
+Оригинальная статья упоминает Merkle trees для синхронизации реплик.
 
 ---
 
 ## Сценарии
 
-### Distributed Systems
+### Распределённые системы
 
 - **Cassandra repair** — anti-entropy
-- **DynamoDB** — replica sync
-- **Riak** — active anti-entropy
+- **DynamoDB** — синхронизация реплик
+- **Riak** — активная anti-entropy
 
 ### Blockchain
 
-- **Bitcoin / Ethereum** — block header содержит Merkle root всех transactions в блоке. SPV clients verify «transaction X in block Y» через Merkle proof (`O(log N)` proof size).
+- **Bitcoin / Ethereum** — заголовок блока содержит Merkle root всех транзакций в блоке. SPV-клиенты верифицируют «транзакция X в блоке Y» через Merkle proof (`O(log N)` размер доказательства).
 
 ### Git
 
-- **Git** хранит trees (directories) с hashes файлов. Commit = root hash. Pull/push diff делается на дереве хэшей.
+- **Git** хранит деревья (директории) с хэшами файлов. Коммит = корневой хэш. Diff при pull/push вычисляется на дереве хэшей.
 
 ### IPFS
 
-- **Content-addressable storage** — hash файла = его address. Directory с hashes children = Merkle tree.
+- **Content-addressable storage** — хэш файла = его адрес. Директория с хэшами дочерних элементов = Merkle tree.
 
 ### Certificate Transparency
 
-- **Google CT logs** хранят certificates в Merkle tree. Audit possible — «сертификат X был logged?»
+- **Google CT logs** хранят сертификаты в Merkle tree. Возможен аудит — «сертификат X был включён в лог?»
 
 ---
 
 ## Доказательство Merkle (Merkle proof)
 
-«Доказать, что элемент X — часть dataset с известным root», не отправляя весь dataset.
+«Доказать, что элемент X — часть датасета с известным корнем», не отправляя весь датасет.
 
 ```
 Доказать X (= 'c'):
@@ -101,33 +101,33 @@ Original paper упоминает Merkle trees для replica synchronization.
 - Compare Root' к known Root: match → proof valid
 ```
 
-Size of proof: `O(log N)` — height of tree.
+Размер доказательства: `O(log N)` — высота дерева.
 
-### Use case
+### Сценарии применения
 
-- **Light clients (SPV)** in Bitcoin — verify transactions without downloading whole chain
-- **Audit logs** — prove specific record exists
-- **State proofs** — Ethereum light clients verify state без full sync
+- **Light clients (SPV)** в Bitcoin — верификация транзакций без загрузки всей цепи
+- **Audit logs** — доказательство существования конкретной записи
+- **State proofs** — Ethereum light clients верифицируют состояние без полной синхронизации
 
 ---
 
 ## Стоимость построения
 
-Building Merkle tree:
-- Hash all N leaves: O(N)
-- Hash internal nodes: O(N/2 + N/4 + ... + 1) = O(N)
-- Total: **O(N)** for build, **O(log N)** for query/proof
+Построение Merkle tree:
+- Хэшируем все N листьев: O(N)
+- Хэшируем внутренние узлы: O(N/2 + N/4 + ... + 1) = O(N)
+- Итого: **O(N)** для построения, **O(log N)** для запроса/доказательства
 
-Storage: 2N − 1 nodes (full binary tree), but only **logarithmic** part needed for proof.
+Хранение: 2N − 1 узлов (полное бинарное дерево), но для доказательства нужна только **логарифмическая** часть.
 
 ---
 
 ## Стоимость обновления
 
-Insert / update one leaf:
-- Recompute hashes along path к root: **O(log N)**
+Вставка / обновление одного листа:
+- Пересчёт хэшей по пути к корню: **O(log N)**
 
-Updates are cheap, hence Merkle tree works for dynamic datasets.
+Обновления дёшевы, поэтому Merkle tree подходит для динамических датасетов.
 
 ---
 
@@ -135,32 +135,32 @@ Updates are cheap, hence Merkle tree works for dynamic datasets.
 
 ### Sparse Merkle Tree
 
-Tree большого fixed size (e.g., 2^256 leaves). Большинство leaves empty (`hash("")`). Used in Ethereum 2.0 for account state.
+Дерево большого фиксированного размера (например, 2^256 листьев). Большинство листьев пустые (`hash("")`). Используется в Ethereum 2.0 для состояния аккаунтов.
 
 ### Patricia Merkle Trie
 
-Combines Patricia trie (radix tree) с Merkle hashing. Ethereum uses for state, transaction, receipt tries.
+Сочетает Patricia trie (radix tree) с Merkle hashing. Ethereum использует для деревьев состояния, транзакций и квитанций.
 
 ### Verkle Tree
 
-Replacement for Merkle Patricia trie in Ethereum future. Vector commitments → much smaller proofs.
+Замена Merkle Patricia trie в будущих версиях Ethereum. Векторные обязательства → значительно меньший размер доказательств.
 
 ---
 
 ## Подводные камни
 
-- **Pre-image attack** — if hash function broken (MD5, SHA-1), tree integrity compromised. Use SHA-256 or stronger.
-- **Tree depth** — too deep → slow updates. Wide trees (more children per node) reduce depth but increase update cost.
-- **Concurrent updates** — naive Merkle tree can't be concurrently updated (root changes serialize). Riak, Cassandra implement lock-free variants.
+- **Pre-image attack** — если хэш-функция сломана (MD5, SHA-1), целостность дерева нарушена. Используйте SHA-256 или более стойкий алгоритм.
+- **Глубина дерева** — слишком глубокое → медленные обновления. Широкие деревья (больше дочерних узлов) уменьшают глубину, но увеличивают стоимость обновления.
+- **Параллельные обновления** — наивное Merkle tree не поддерживает параллельное обновление (изменения корня сериализуются). Riak и Cassandra реализуют lock-free варианты.
 
 ---
 
 ## Числа из продакшена
 
-- **Cassandra:** Merkle trees per partition during repair, depth 15
-- **Git:** SHA-1 (legacy) → moving to SHA-256
-- **Bitcoin:** SHA-256 hashes, depth ~ 20-30 в a typical block
-- **Ethereum state trie:** keccak-256, Patricia Merkle Trie, can reach depth 64+
+- **Cassandra:** Merkle trees на каждую партицию в ходе repair, глубина 15
+- **Git:** SHA-1 (legacy) → переходит на SHA-256
+- **Bitcoin:** SHA-256 hashes, глубина ~ 20–30 в типичном блоке
+- **Ethereum state trie:** keccak-256, Patricia Merkle Trie, глубина может достигать 64+
 
 ---
 

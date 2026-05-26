@@ -2,13 +2,13 @@
 
 Защита от атак: DDoS (исчерпание ресурсов), на уровне приложения (SQLi, XSS, SSRF), credential attacks. Многоуровневая защита — единого средства от всего нет.
 
-> **Scope:** edge-уровень защиты (rate limiting, WAF, DDoS mitigation). Application-level auth (JWT/OAuth) — [`identity_providers.md`](identity_providers.md). Secrets ops — [`infrastructure/SECRETS.md`](../../infrastructure/theory/SECRETS.md). Тестирование безопасности (SAST/DAST/pentest) — [`software-engineering/TESTING.md`](../../software-engineering/theory/TESTING.md).
+> **Охват:** edge-уровень защиты (rate limiting, WAF, DDoS mitigation). Аутентификация на уровне приложения (JWT/OAuth) — [`identity_providers.md`](identity_providers.md). Secrets ops — [`infrastructure/SECRETS.md`](../../infrastructure/theory/SECRETS.md). Тестирование безопасности (SAST/DAST/pentest) — [`software-engineering/TESTING.md`](../../software-engineering/theory/TESTING.md).
 
 ---
 
 ## Виды DDoS
 
-### Volumetric (Layer 3–4)
+### Объёмные атаки (Layer 3–4)
 
 Заваливают полосу пропускания / сетевыми пакетами.
 
@@ -22,7 +22,7 @@
 
 **Защита:** поглощение на пограничных узлах (Cloudflare / Akamai / AWS Shield — суммарная пропускная способность сети 100+ Тбит/с).
 
-### Protocol (Layer 4)
+### Протокольные атаки (Layer 4)
 
 Эксплуатируют реализацию протокола:
 - **Slowloris** — медленные HTTP-запросы, держат соединения открытыми
@@ -31,14 +31,14 @@
 
 **Защита:** rate limit per IP, отбрасывание плохих пакетов.
 
-### Application (Layer 7)
+### Атаки на уровне приложения (Layer 7)
 
 Запросы выглядят легитимно, но либо слишком объёмные, либо асимметрично дорогие.
 
 - **HTTP flood** — миллион GET в секунду
 - **Cache busting** — разные query string, обход CDN
 - **Login brute force** — credential stuffing
-- **API enumeration** — обнаружение endpoints
+- **API enumeration** — обнаружение конечных точек
 
 **Сложнее обнаружить:** выглядит как реальный трафик, и даже небольшого объёма достаточно, если каждый запрос дорого обходится бэкенду.
 
@@ -46,7 +46,7 @@
 
 ---
 
-## DDoS Mitigation
+## Противодействие DDoS
 
 ### Поглощение на пограничных узлах (CDN)
 
@@ -54,7 +54,7 @@ Cloudflare / Akamai / AWS Shield распределяют атаку по 200+ P
 
 - Cloudflare заявляет «unmetered DDoS protection» на всех планах
 - AWS Shield Standard — бесплатно для пользователей CloudFront / Route 53
-- AWS Shield Advanced (~$3K/мес) — добавляет 24/7 response team и cost protection
+- AWS Shield Advanced (~$3K/мес) — добавляет круглосуточную команду реагирования и защиту от финансовых потерь
 
 ### SYN cookies (Layer 4)
 
@@ -81,13 +81,13 @@ Application-level (Redis + Lua):
 
 ### Кэширование
 
-Статика кэшируется на edge — 99% запросов обслуживаются без обращения к origin. Атаки на cacheable endpoints просто поглощаются.
+Статика кэшируется на edge — 99% запросов обслуживаются без обращения к origin. Атаки на кэшируемые конечные точки просто поглощаются.
 
 ### Geofencing
 
 Блок или ограничение трафика из конкретных стран — полезно, если бизнес там не работает.
 
-### Behavioral analysis
+### Поведенческий анализ
 
 ML / эвристики ловят аномалии:
 - Резкий рост запросов с одного IP
@@ -119,19 +119,19 @@ ML / эвристики ловят аномалии:
 1. **Detection mode** — только логирование нарушений (период обучения)
 2. **Blocking mode** — возврат 403 или challenge
 
-**Паттерн:** начать с detection, отстроить правила (false positives), переключить в blocking.
+**Паттерн:** начать с detection, отстроить правила (ложные срабатывания), переключить в blocking.
 
-### False positives
+### Ложные срабатывания
 
 Распространённое явление — WAF блокирует легитимный запрос. Примеры:
 - Тело статьи содержит `<script>` как пример → блок как XSS
 - Поисковый запрос с «UNION» → блок как SQLi
 - Пользователь загружает .pdf → блок по правилу для файлов
 
-**Митигации:**
+**Способы защиты:**
 - Кастомные правила под известные паттерны
-- Per-endpoint правила (слабее для admin-only endpoints)
-- Whitelist для доверенных пользователей / IP
+- Правила уровня отдельной конечной точки (слабее для admin-only конечных точек)
+- Белый список для доверенных пользователей / IP
 
 ### WAF-продукты
 
@@ -143,7 +143,7 @@ ML / эвристики ловят аномалии:
 
 ---
 
-## Bot Management
+## Управление ботами
 
 Различение человек vs бот.
 
@@ -154,11 +154,11 @@ ML / эвристики ловят аномалии:
 
 ### Методы детекции
 
-- **User-Agent analysis** — известные «плохие» UA-строки
+- **Анализ User-Agent** — известные «плохие» UA-строки
 - **JavaScript challenge** — выдаём JS, который выполняют настоящие браузеры; headless-браузеры спотыкаются
 - **CAPTCHA** — Google reCAPTCHA, hCaptcha, Cloudflare Turnstile
 - **Device fingerprinting** — Canvas, WebGL, отпечатки шрифтов
-- **Behavioral** — движения мыши, паттерны набора, навигационный flow
+- **Поведенческий анализ** — движения мыши, паттерны набора, навигационный flow
 
 ### Закат CAPTCHA
 
@@ -168,18 +168,18 @@ reCAPTCHA v2 (картинки) → v3 (невидимый скоринг) → �
 
 ---
 
-## API security
+## Безопасность API
 
-REST-API сталкиваются с другими векторами, чем браузерные приложения.
+REST-API сталкиваются с другими векторами атак, чем браузерные приложения.
 
 ### Аутентификация
 
-- API-ключи (в header) — просто, но утекают через репозитории / browser inspector
+- API-ключи (в заголовке) — просто, но утекают через репозитории / browser inspector
 - OAuth2 access tokens — короткий TTL, refresh rotation
 - mTLS — для критичного B2B (банкинг, fintech)
-- HMAC signing — request signing в стиле AWS
+- HMAC signing — подпись запросов в стиле AWS
 
-### Rate limiting per API key
+### Ограничение скорости по API-ключу
 
 ```
 Free tier: 100 запросов/мин
@@ -189,24 +189,24 @@ Enterprise: без лимита, но с мониторингом
 
 Реализация — собственный rate limiter (см. design problem) или managed-сервис (Kong, Tyk, Apigee).
 
-### Schema validation
+### Валидация схемы
 
-Отбрасывать malformed-запросы как можно раньше, до бизнес-логики.
+Отбрасывать некорректные запросы как можно раньше, до бизнес-логики.
 
 - Валидация OpenAPI / JSON Schema на edge
 - В gRPC схема встроена (Protobuf)
 
-### Input validation
+### Валидация входных данных
 
 Никогда не доверять клиентскому вводу:
-- Лимиты длины (защита от огромных payload'ов)
+- Лимиты длины (защита от огромных полезных нагрузок)
 - Проверка типов
-- Range checks (отрицательные числа там, где не должно быть)
-- Whitelist допустимых значений (enums)
+- Проверка диапазонов (отрицательные числа там, где не должно быть)
+- Белый список допустимых значений (enums)
 
-### Output encoding
+### Кодирование вывода
 
-Защита от XSS: escape вывода в зависимости от контекста (HTML, JavaScript, URL).
+Защита от XSS: экранирование вывода в зависимости от контекста (HTML, JavaScript, URL).
 
 ### CORS
 
@@ -226,7 +226,7 @@ Access-Control-Allow-Credentials: true
 Браузер отправляет cookies на любой запрос к домену. Страница атакующего делает скрытый запрос к вашему API.
 
 **Защита:**
-- **SameSite cookies** (`Lax`, `Strict`) — default в современных браузерах
+- **SameSite cookies** (`Lax`, `Strict`) — по умолчанию в современных браузерах
 - **CSRF-токены** — сервер выдаёт на сессию, клиент обязан включить в запрос
 - **JWT в заголовке Authorization** — не отправляется автоматически, как cookies, и неуязвим к CSRF
 
@@ -234,15 +234,15 @@ Access-Control-Allow-Credentials: true
 
 ## Zero Trust / BeyondCorp
 
-BeyondCorp от Google (2010-е) — отказ от network-perimeter security. Каждый запрос аутентифицируется и авторизуется независимо от сетевого расположения.
+BeyondCorp от Google (2010-е) — отказ от периметровой защиты сети. Каждый запрос аутентифицируется и авторизуется независимо от сетевого расположения.
 
 ### Принципы
 
-- **Никаких trusted networks** — корпоративная сеть ≠ доверенная
-- **Device authentication** — managed-устройства (корпоративный ноутбук) аутентифицируются
-- **User identity verification** — сильная аутентификация (SSO + MFA)
-- **Continuous evaluation** — risk score на каждом запросе, а не только при логине
-- **Least privilege** — доступ per-resource, на ограниченное время
+- **Никаких доверенных сетей** — корпоративная сеть ≠ доверенная
+- **Аутентификация устройства** — managed-устройства (корпоративный ноутбук) аутентифицируются
+- **Проверка личности пользователя** — сильная аутентификация (SSO + MFA)
+- **Непрерывная оценка** — risk score на каждом запросе, а не только при логине
+- **Минимальные привилегии** — доступ per-resource, на ограниченное время
 
 ### Реализации
 
@@ -258,7 +258,7 @@ BeyondCorp от Google (2010-е) — отказ от network-perimeter security.
 
 - **Dyn DDoS (2016)** — Mirai IoT-ботнет, 1.2 Тбит/с. Twitter, Reddit, Netflix лежали.
 - **GitHub DDoS (28.02.2018)** — 1.35 Тбит/с, Memcached amplification. Восстановление за 10 мин через Akamai Prolexic.
-- **AWS DDoS (02.2020)** — 2.3 Тбит/с. Митигировано AWS Shield.
+- **AWS DDoS (02.2020)** — 2.3 Тбит/с. Отражено с помощью AWS Shield.
 - **Capital One breach (2019)** — SSRF-атака на неверно сконфигурированный AWS WAF + IAM. 100M+ записей.
 - **Equifax (2017)** — уязвимость Apache Struts (CVE-2017-5638). 147M записей.
 
@@ -266,11 +266,11 @@ BeyondCorp от Google (2010-е) — отказ от network-perimeter security.
 
 ## Антипаттерны
 
-- **Один уровень защиты** — только firewall, или только WAF. Нужен defense in depth: CDN + DDoS + WAF + rate limit + auth + мониторинг.
+- **Один уровень защиты** — только фаервол, или только WAF. Нужна глубокая эшелонированная защита: CDN + DDoS + WAF + rate limit + auth + мониторинг.
 - **«Security by obscurity»** — секретные URL, кастомные обфусцированные токены. Не работает.
-- **WAF без тюнинга** — сразу full block mode → много false positives → жалобы пользователей → WAF отключают.
-- **Доверие client-side валидации** — JS проверяет, сервер не проверяет.
-- **Долгоживущие API-ключи** — утечка не замечается, эксплуатируется месяцами. Нужна rotation policy.
+- **WAF без тюнинга** — сразу full block mode → много ложных срабатываний → жалобы пользователей → WAF отключают.
+- **Доверие клиентской валидации** — JS проверяет, сервер не проверяет.
+- **Долгоживущие API-ключи** — утечка не замечается, эксплуатируется месяцами. Нужна политика ротации.
 - **Один ключ на все окружения** — утечка из staging компрометирует prod.
 
 ---

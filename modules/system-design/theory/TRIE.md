@@ -22,7 +22,7 @@
 
 `apple`, `app`, `ate`, `bat`, `car`.
 
-### Node
+### Узел
 
 ```python
 class TrieNode:
@@ -31,7 +31,7 @@ class TrieNode:
     metadata: any  # frequency, score, etc.
 ```
 
-### Operations
+### Операции
 
 ```python
 def insert(word):
@@ -59,20 +59,20 @@ def starts_with(prefix) → list[str]:
     return collect_all_words(node, prefix)
 ```
 
-### Complexity
+### Сложность
 
-- Insert / Search: `O(L)` where L = word length
-- Space: `O(N × L × alphabet_size)` worst, much less with compression
+- Вставка / Поиск: `O(L)` где L = длина слова
+- Память: `O(N × L × alphabet_size)` в худшем случае, значительно меньше при сжатии
 
 ---
 
 ## Автодополнение с ранжированием
 
-Real autocomplete (Google, Amazon search box) показывает **top-K most popular** suggestions, не все.
+Реальное автодополнение (строка поиска Google, Amazon) показывает **top-K наиболее популярных** вариантов, а не все.
 
-### Подход 1 — top-K per node
+### Подход 1 — top-K на узел
 
-Каждый node хранит pre-computed top-K suggestions для своего prefix.
+Каждый узел хранит заранее вычисленные top-K подсказки для своего префикса.
 
 ```python
 class TrieNode:
@@ -80,36 +80,36 @@ class TrieNode:
     top_k: list[str]  # pre-sorted by frequency, top K
 ```
 
-При query `"app"`:
-- Navigate to node for "app"
-- Return `node.top_k` — instant
+При запросе `"app"`:
+- Переходим к узлу для "app"
+- Возвращаем `node.top_k` — мгновенно
 
-**Trade-off:**
-- ✓ O(L) query time + O(K) result return — very fast
-- ✗ Memory: each node stores top-K (можно дёшево если K=10)
-- ✗ Update cost: when frequency changes, may need to update top-K в multiple nodes (along path)
+**Компромисс:**
+- ✓ O(L) время запроса + O(K) возврат результатов — очень быстро
+- ✗ Память: каждый узел хранит top-K (дёшево при K=10)
+- ✗ Стоимость обновления: при изменении частоты может потребоваться обновить top-K в нескольких узлах (вдоль пути)
 
-### Подход 2 — search-then-rank
+### Подход 2 — поиск с последующим ранжированием
 
-Trie returns all suggestions, then external ranker sorts:
+Trie возвращает все варианты, затем внешний ранжировщик сортирует их:
 
 ```python
 suggestions = trie.starts_with("app")  # all
 ranked = sort(suggestions, key=frequency_lookup, descending=True)[:10]
 ```
 
-- ✓ Memory minimal
-- ✗ Slow if many suggestions (top of search «r» — миллионы results)
+- ✓ Минимальное потребление памяти
+- ✗ Медленно при большом числе вариантов (поиск по «r» — миллионы результатов)
 
-### Подход 3 — combine: per-popular-prefixes
+### Подход 3 — комбинированный: top-K для популярных префиксов
 
-Cache top-K только для popular prefixes (first 2-3 chars). Otherwise — full search.
+Кэшируем top-K только для популярных префиксов (первые 2–3 символа). В остальных случаях — полный поиск.
 
 ---
 
 ## Сжатый Trie (Radix / Patricia)
 
-**Idea:** if a node has only one child — merge them.
+**Идея:** если у узла единственный потомок — объединяем их.
 
 ```
 Standard:           Compressed:
@@ -124,49 +124,49 @@ Standard:           Compressed:
  e
 ```
 
-- ✓ Меньше nodes — меньше memory
-- ✓ Faster traversal
-- ✗ Insert / delete сложнее (need split/merge)
+- ✓ Меньше узлов — меньше памяти
+- ✓ Более быстрый обход
+- ✗ Вставка / удаление сложнее (нужно разбиение/слияние)
 
-**Use case:** IP routing tables (Linux kernel uses Patricia trie), URL routing in Web frameworks.
+**Применение:** таблицы IP-маршрутизации (ядро Linux использует Patricia trie), маршрутизация URL в веб-фреймворках.
 
 ---
 
 ## Использования
 
-### Search autocomplete / typeahead
+### Автодополнение / typeahead
 
-Главное use case. Google search, Amazon, YouTube — все так работают.
+Основной сценарий использования. Google search, Amazon, YouTube — все так работают.
 
-### Spell checking
+### Проверка орфографии
 
-«Find words within edit distance 1 от misspelled». Trie + dynamic programming over Trie.
+«Найти слова с редакционным расстоянием 1 от неправильно написанного». Trie + динамическое программирование по Trie.
 
-### IP routing (CIDR longest-prefix match)
+### IP-маршрутизация (CIDR, поиск наидлиннейшего совпадающего префикса)
 
-Routing table — set of CIDR prefixes (`192.168.0.0/16`, `10.0.0.0/8`, ...). For each packet, find **longest matching prefix**.
+Таблица маршрутизации — набор CIDR-префиксов (`192.168.0.0/16`, `10.0.0.0/8`, ...). Для каждого пакета ищем **наиболее длинный совпадающий префикс**.
 
-Patricia trie по bits.
+Patricia trie по битам.
 
-### Word search / Boggle
+### Поиск слов / Boggle
 
-Find all words в grid. Trie + DFS.
+Находим все слова в сетке. Trie + DFS.
 
 ### URL routing
 
-Web framework matches `/users/:id/posts` → router uses trie (or radix trie) over path segments.
+Веб-фреймворк сопоставляет `/users/:id/posts` → маршрутизатор использует trie (или radix trie) по сегментам пути.
 
 ---
 
 ## Распределённое автодополнение (масштаб)
 
-Single-node trie:
-- Memory: ~ 1 GB для 10M words
-- Throughput: ~ 100K queries/sec on single core
+Trie на одном узле:
+- Память: ~ 1 ГБ для 10M слов
+- Пропускная способность: ~ 100K запросов/с на одно ядро
 
-**Scale beyond:**
+**Масштабирование:**
 
-### Shard by prefix
+### Шардирование по префиксу
 
 ```
 Shard 1: prefixes a-d
@@ -174,20 +174,20 @@ Shard 2: prefixes e-h
 ...
 ```
 
-Router dispatches query к correct shard based on prefix.
+Маршрутизатор отправляет запрос к нужному шарду на основе префикса.
 
-### Replicate read-only
+### Репликация для чтения
 
-Trie immutable (rebuilt daily / hourly). Many read replicas, blue-green deploys.
+Trie неизменяем (перестраивается ежедневно / ежечасно). Много реплик для чтения, blue-green развёртывание.
 
-### Hybrid: in-memory trie + Redis cache
+### Гибрид: in-memory trie + Redis cache
 
-- Hot prefixes cached in app memory
-- Cold misses fetch from Redis (where full trie lives)
+- Горячие префиксы кэшируются в памяти приложения
+- При промахе — загружаем из Redis (где живёт полный trie)
 
-### Edge / CDN
+### Пограничные узлы / CDN
 
-Search autocomplete suggestions cached at CDN edge (TTL ~1 minute). Stale OK для typeahead.
+Подсказки автодополнения кэшируются на пограничных узлах CDN (TTL ~1 минута). Устаревшие данные допустимы для typeahead.
 
 ---
 
@@ -195,57 +195,57 @@ Search autocomplete suggestions cached at CDN edge (TTL ~1 minute). Stale OK д�
 
 ### Suffix tree / suffix array
 
-Для substring search (not just prefix). Build cost O(N), search O(M) (M = pattern length).
+Для поиска подстроки (не только префикса). Стоимость построения O(N), поиска O(M) (M = длина шаблона).
 
 ### DAWG (Directed Acyclic Word Graph)
 
-Minimized trie — merges suffixes too. More compact, but harder to update.
+Минимизированный trie — объединяет также и суффиксы. Более компактен, но сложнее в обновлении.
 
-### Inverted index (Lucene / Elasticsearch)
+### Инвертированный индекс (Lucene / Elasticsearch)
 
-Сложнее, поддерживает full-text search (tokenization, stemming, scoring). Autocomplete как special case (edge-ngram tokenizer).
+Сложнее, поддерживает полнотекстовый поиск (токенизация, стемминг, ранжирование). Автодополнение — частный случай (токенизатор edge-ngram).
 
 ### Pre-computed Top-K maps
 
-`HashMap<prefix, top_k_list>` для frequently queried prefixes (1-3 chars). Simple, works for high traffic prefixes.
+`HashMap<prefix, top_k_list>` для часто запрашиваемых префиксов (1–3 символа). Просто, хорошо работает для высоконагруженных префиксов.
 
 ### Bloom filter + DB
 
-Bloom filter «is there any suggestion?» → if yes, lookup в Redis. Saves DB load for misses.
+Bloom filter «есть ли варианты?» → если да, смотрим в Redis. Снижает нагрузку на БД при промахах.
 
 ---
 
-## Real-world examples
+## Реальные примеры
 
-- **Google Search Autocomplete** — custom trie + ML ranking + personalization
-- **Amazon Search** — trie + product category boosting
-- **Twitter typeahead** — trie за Elasticsearch
-- **LinkedIn typeahead** — Cleo (in-house, open-sourced)
-- **Elasticsearch Completion Suggester** — FST-backed (Finite State Transducer — compressed trie variant)
-
----
-
-## Implementation tips
-
-- **Char vs unicode** — for non-ASCII (Cyrillic, emoji, CJK), Trie node children = `Map<Int, TrieNode>` (Unicode codepoints) или smaller alphabet (Unicode normalization)
-- **Case-insensitive** — normalize to lowercase before insert/search
-- **Stop words** — exclude «the», «a», «an» if not relevant
-- **Stemming** — «running» → «run» before insert (Snowball stemmer)
-- **Fuzzy search** — DFS with edit distance budget (slow for large datasets; use BK-tree or LSH instead)
+- **Google Search Autocomplete** — кастомный trie + ML-ранжирование + персонализация
+- **Amazon Search** — trie + буст по категориям товаров
+- **Twitter typeahead** — trie поверх Elasticsearch
+- **LinkedIn typeahead** — Cleo (внутренняя разработка, открытый исходный код)
+- **Elasticsearch Completion Suggester** — на базе FST (Finite State Transducer — сжатый вариант trie)
 
 ---
 
-## Performance numbers
+## Советы по реализации
 
-| Operation | Latency | Memory |
+- **Символы vs Unicode** — для не-ASCII (кириллица, emoji, CJK) дочерние узлы Trie = `Map<Int, TrieNode>` (Unicode codepoints) или меньший алфавит (нормализация Unicode)
+- **Регистронезависимость** — нормализуем к нижнему регистру перед вставкой/поиском
+- **Стоп-слова** — исключаем «the», «a», «an» если не нужны
+- **Стемминг** — «running» → «run» перед вставкой (Snowball stemmer)
+- **Нечёткий поиск** — DFS с бюджетом редакционного расстояния (медленно для больших данных; лучше BK-tree или LSH)
+
+---
+
+## Показатели производительности
+
+| Операция | Задержка | Память |
 |-----------|---------|--------|
-| Insert 1M words | ~ 1 sec | ~ 200 MB |
-| Insert 10M words | ~ 15 sec | ~ 2 GB |
-| Single search (5 chars) | < 1 µs | — |
-| Top-K (K=10) lookup | 1-5 µs | — |
-| Throughput | 100K-1M ops/sec single core | — |
+| Вставка 1M слов | ~ 1 с | ~ 200 МБ |
+| Вставка 10M слов | ~ 15 с | ~ 2 ГБ |
+| Единичный поиск (5 символов) | < 1 µs | — |
+| Поиск top-K (K=10) | 1–5 µs | — |
+| Пропускная способность | 100K–1M операций/с на одно ядро | — |
 
-→ Single-node Trie handles millions of words easily. Sharding нужен только > 100M unique words.
+→ Trie на одном узле легко обрабатывает миллионы слов. Шардирование нужно только при > 100M уникальных слов.
 
 ---
 

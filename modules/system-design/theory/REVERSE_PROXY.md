@@ -15,7 +15,7 @@ Client → Forward Proxy → Internet → Server
          (вышел из корпоративной сети)
 ```
 
-**Reverse proxy** — на стороне **сервера**, скрывает топологию backend от клиента. Все современные web-сервисы.
+**Reverse proxy** — на стороне **сервера**, скрывает топологию бэкенда от клиента. Все современные web-сервисы.
 
 ```
 Client → Reverse Proxy → Backend Pool
@@ -26,7 +26,7 @@ Client → Reverse Proxy → Backend Pool
 
 ## Что делает reverse proxy (типичные функции)
 
-1. **Load balancing** — распределение по backend (см. [LOAD_BALANCER.md](LOAD_BALANCER.md))
+1. **Load balancing** — распределение по бэкендам (см. [LOAD_BALANCER.md](LOAD_BALANCER.md))
 2. **TLS termination** — разворачивает HTTPS на edge
 3. **Request routing** — `/api/* → service-a`, `/static/* → CDN/S3`
 4. **Caching** — простой Cache-Control + объекты в local disk/RAM
@@ -35,7 +35,7 @@ Client → Reverse Proxy → Backend Pool
 7. **Auth** — JWT validation, OAuth2, mTLS
 8. **WAF** — OWASP rules (Web Application Firewall)
 9. **Header manipulation** — add `X-Forwarded-For`, strip internal headers
-10. **Connection pooling** — keep-alive с backend, multiplexing HTTP/2
+10. **Connection pooling** — keep-alive с бэкендом, multiplexing HTTP/2
 
 ---
 
@@ -56,13 +56,13 @@ Client → Reverse Proxy → Backend Pool
 - Worker-based architecture (не event loop как Envoy)
 - Ограниченное в HTTP/3, gRPC (есть, но не первый класс)
 
-**Когда выбирать:** classic web (static + dynamic backend), низкая динамика конфигурации.
+**Когда выбирать:** classic web (static + dynamic бэкенд), низкая динамика конфигурации.
 
 ### HAProxy (1999-2002, by Willy Tarreau)
 
 **Сильные стороны:**
 - Самый быстрый L4/L7 (С + custom event loop)
-- Excellent observability (stats page, health states)
+- Excellent наблюдаемость (stats page, health states)
 - TCP mode (database proxy, любые TCP-based)
 - Stick tables (sessions, rate limit) с в memory
 
@@ -70,7 +70,7 @@ Client → Reverse Proxy → Backend Pool
 - Менее распространён чем Nginx
 - Простой config, но не template-friendly (нужен Confd/Consul-template)
 
-**Когда выбирать:** высокий QPS, TCP load balancing, нужна точная observability.
+**Когда выбирать:** высокий QPS, TCP load balancing, нужна точная наблюдаемость.
 
 ### Envoy (2016, by Lyft)
 
@@ -85,7 +85,7 @@ Client → Reverse Proxy → Backend Pool
 - Сложнее в настройке (control plane нужен — Istio Pilot, custom)
 - Resource-heavier (Go control plane + C++ data plane)
 
-**Когда выбирать:** service mesh, K8s, gRPC-heavy, динамические backend (auto-scaling).
+**Когда выбирать:** service mesh, K8s, gRPC-heavy, динамические бэкенды (auto-scaling).
 
 ### Traefik (2015, Containous)
 
@@ -95,7 +95,7 @@ Client → Reverse Proxy → Backend Pool
 - Dashboard
 
 **Слабые места:**
-- Меньше features чем Envoy
+- Меньше возможностей чем Envoy
 - Performance ниже Nginx/HAProxy
 
 **Когда выбирать:** small-to-medium K8s, простой ingress без service mesh.
@@ -112,14 +112,14 @@ Client → Reverse Proxy → Backend Pool
 | Routing | Path/host-based | Path + API contract (OpenAPI/GraphQL) | Service-to-service |
 | Auth | Basic JWT | OAuth2/OIDC full flow | mTLS identity |
 | Rate limit | IP-based | Per-API key / tier | Per-service |
-| Observability | Logs | + API analytics | + Distributed tracing, per-call |
+| Наблюдаемость | Logs | + API analytics | + Distributed tracing, per-call |
 | Examples | Nginx, HAProxy | Kong, Apigee, Tyk, AWS API Gateway | Istio, Linkerd, Consul Connect |
 
 **Service Mesh** добавляет infrastructure для inter-service communication (mTLS, retries, circuit breaker) **без изменения кода**. Цена — N×2 sidecars (envoy + app в каждом pod), сложность операционная.
 
 ---
 
-## Common configurations
+## Типичные конфигурации
 
 ### Path-based routing
 
@@ -178,7 +178,7 @@ location / {
 
 ## X-Forwarded-* headers
 
-Когда есть chain `Client → CDN → LB → App`, app видит CDN/LB IP вместо клиента. Headers решают:
+Когда есть chain `Client → CDN → LB → App`, приложение видит CDN/LB IP вместо клиента. Headers решают:
 
 ```
 X-Forwarded-For: <client_ip>, <proxy1_ip>, <proxy2_ip>
@@ -187,7 +187,7 @@ X-Forwarded-Host: example.com       (оригинальный Host)
 X-Real-IP: <client_ip>              (Nginx-specific, single client IP)
 ```
 
-**Security pitfall:** клиент может **подделать** `X-Forwarded-For` если LB / proxy его не перезаписывает. Trust только если LB обеспечивает (CloudFront, ALB перезаписывают).
+**Security pitfall:** клиент может **подделать** `X-Forwarded-For` если LB / proxy его не перезаписывает. Доверять только если LB обеспечивает (CloudFront, ALB перезаписывают).
 
 **Modern alternative:** `Forwarded` header (RFC 7239), стандартизированный формат, но менее распространён.
 
@@ -195,7 +195,7 @@ X-Real-IP: <client_ip>              (Nginx-specific, single client IP)
 
 ## Connection pooling
 
-Proxy держит **keep-alive connections** к backend, переиспользует для разных клиентов. Без pooling: каждый клиент = новый TCP+TLS handshake (~ 50ms на TLS). С pooling: переиспользование = 0ms overhead.
+Прокси держит **постоянные соединения (keep-alive)** к бэкенду, переиспользует для разных клиентов. Без pooling: каждый клиент = новый TCP+TLS рукопожатие (handshake) (~ 50ms на TLS). С pooling: переиспользование = 0ms overhead.
 
 ```nginx
 upstream backend {
@@ -225,12 +225,12 @@ Ingress controller (Nginx/Traefik) в Deployment, обычно 2+ replicas, expo
 
 ---
 
-## Real-world considerations
+## Практические соображения
 
-- **Buffer size tuning:** Nginx `proxy_buffers` для slow clients (нужно много буфера) vs быстрых (мало). По умолчанию ~4 KB × 8 — обычно мало для крупных responses.
-- **Timeouts:** `proxy_read_timeout` (60s default) — может убить долгие SSE / WebSocket. Поднять до 3600s для streaming.
-- **HTTP/2 to backend:** Nginx supports HTTP/2 client-facing, **но не backend-facing** до 1.25+. Envoy / HAProxy 2+ — оба направления.
-- **Logging cost:** access log на каждый request — IO-heavy. Buffer + async + sampling в hot path.
+- **Buffer size tuning:** Nginx `proxy_buffers` для slow clients (нужно много буфера) vs быстрых (мало). По умолчанию ~4 KB × 8 — обычно мало для крупных ответов.
+- **Timeouts:** `proxy_read_timeout` (60s default) — может убить долгие SSE / WebSocket. Поднять до 3600s для потоковой передачи.
+- **HTTP/2 к бэкенду:** Nginx supports HTTP/2 client-facing, **но не backend-facing** до 1.25+. Envoy / HAProxy 2+ — оба направления.
+- **Logging cost:** access log на каждый запрос — IO-heavy. Buffer + async + sampling в hot path.
 
 ---
 

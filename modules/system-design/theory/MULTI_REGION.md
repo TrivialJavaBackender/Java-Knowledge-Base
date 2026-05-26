@@ -19,7 +19,7 @@
 
 ### Active-Passive (Hot-Cold)
 
-Один регион **primary**, остальные **standby**: получают replicated данные, не serve traffic.
+Один регион **primary**, остальные **standby**: получают реплицированные данные, не обслуживают трафик.
 
 ```
 US-East (primary) — все writes и reads
@@ -28,17 +28,17 @@ EU (passive)      — копия данных, idle servers
 APAC (passive)    — копия
 ```
 
-**Failover:** при failure US-East — promotion EU primary, DNS switch, restart services.
+**Переключение на резерв:** при сбое US-East — продвижение EU в primary, переключение DNS, перезапуск сервисов.
 
-- ✓ Просто: нет conflict resolution
-- ✓ Strong consistency (один primary)
-- ✓ Wasted capacity (passive-регионы простаивают) — обратная сторона
+- ✓ Просто: нет разрешения конфликтов
+- ✓ Строгая согласованность (один primary)
+- ✓ Неиспользуемая мощность (passive-регионы простаивают) — обратная сторона
 - ✗ Высокий RTO (восстановление 5–30 минут)
-- ✗ Для пользователей EU/APAC latency = cross-region
+- ✗ Для пользователей EU/APAC задержка = межрегиональная
 
 ### Active-Active (Hot-Hot)
 
-**Каждый регион принимает writes и reads.** Replication peer-to-peer.
+**Каждый регион принимает записи и чтения.** Репликация peer-to-peer.
 
 ```
 US-East ←→ EU ←→ APAC
@@ -46,16 +46,16 @@ US-East ←→ EU ←→ APAC
   Users    Users    Users
 ```
 
-- ✓ Low latency для всех пользователей (local region)
-- ✓ No wasted capacity
-- ✓ Region outage не критично (другие живут)
-- ✗ **Conflict resolution** при concurrent writes одного ключа
-- ✗ Eventual consistency между regions (50-200ms typical lag)
-- ✗ Сложность в operations
+- ✓ Низкая задержка для всех пользователей (локальный регион)
+- ✓ Нет неиспользуемой мощности
+- ✓ Отказ региона не критичен (другие живут)
+- ✗ **Разрешение конфликтов** при параллельных записях одного ключа
+- ✗ Eventual consistency между регионами (типичная задержка 50–200 мс)
+- ✗ Сложность в эксплуатации
 
 ### Hybrid (Active-Passive с edge cache)
 
-Active в одном регионе, **CDN / read replicas** в других для local reads.
+Активен один регион, **CDN / read replicas** в других для локальных чтений.
 
 ```
 US-East (writes + reads)
@@ -64,20 +64,20 @@ EU read replica (только reads, локальная latency)
 APAC read replica
 ```
 
-- ✓ Local reads (но cached, eventual)
-- ✓ Local latency для read-heavy apps (news, social, content)
-- ✗ Writes идут в primary cross-region (medium latency)
+- ✓ Локальные чтения (но закэшированные, eventual)
+- ✓ Низкая задержка для read-heavy приложений (новости, соцсети, контент)
+- ✗ Записи идут в primary через другой регион (средняя задержка)
 - Используется в: Instagram (early days), GitHub (есть read replicas в Asia), CDN-heavy apps
 
 ---
 
 ## Разрешение конфликтов в Active-Active
 
-Когда два пользователя concurrent редактируют (или загружают) одну entity в разных regions.
+Когда два пользователя параллельно редактируют (или загружают) одну сущность в разных регионах.
 
 ### Last-Write-Wins (LWW)
 
-Каждая запись имеет wall-clock timestamp. Winner — newest.
+Каждая запись имеет wall-clock timestamp. Победитель — наиболее свежая.
 
 - ✓ Простой
 - ✗ Зависит от clock sync (NTP — точность 1-10 ms; clock skew → потеря)
@@ -87,7 +87,7 @@ APAC read replica
 
 ### Application-Level Conflict Resolution
 
-Conflict возвращается клиенту, application решает (merge, manual review, business rules).
+Конфликт возвращается клиенту, приложение решает (слияние, ручная проверка, бизнес-правила).
 
 ```
 User A: добавил «apple» в корзину (region US)
@@ -98,8 +98,8 @@ Replication detect conflict (same key, parallel writes):
   → application reads both → merges → writes back {apple, banana}
 ```
 
-- ✓ No data loss
-- ✗ App complexity для каждого entity type
+- ✓ Потери данных нет
+- ✗ Сложность приложения для каждого типа сущностей
 - Используют: Riak, MV-Register в Cassandra
 
 ### CRDT-based
@@ -108,38 +108,38 @@ Math-guaranteed merge. См. [CRDT.md](CRDT.md).
 
 ### Sticky to source region (Region Affinity)
 
-Пользователь привязан к региону (home region). Writes только туда, replication к остальным async.
+Пользователь привязан к региону (home region). Записи только туда, репликация к остальным — асинхронная.
 
 ```
 User A (создан в EU) → all writes go to EU primary, reads from any region
 User B (создан в US) → US primary
 ```
 
-- ✓ No conflicts (single writer per entity)
-- ✓ Local reads
-- ✗ Cross-region writes для users-not-in-home-region (mobile traveller)
+- ✓ Конфликтов нет (единственный писатель на сущность)
+- ✓ Локальные чтения
+- ✗ Межрегиональные записи для пользователей не в домашнем регионе (путешественники)
 - Используют: Salesforce, custom enterprise apps
 
 ### Spanner / TrueTime — globally strong consistency
 
-Google Spanner — uses **TrueTime API** (GPS + atomic clocks) для bounded time uncertainty (`~5 ms`). С этим waiting `commit_timestamp + uncertainty` гарантирует linearizability **without 2PC overhead**.
+Google Spanner использует **TrueTime API** (GPS + атомарные часы) для ограниченной неопределённости времени (`~5 ms`). Ожидание `commit_timestamp + uncertainty` гарантирует строгую согласованность (linearizable) **без накладных расходов 2PC**.
 
-- ✓ Strong consistency globally
-- ✗ Требует hardware (atomic clocks в каждом DC)
-- ✗ Cost
-- Используют: только Google Spanner; CockroachDB и YugabyteDB imitate без TrueTime (но менее строгий)
+- ✓ Глобальная строгая согласованность
+- ✗ Требует специального железа (атомарные часы в каждом ЦОДе)
+- ✗ Высокая стоимость
+- Используют: только Google Spanner; CockroachDB и YugabyteDB имитируют без TrueTime (но менее строго)
 
 ---
 
 ## Локализация данных (GDPR и др.)
 
-**GDPR Article 44**: персональные данные EU пользователей не могут leave EU без adequate protection.
+**GDPR Article 44**: персональные данные пользователей ЕС не могут покидать ЕС без надлежащей защиты.
 
 **Реализация:**
 
 ### Geo-sharding по user.region
 
-User имеет `home_region` (set at signup, основано на IP/опции). Все user data — в этом region.
+Пользователь имеет `home_region` (устанавливается при регистрации, на основе IP/настройки). Все данные пользователя — в этом регионе.
 
 ```
 User (region=EU):
@@ -151,13 +151,13 @@ Cross-region query:
 
 ### Encryption + key residency
 
-Data может быть в multiple regions (latency), но encryption key — только в home region. Без key — data нечитаема.
+Данные могут быть в нескольких регионах (ради задержки), но ключ шифрования — только в домашнем регионе. Без ключа данные нечитаемы.
 
-**AWS KMS multi-region keys** — key replicated, но access controlled by region.
+**AWS KMS multi-region keys** — ключ реплицируется, но доступ управляется по региону.
 
 ### Replication restrictions
 
-Real-world примеры:
+Примеры из реальной практики:
 - **AWS Outposts** для on-premise sovereign data
 - **AWS GovCloud** — отдельный (US-only) регион
 - **Microsoft Sovereign Cloud** (Germany — закрылся, России — closed)
@@ -166,83 +166,83 @@ Real-world примеры:
 
 ## Распределённый SQL (в стиле Spanner)
 
-Современные распределённые SQL DB претендуют на «multi-region active-active с strong consistency»:
+Современные распределённые SQL СУБД претендуют на «multi-region active-active со строгой согласованностью»:
 
 ### Google Spanner
 
-- TrueTime (atomic clocks)
+- TrueTime (атомарные часы)
 - Multi-Paxos per data range
-- External consistency (linearizable + serializability)
-- Globally distributed
+- Внешняя согласованность (строгая согласованность + сериализуемость)
+- Глобально распределённая
 - ✗ Только в Google Cloud
 
 ### CockroachDB
 
 - Open-source Spanner-like
 - Raft per range (не Paxos)
-- Hybrid Logical Clocks (HLC) — no atomic clocks
-- Multi-region tables: replicate few in 3+ regions, leaseholder rotates по nearest
-- Trade-off latency: cross-region write = 2-3 RT (vs Spanner ~1 RT due to TrueTime)
+- Hybrid Logical Clocks (HLC) — без атомарных часов
+- Multi-region tables: реплицируются в 3+ регионах, leaseholder ротируется к ближайшему
+- Компромисс по задержке: межрегиональная запись = 2–3 RT (против ~1 RT у Spanner благодаря TrueTime)
 
 ### YugabyteDB
 
 - Похож на CockroachDB
-- PostgreSQL wire compatibility (vs Cockroach's PG-compat но subset)
+- Совместимость с PostgreSQL wire protocol (против Cockroach PG-compat, но неполный subset)
 - Может работать как DocumentDB
 
-### When to use
+### Когда использовать
 
 Распределённый SQL — когда:
-- Нужна strong consistency multi-region
-- Не хочется писать app-level conflict resolution
-- ОК с network latency cost на каждый write
+- Нужна строгая согласованность в multi-region
+- Не хочется писать разрешение конфликтов на уровне приложения
+- Допустимы затраты на сетевую задержку при каждой записи
 
 Не подходит:
-- Read-heavy + eventual consistency OK → используй простой replication + cache
-- Low-budget — Spanner / Cockroach expensive
+- Read-heavy + eventual consistency OK → используй простую репликацию + кэш
+- Ограниченный бюджет — Spanner / Cockroach дорогие
 - Существующий MySQL/PG — миграция сложная
 
 ---
 
 ## RPO / RTO
 
-- **RPO (Recovery Point Objective)** — сколько данных можно потерять (в seconds/minutes)
+- **RPO (Recovery Point Objective)** — сколько данных можно потерять (в секундах/минутах)
 - **RTO (Recovery Time Objective)** — за сколько восстановиться
 
-| Topology | RPO | RTO |
+| Топология | RPO | RTO |
 |----------|-----|-----|
-| Active-Passive async | 1-60 sec (replication lag) | 5-30 мин (failover) |
-| Active-Passive sync | 0 (no data loss) | 5-30 мин |
-| Active-Active | 0 (locally), some lag cross-region | 0 (other regions just work) |
-| Spanner-like | 0 | 0 (consensus handles) |
+| Active-Passive async | 1–60 сек (задержка репликации) | 5–30 мин (переключение на резерв) |
+| Active-Passive sync | 0 (без потерь данных) | 5–30 мин |
+| Active-Active | 0 (локально), небольшая задержка между регионами | 0 (другие регионы продолжают работу) |
+| Spanner-like | 0 | 0 (консенсус обеспечивает) |
 
 ---
 
 ## Соображения сети
 
-**Cross-region bandwidth:** не free
-- AWS inter-region transfer: $0.02-0.09 / GB
-- Replication 1 TB / day = $20-90/day = $7K-30K/year
+**Межрегиональная пропускная способность канала:** не бесплатна
+- AWS inter-region transfer: $0.02–0.09 / ГБ
+- Репликация 1 ТБ / день = $20–90/день = $7K–30K/год
 
-**Cross-region latency:** physical limit (speed of light + routing)
-- Same region (multi-AZ): < 1 ms
-- US East ↔ US West: 70 ms
-- US ↔ EU: 80-150 ms
-- US ↔ APAC: 150-300 ms
+**Межрегиональная задержка:** физический предел (скорость света + маршрутизация)
+- Тот же регион (multi-AZ): < 1 мс
+- US East ↔ US West: 70 мс
+- US ↔ EU: 80–150 мс
+- US ↔ APAC: 150–300 мс
 
-**Implication:** sync replication cross-region adds 2× latency per write. Async — eventual but no latency cost.
+**Следствие:** синхронная репликация между регионами добавляет 2× задержку на каждую запись. Асинхронная — eventual, но без потерь в задержке.
 
 ---
 
 ## Шаблоны переключения на резерв (failover)
 
-### Manual failover
+### Ручное переключение на резерв
 
-DBA (или runbook) initiates failover. Slow (15-60 min) but **less false positive** (no panic auto-switch).
+DBA (или runbook) инициирует переключение на резерв. Медленно (15–60 мин), но **меньше ложных срабатываний** (без паники от авто-переключения).
 
-### Automated failover
+### Автоматическое переключение на резерв
 
-Health checker (heartbeats, deep probe) → if K consecutive fail → switch.
+Health checker (heartbeats, deep probe) → при K подряд неудачах → переключение.
 
 ```
 Sentinel/orchestrator:
@@ -254,11 +254,11 @@ Sentinel/orchestrator:
     4. Wait for old primary to detect (fence with token)
 ```
 
-**Risk:** flapping leader (network glitch → false failover). Hysteresis (требует N successful checks before considered healthy).
+**Риск:** нестабильный лидер (сетевой сбой → ложное переключение). Гистерезис (требует N успешных проверок перед признанием узла здоровым).
 
 ### Geo-DNS routing
 
-DNS routing-policy переключает user requests в healthy region:
+DNS routing-policy переключает запросы пользователей в работоспособный регион:
 
 ```
 Route 53 / Cloudflare DNS:
@@ -268,19 +268,19 @@ Route 53 / Cloudflare DNS:
     else → return eu-west IP
 ```
 
-Latency: DNS TTL determines failover speed (60s TTL → ~ 1 min for global propagation).
+Задержка: DNS TTL определяет скорость переключения на резерв (TTL 60 сек → ~1 мин на глобальное распространение).
 
 ---
 
 ## Анти-шаблоны
 
-- **Synchronous replication cross-region** — каждый write 100ms+. Невыносимо для interactive apps.
-- **Multi-region writes без conflict resolution** — silent data loss. Always plan.
-- **«All in one region — that's good enough»** — пока not down. Test DR drills.
-- **Manual failover only** — RTO часами при ночном incident.
-- **Cross-region 2PC** — coordinator failures = stuck transactions; не делай без consensus protocol.
-- **Active-active без understanding consistency model** — surprise data inconsistency после launch.
-- **DNS routing only** — assumes DNS update is fast (NOT — TTL caches, ISP resolvers); use anycast IP backup.
+- **Синхронная репликация между регионами** — каждая запись 100+ мс. Невыносимо для интерактивных приложений.
+- **Multi-region записи без разрешения конфликтов** — незаметная потеря данных. Всегда планируй заранее.
+- **«Один регион — и достаточно»** — до тех пор, пока не упал. Регулярно тренируй аварийное восстановление.
+- **Только ручное переключение на резерв** — RTO часами при ночном инциденте.
+- **Межрегиональный 2PC** — сбой координатора = зависшие транзакции; не делай без протокола консенсуса.
+- **Active-active без понимания модели согласованности** — неожиданная рассогласованность данных после запуска.
+- **Только DNS-маршрутизация** — предполагает быстрое обновление DNS (НЕТ — TTL кэши, резолверы ISP); используй anycast IP как резерв.
 
 ---
 
@@ -290,7 +290,7 @@ Latency: DNS TTL determines failover speed (60s TTL → ~ 1 min for global propa
 - **Aurora Global Database** — active-passive с promoted region option; RTO ~ 1 min
 - **MongoDB Atlas Global Clusters** — region-affinity sharding
 - **CockroachDB Multi-Region** — Raft + locality awareness, можно «pin» rows к региону
-- **Cloudflare Workers** — edge compute global; storage Durable Objects pinned to region
+- **Cloudflare Workers** — глобальные вычисления на пограничных узлах; хранилище Durable Objects привязано к региону
 - **Discord** — multi-region voice servers, central catalog DB
 - **WhatsApp** — single global Erlang cluster (early days), now multi-region
 

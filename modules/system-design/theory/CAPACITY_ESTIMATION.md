@@ -2,11 +2,11 @@
 
 Способность быстро оценить «сколько» — критичный навык для system design интервью и реальной работы. Цель — приблизительные числа в правильном **порядке величины**, не точные.
 
-> **Scope**: методика, типичные расчёты. Конкретные latency / cost numbers — [LATENCY_NUMBERS.md](LATENCY_NUMBERS.md).
+> **Область**: методика, типичные расчёты. Конкретные цифры задержек и стоимости — [LATENCY_NUMBERS.md](LATENCY_NUMBERS.md).
 
 ---
 
-## Алгоритм estimation
+## Алгоритм оценки
 
 ```
 1. Определить параметры (DAU, размер сообщения, retention, ...)
@@ -26,7 +26,7 @@
 
 ## Шаблон расчётов
 
-### Шаг 1 — Active users → traffic
+### Шаг 1 — Активные пользователи → трафик
 
 ```
 DAU (Daily Active Users) = 10M
@@ -38,7 +38,7 @@ Peak factor (peak / avg) = 2-3× обычно (some apps — 10-100× для fla
 → Peak QPS ≈ 36K QPS
 ```
 
-### Шаг 2 — Storage
+### Шаг 2 — Хранилище
 
 ```
 Average record size = 1 KB
@@ -50,7 +50,7 @@ Total storage = 100 GB × 365 × 5 = 180 TB
 Plus replication factor 3 = 540 TB raw storage
 ```
 
-### Шаг 3 — Bandwidth
+### Шаг 3 — Пропускная способность
 
 ```
 Egress (out from servers) = QPS × response_size
@@ -79,7 +79,7 @@ Per-user data cached = 5 KB
 - Tweet size = 280 chars + metadata = ~ 500 bytes
 - Retention indefinite (но recent = hot)
 
-**Estimation:**
+**Оценка:**
 
 ```
 READS:
@@ -120,7 +120,7 @@ KEY DECISIONS:
 - Required cache hit ratio = 99%
 - Cache target latency p99 = 1 ms
 
-**Estimation:**
+**Оценка:**
 
 ```
 RAM for hot set:
@@ -153,7 +153,7 @@ For HA:
 - 10:1 read/write ratio (100M writes/year → 1B reads/year)
 - Lifetime = unlimited
 
-**Estimation:**
+**Оценка:**
 
 ```
 WRITES:
@@ -181,14 +181,14 @@ CACHE:
   Realistic hot set = top 1% → 2 GB → fits in single Redis node easily
 ```
 
-**Insight:** для URL shortener инфраструктура не challenge — design о другом (ID generation, redirects with low latency, analytics).
+**Вывод:** для URL shortener инфраструктура не является узким местом — суть задачи в другом (генерация ID, перенаправления с низкой задержкой, аналитика).
 
 ---
 
 ## Шпаргалка по степеням двойки
 
-| 2^n | Decimal | Use case |
-|-----|---------|----------|
+| 2^n | Десятичный | Использование |
+|-----|-----------|--------------|
 | 2^10 | ~10^3 | K |
 | 2^20 | ~10^6 | M |
 | 2^30 | ~10^9 | G |
@@ -196,14 +196,14 @@ CACHE:
 | 2^50 | ~10^15 | P |
 | 2^60 | ~10^18 | E |
 
-**Tactic:** на интервью считай в K/M/G — никогда не пиши длинные числа. `10^9` лучше чем `1,000,000,000`.
+**Совет:** на интервью считай в K/M/G — никогда не пиши длинные числа. `10^9` лучше чем `1,000,000,000`.
 
 ---
 
-## Read/Write ratios (по типам систем)
+## Соотношение чтений/записей (по типам систем)
 
-| System | R:W |
-|--------|-----|
+| Система | Чт:Зп |
+|---------|--------|
 | Twitter timeline | ~ 1000:1 (читают много, постят мало) |
 | Reddit | ~ 100:1 |
 | Email | ~ 1:1 |
@@ -217,15 +217,15 @@ CACHE:
 
 ## Пиковые и средние коэффициенты
 
-| Pattern | Peak/Avg |
+| Шаблон | Пик/Среднее |
 |---------|----------|
-| Stable B2B service | 1.5-2× |
-| Consumer web | 2-3× |
-| Time-zone concentrated (US/EU) | 3-5× |
-| Flash sale, event | 10-100× |
-| Black Friday e-commerce | 50-100× |
+| Стабильный B2B-сервис | 1.5-2× |
+| Потребительский веб | 2-3× |
+| Концентрация по часовому поясу (US/EU) | 3-5× |
+| Флеш-распродажа, событие | 10-100× |
+| Чёрная пятница, e-commerce | 50-100× |
 
-→ Always estimate at **peak**, не average. Auto-scaling, capacity planning.
+→ Всегда оценивай **пиковую** нагрузку, не среднюю. Auto-scaling, capacity planning.
 
 ---
 
@@ -234,19 +234,19 @@ CACHE:
 После расчёта проверь себя:
 
 1. **Сравни с реальностью**: 100K QPS — это 100M req/day. Если результат «1B writes/sec» — что-то не так (или ты Netflix).
-2. **Bandwidth check**: 10 Gbps NIC = 1.25 GB/s. Если расчёт > 10 Gbps на single instance — нужно distribution.
-3. **Storage growth**: «1 PB» означает много железа. Подумай, нужны ли все данные горячие, или часть архивная.
-4. **CPU bound vs IO bound**: 100K QPS трудно с CPU-heavy operations (encryption на каждый), легко если просто proxy.
+2. **Проверка пропускной способности**: 10 Gbps NIC = 1.25 GB/s. Если расчёт > 10 Gbps на single instance — нужно горизонтальное распределение.
+3. **Рост хранилища**: «1 PB» означает много железа. Подумай, нужны ли все данные горячие, или часть архивная.
+4. **CPU bound vs IO bound**: 100K QPS трудно с CPU-heavy operations (шифрование на каждый запрос), легко если просто прокси.
 
 ---
 
 ## Частые ошибки на собеседовании
 
-- **Считаешь только average, не peak** — миграция в prod failt в первую же пик-нагрузку
+- **Считаешь только среднее, не пик** — деплой в прод падает при первой же пиковой нагрузке
 - **Игнорируешь replication factor** — данные × 3 для RF=3
-- **Не учитываешь overhead** (индексы +30-50% от raw data в RDBMS, GIN/GiST в 2-5× от B-tree)
+- **Не учитываешь оверхед** (индексы +30-50% от raw data в RDBMS, GIN/GiST в 2-5× от B-tree)
 - **Запоминаешь стандартные числа без понимания** — на вопрос «почему 10K QPS на PG?» нет ответа
-- **Слишком много знаков точности** — `12,847 QPS` outputs «not a feel», `~13K QPS` лучше
+- **Слишком много знаков точности** — `12,847 QPS` не даёт ощущения масштаба, `~13K QPS` лучше
 - **Слепо доверяешь cloud autoscaling** — autoscaling не помогает, если single instance не справляется (DB pinned scale)
 
 ---

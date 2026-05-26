@@ -84,7 +84,7 @@ Inverted index:
 
 «running, runs, ran» → «run». Snowball, Porter stemmer.
 
-- ✓ Лучше recall (найдёт «runs» при запросе «running»)
+- ✓ Лучше полнота (найдёт «runs» при запросе «running»)
 - ✗ Может давать false positives («fishing» → «fish»)
 
 ### Lemmatization
@@ -205,11 +205,11 @@ Index:
 
 Свежие документы не доступны для поиска мгновенно. Дефолт Elasticsearch: refresh раз в секунду (создаёт новый segment и открывает его для поиска).
 
-→ **Near-real-time search**, не строго real-time. Для критичной мгновенной видимости — `?refresh=true` (ценой большего числа segments).
+→ **Near-real-time search**, не строго в реальном времени. Для критичной мгновенной видимости — `?refresh=true` (ценой большего числа segments).
 
 ### Sharding
 
-Индекс разбивается на **N shards** (дефолт 5 в ES). Каждый shard — независимый Lucene-index. Поиск fan-out на все shards и объединяет результаты.
+Индекс разбивается на **N shards** (дефолт 5 в ES). Каждый shard — независимый Lucene-index. Поиск веерно распределяется (fan-out) по всем shards и объединяет результаты.
 
 ```
 поиск "brown fox":
@@ -221,7 +221,7 @@ Index:
 
 ### Replication
 
-У каждого shard — N replicas (дефолт 1). Read-трафик load-balanced. Failover на replica при сбое primary.
+У каждого shard — N replicas (дефолт 1). Read-трафик load-balanced. Переключение на резерв (failover) на replica при сбое primary.
 
 ---
 
@@ -237,8 +237,8 @@ Index:
 
 ## Подводные камни
 
-- **Размер индекса** — inverted index часто 50–200% от исходного текста. Закладывайте storage.
-- **Стоимость update'а** — каждое обновление документа создаёт новый segment, который затем merge'ится. Тяжёлая update-нагрузка → дорогие merges.
+- **Размер индекса** — inverted index часто 50–200% от исходного текста. Закладывайте хранилище.
+- **Стоимость обновления** — каждое обновление документа создаёт новый segment, который затем merge'ится. Тяжёлая нагрузка на обновление → дорогие merges.
 - **Высокая cardinality поля** — поле «timestamp» с миллионами уникальных значений → раздутый индекс.
 - **Reindex** — смена схемы (новый analyzer, новые поля) → полный reindex (часы для большой системы).
 - **Aggregations (термин Elasticsearch)** на high-cardinality полях → взрыв памяти.

@@ -37,7 +37,7 @@ ORDER BY distance ASC LIMIT 100;
 → "9q8yyzd6kr"  # geohash precision 10 (~ 1 m)
 ```
 
-### Precision vs size
+### Точность vs длина
 
 | Length | Precision |
 |--------|-----------|
@@ -58,10 +58,10 @@ ORDER BY distance ASC LIMIT 100;
 ### Ограничения
 
 - **Эффект границы** — точка рядом с границей geohash (например, на экваторе) имеет совсем другой geohash, чем сосед в нескольких метрах
-- **Неравные ячейки** — прямоугольные boxes не учитывают кривизну Земли; ближе к полюсам сильное искажение
+- **Неравные ячейки** — прямоугольные ячейки не учитывают кривизну Земли; ближе к полюсам сильное искажение
 - **Поиск соседей непрост** — найти 8 соседних geohash требует логики (а не просто +1 / −1)
 
-### Use cases
+### Применение
 
 - Простой spatial search в РБД (PostgreSQL `WHERE substring(geohash,1,5) = 'XXXXX'`)
 - Geohashing в Redis sorted sets (легко sort + range)
@@ -70,13 +70,13 @@ ORDER BY distance ASC LIMIT 100;
 
 ## S2 (Google)
 
-Google's library: разбивает sphere на cells через **Hilbert curve**. Преодолевает Geohash limitations.
+Библиотека Google: разбивает sphere на cells через **Hilbert curve**. Преодолевает ограничения Geohash.
 
 ### Идея
 
-- Earth → проекция на cube (6 faces)
-- Каждый face → recursive quadrant subdivision (как quadtree)
-- Hilbert curve linearizes cells: 1D ordering preserves 2D locality
+- Земля → проекция на куб (6 граней)
+- Каждая грань → рекурсивное разбиение на квадранты (как quadtree)
+- Hilbert curve линеаризует ячейки: одномерный порядок сохраняет двумерную локальность
 
 ```
 Cell IDs at level 30: ~1 cm²
@@ -88,28 +88,28 @@ Cell IDs at level 0: ~ 85 trillion km² (entire planet face)
 - **Сферический:** корректно учитывает кривизну Земли;
 - **Иерархический:** ID ячейки хранят иерархию родитель-потомок;
 - **Сохраняет локальность:** соседние ячейки имеют похожие ID
-- **Efficient:** integer cell ID (8 байт), быстрое сравнение
+- **Эффективный:** integer cell ID (8 байт), быстрое сравнение
 
-### Use cases
+### Применение
 
 - **Google Maps** — внутреннее использование
-- **Foursquare** — venue queries
-- **MongoDB 2dsphere** — supports S2-like
-- **PostGIS** — также supports
+- **Foursquare** — запросы по заведениям
+- **MongoDB 2dsphere** — поддерживает S2-like
+- **PostGIS** — также поддерживает
 
 ---
 
 ## H3 (Uber)
 
-Uber's library: hexagonal grid. Each cell is a hexagon (vs squares в S2/quadtree).
+Библиотека Uber: гексагональная сетка. Каждая ячейка — шестиугольник (в отличие от прямоугольников в S2/quadtree).
 
-### Зачем hexagons
+### Зачем шестиугольники
 
 - **Все соседи равноудалены** — у квадрата 8 соседей (4 близких + 4 диагональных, дальше); у hex — 6 соседей на равном расстоянии
 - **Нет неопределённости в углах** — углы квадратов сложны («3-way intersection»)
-- Удобно для ride-matching: rider в одной hex ищет драйверов в соседних hex одинаково
+- Удобно для подбора поездок: пассажир в одном шестиугольнике ищет водителей в соседних на одинаковом расстоянии
 
-### Levels
+### Уровни разрешения
 
 ```
 Resolution 0: ~ 4250 km² (large)
@@ -117,30 +117,30 @@ Resolution 15: ~ 1 m² (tiny)
 Resolution 9 (popular for ride-share): ~ 0.1 km²
 ```
 
-### Use cases
+### Применение
 
 - **Uber** — поиск драйверов в окрестности
-- **Foursquare** — exploration
-- **DoorDash** — delivery radius
-- **Kepler.gl** — visualization
+- **Foursquare** — поиск мест вблизи
+- **DoorDash** — зона доставки
+- **Kepler.gl** — визуализация
 
 ### vs S2 vs Geohash
 
 | | Geohash | S2 | H3 |
 |---|---|---|---|
-| Cell shape | Rectangle | Square (на face) | Hexagon |
-| Neighbors equidistant | No | No | **Yes** |
-| Sortable IDs | **Yes** (strings) | Yes (integers) | Yes (uint64) |
-| Hierarchical | Yes | **Yes** (parent-child) | Yes |
-| Open source | Yes | **Yes** | **Yes** |
-| Resolution levels | 12 | 30 | 15 |
-| Adoption | Simple | Google services | Uber |
+| Форма ячейки | Прямоугольник | Квадрат (на face) | Шестиугольник |
+| Соседи равноудалены | No | No | **Yes** |
+| Сортируемые ID | **Yes** (строки) | Yes (целые) | Yes (uint64) |
+| Иерархичность | Yes | **Yes** (родитель-потомок) | Yes |
+| Открытый исходный код | Yes | **Yes** | **Yes** |
+| Уровни разрешения | 12 | 30 | 15 |
+| Распространённость | Simple | Google services | Uber |
 
 ---
 
 ## Quadtree
 
-Рекурсивное разбиение 2D-плоскости. Каждая нода делится на 4 квадранта при превышении threshold.
+Рекурсивное разбиение 2D-плоскости. Каждый узел делится на 4 квадранта при превышении threshold.
 
 ```
 Root: whole world
@@ -154,7 +154,7 @@ Root: whole world
   └─ SE quadrant
 ```
 
-### Query
+### Запрос
 
 ```python
 def find_nearby(point, radius, node):
@@ -166,7 +166,7 @@ def find_nearby(point, radius, node):
     return []
 ```
 
-### Use cases
+### Применение
 
 - **In-memory spatial index** для игровых карт, RTS
 - **PostGIS** — альтернатива R-tree
@@ -174,8 +174,8 @@ def find_nearby(point, radius, node):
 
 ### Ограничения
 
-- **Skewed data** — если все точки в одной области → разбалансированное дерево, глубокое
-- **Insert / delete** — может требовать rebalance
+- **Неравномерные данные** — если все точки в одной области → разбалансированное дерево, глубокое
+- **Вставка / удаление** — может требовать rebalance
 
 ---
 
@@ -193,22 +193,22 @@ Root MBR (covers whole)
   ...
 ```
 
-### Query
+### Запрос
 
 `WHERE point inside MBR` — спускаемся по дереву, отсекаем поддеревья, чьи MBR не пересекают запрос.
 
 ### Свойства
 
-- **Balanced** — глубина ограничена
-- **Update-friendly** — insert находит самое плотное MBR, обновления идут вверх
+- **Сбалансированный** — глубина ограничена
+- **Удобен для обновлений** — insert находит самое плотное MBR, обновления идут вверх
 - **Поддерживает** произвольные формы (не только точки): полигоны, линии
 
-### Use cases
+### Применение
 
 - **PostGIS** — GiST-индекс по сути вариант R-tree
 - **MongoDB** 2dsphere index
 - **SQLite** R*Tree module
-- **Spatial joins:** «find all roads intersecting this rectangle»
+- **Пространственные соединения:** «найти все дороги, пересекающие этот прямоугольник»
 
 ### R+ tree, R* tree
 
@@ -216,57 +216,57 @@ Root MBR (covers whole)
 
 ---
 
-## Storage / Index choice
+## Выбор хранилища / индекса
 
-| Store | Best Index | Note |
+| Хранилище | Лучший индекс | Примечание |
 |-------|-----------|------|
-| **PostgreSQL** | GiST с PostGIS (R-tree-like) | Industry standard for spatial in RDBMS |
-| **MongoDB** | 2dsphere (S2) | Geospatial queries native |
-| **Elasticsearch** | geo_point / geo_shape (BKD tree) | Full-text + spatial combined |
-| **Redis** | GEO commands (geohash + sorted set) | Fast in-memory |
-| **Cassandra** | No native spatial — manual via geohash key |
-| **In-memory** | H3 / S2 / Quadtree library | Best for high-perf services |
+| **PostgreSQL** | GiST с PostGIS (R-tree-like) | Отраслевой стандарт для геоданных в РСУБД |
+| **MongoDB** | 2dsphere (S2) | Нативные геозапросы |
+| **Elasticsearch** | geo_point / geo_shape (BKD tree) | Полнотекстовый поиск + пространственный |
+| **Redis** | GEO commands (geohash + sorted set) | Быстро, всё в памяти |
+| **Cassandra** | Нет нативного — вручную через geohash-ключ |
+| **In-memory** | H3 / S2 / Quadtree library | Оптимально для высоконагруженных сервисов |
 
 ---
 
-## Common queries
+## Типовые запросы
 
-### Point-in-polygon
+### Точка в полигоне (point-in-polygon)
 
-«Is user inside delivery area?»
+«Находится ли пользователь в зоне доставки?»
 - Spatial DB: `ST_Within(point, polygon)`
-- H3/S2: get hex containing point, check membership
+- H3/S2: найти шестиугольник, содержащий точку, проверить принадлежность
 
-### Nearest neighbor (k-NN)
+### Ближайший сосед (k-NN)
 
-«Top 10 closest drivers to rider»
-- R-tree / GiST: branch-and-bound NN search
-- H3: get rider's hex, fetch drivers in same/neighboring hexes, sort by distance
+«10 ближайших водителей к пассажиру»
+- R-tree / GiST: поиск методом ветвей и границ (branch-and-bound)
+- H3: найти шестиугольник пассажира, загрузить водителей из него и соседних, отсортировать по расстоянию
 
-### Range query (radius search)
+### Запрос по радиусу (range query)
 
-«All drivers within 5 km»
+«Все водители в радиусе 5 км»
 - Spatial DB: `ST_DWithin(rider_point, driver_point, 5000)`
-- H3/S2: compute set of cells covering radius, fetch all, filter exact
+- H3/S2: вычислить набор ячеек, покрывающих радиус, загрузить все, отфильтровать точно
 
-### Geofencing
+### Геозонирование (geofencing)
 
-«User entered delivery zone, send notification»
-- Polygon stored, point checked on each user update
+«Пользователь вошёл в зону доставки — отправить уведомление»
+- Полигон хранится заранее, точка проверяется при каждом обновлении местоположения пользователя
 
 ---
 
-## Pitfalls
+## Типичные ошибки
 
 - **Порядок lat/lon** — разный в разных API (PostgreSQL: lat, lon; GeoJSON: lon, lat) — источник багов!
 - **Форма Земли** — плоское 2D-расстояние ≠ great-circle distance. Для длинных дистанций (>10 км) — Haversine или проекция
 - **Антимеридиан** — lon = ±180 заворачивается. Запросы через эту линию требуют отдельной обработки
 - **Сингулярность полюсов** — географические проекции искажаются у полюсов
-- **Update churn** — движущиеся объекты (драйверы, машины): стоимость обновления индекса. Часто: не индексируем в БД, держим in-memory (Redis), батчим записи в БД
+- **Частые обновления** — движущиеся объекты (водители, машины): стоимость обновления индекса. Часто: не индексируем в БД, держим в памяти (Redis), пишем в БД батчами
 
 ---
 
-## Real-world architecture (Uber-style)
+## Реальная архитектура (в стиле Uber)
 
 ```
 Driver app → GPS update every 4s → Driver location service
@@ -292,13 +292,13 @@ Rider app → request ride at (lat, lon)
 - [Beckmann et al. (1990) — «The R*-tree: An Efficient and Robust Access Method for Points and Rectangles»](https://www.dpi.inpe.br/Cursos/sib-2009/material/aula07/papers/r-star_tree.pdf)
 - [Niemeyer (2008) — Geohash explained](https://web.archive.org/web/20080305223755/http://blog.labix.org/2008/02/26/geohash-explanation)
 
-**Libraries / documentation:**
+**Библиотеки / документация:**
 - [Google S2 Geometry Library](https://s2geometry.io/) — C++, has bindings
 - [Uber H3 Library](https://h3geo.org/) — C, has bindings to JS/Py/Go/Java
 - [PostGIS Documentation](https://postgis.net/documentation/)
 - [Redis Geospatial Commands](https://redis.io/commands/?group=geo)
 
-**Engineering blogs:**
+**Инженерные блоги:**
 - [Uber — H3: A Hexagonal Hierarchical Geospatial Indexing System](https://www.uber.com/blog/h3/)
 - [Foursquare — Using S2 for spatial indexing](https://medium.com/foursquare-direct/)
 - [DoorDash — Building flexible polygon services for delivery zones](https://doordash.engineering/)

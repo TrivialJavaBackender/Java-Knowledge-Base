@@ -248,7 +248,7 @@ class OrderCreatedV2 { ... }
 
 Централизованное хранение Avro / Protobuf / JSON Schema. При публикации в Kafka:
 1. Producer регистрирует схему в Registry → получает `schema-id`
-2. В payload отправляется `[schema-id (4 bytes)] + [serialized bytes]`
+2. В полезную нагрузку отправляется `[schema-id (4 bytes)] + [serialized bytes]`
 3. Consumer читает schema-id → подтягивает writer schema → применяет resolution к своей reader schema
 
 Режимы совместимости (настраиваются на subject = topic-name):
@@ -278,9 +278,9 @@ props.put("linger.ms", 5);         // ждать 5ms для накопления
 props.put("enable.idempotence", true); // автоматически ставит acks=all, retries=Integer.MAX
 ```
 
-**acks=0:** fire-and-forget, максимальный throughput, возможна потеря.  
+**acks=0:** fire-and-forget, максимальная пропускная способность, возможна потеря.  
 **acks=1:** лидер записал, реплики могут не успеть (при падении лидера — потеря).  
-**acks=all (или -1):** все ISR записали → максимальная надёжность, выше latency.
+**acks=all (или -1):** все ISR записали → максимальная надёжность, выше задержка.
 
 ---
 
@@ -301,7 +301,7 @@ props.put("enable.idempotence", true); // автоматически стави�
 
 ### Репликация партиций
 
-Каждая партиция имеет **leader** (один) и **followers** (реплики). Записи идут только на leader, followers синхронизируются.
+Каждая партиция имеет **лидера** (один) и **реплики-читатели** (followers). Записи идут только на лидера, реплики синхронизируются.
 
 ```
 Topic: orders, 3 partitions, replication factor = 3
@@ -365,7 +365,7 @@ Broker 1 (leader P0) падает
 - Ограничение: ~200K партиций на кластер
 - Медленная регистрация партиций
 
-**KRaft (Kafka 3.3+, production-ready):** метаданные хранятся во внутреннем Raft-лог топике `__cluster_metadata`. Controller nodes выбирают лидера через Raft consensus.
+**KRaft (Kafka 3.3+, production-ready):** метаданные хранятся во внутреннем Raft-лог топике `__cluster_metadata`. Узлы-контроллеры выбирают лидера через Raft consensus.
 
 ```
 ZooKeeper mode: Kafka Brokers + ZooKeeper ensemble (3-5 узлов)

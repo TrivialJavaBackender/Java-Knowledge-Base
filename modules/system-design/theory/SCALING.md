@@ -28,7 +28,7 @@
 [Client] → [App + DB + Cache на одной машине]
 ```
 
-Всё на одном сервере. Достаточно для MVP и небольших стартапов. Latency — минимальная (всё in-process), но SPOF.
+Всё на одном сервере. Достаточно для MVP и небольших стартапов. Задержка — минимальная (всё in-process), но SPOF.
 
 ### Этап 2 — Separate DB tier (1K–10K)
 
@@ -37,7 +37,7 @@
                        → [Cache server (Redis)]
 ```
 
-DB отделяется от приложения. Можно скейлить app horizontally независимо от DB.
+DB отделяется от приложения. Можно масштабировать приложение горизонтально независимо от DB.
 
 ### Этап 3 — Multiple app servers + LB (10K–100K)
 
@@ -63,7 +63,7 @@ DB отделяется от приложения. Можно скейлить a
               writes      reads
 ```
 
-Чтения масштабируются через replica. Eventual consistency для read-side. Writes остаются на primary. Read-your-writes через sticky session или чтение с leader для критичного.
+Чтения масштабируются через replica. Eventual consistency для read-side. Записи остаются на первичном узле. Read-your-writes через sticky session или чтение с leader для критичного.
 
 ### Этап 5 — Caching (любой этап)
 
@@ -72,7 +72,7 @@ DB отделяется от приложения. Можно скейлить a
         cache-aside / read-through
 ```
 
-Реальная latency win: hit ratio 95% → 95% запросов не доходят до БД. Подробнее: [`caching-deep-dive/`](../../caching-deep-dive/theory/CACHE_PATTERNS.md).
+Реальный выигрыш в задержке: hit ratio 95% → 95% запросов не доходят до БД. Подробнее: [`caching-deep-dive/`](../../caching-deep-dive/theory/CACHE_PATTERNS.md).
 
 ### Этап 6 — Sharding (1M–10M)
 
@@ -82,7 +82,7 @@ DB отделяется от приложения. Можно скейлить a
                 → [Shard N]
 ```
 
-Когда single primary не справляется с write throughput или дата не помещается. См. [`databases/SHARDING.md`](../../databases/theory/SHARDING.md).
+Когда single primary не справляется с пропускной способностью записи или дата не помещается. См. [`databases/SHARDING.md`](../../databases/theory/SHARDING.md).
 
 ### Этап 7 — Microservices (опционально)
 
@@ -103,7 +103,7 @@ DB отделяется от приложения. Можно скейлить a
          → APAC-region: [LB → app → DB-replica]
 ```
 
-Геораспределение для latency и data residency. Сложности: cross-region replication, conflict resolution (CRDT), eventual consistency.
+Геораспределение для снижения задержки и требований к размещению данных. Сложности: cross-region replication, conflict resolution (CRDT), eventual consistency.
 
 ### Этап 9 — Edge / CDN-heavy (любая шкала)
 
@@ -117,7 +117,7 @@ Static assets на CDN, API через POP (Cloudflare Workers, Lambda@Edge). La
 
 **Stateful service** — хранит состояние локально (in-memory cache, WebSocket connections, локальные файлы). Sticky sessions или dedicated routing. Сложнее scaling.
 
-**Делайте сервисы stateless по умолчанию.** Stateful — только когда явно нужно (in-memory cache для latency, stateful streaming процессоры). Externalise:
+**Делайте сервисы stateless по умолчанию.** Stateful — только когда явно нужно (in-memory cache для снижения задержки, процессоры потоковой передачи с состоянием). Externalise:
 - Session → Redis
 - User uploads → S3
 - Logs → centralized (Loki / ELK)
@@ -127,14 +127,14 @@ Static assets на CDN, API через POP (Cloudflare Workers, Lambda@Edge). La
 
 ## Узкие места по этапам
 
-| Этап | Bottleneck | Решение |
+| Этап | Узкое место | Решение |
 |------|-----------|---------|
 | Single server | CPU / RAM | Vertical scaling, profiling |
 | Separate DB | DB connection pool | HikariCP tuning, more replicas |
-| App pool | LB throughput | More LB nodes, anycast |
-| Read replicas | Write throughput | Sharding, NoSQL для специфичных workload |
+| App pool | Пропускная способность LB | More LB nodes, anycast |
+| Read replicas | Пропускная способность записи | Sharding, NoSQL для специфичной рабочей нагрузки |
 | Sharding | Cross-shard transactions | Saga, domain-aligned shard key |
-| Microservices | Network latency, debugging | Service mesh, distributed tracing |
+| Microservices | Сетевая задержка, отладка | Service mesh, distributed tracing |
 | Multi-region | Consistency, conflict resolution | CRDT, Spanner-like, eventual semantics |
 
 ---
@@ -156,10 +156,10 @@ Static assets на CDN, API через POP (Cloudflare Workers, Lambda@Edge). La
 
 - **Преждевременная микросервисация** — стартап делит на 10 микросервисов до того, как есть пользователи. Боль операций без выгоды от автономии.
 - **Sticky sessions** на app серверах — мешают auto-scaling, потеря сессии при failover. Externalise в Redis.
-- **Sync replication ко всем нодам** — каждый write идёт со скоростью самой медленной replica. Quorum / async где можно.
+- **Sync replication ко всем узлам** — каждый write идёт со скоростью самой медленной replica. Quorum / async где можно.
 - **Один большой shared cache** для всех сервисов — `noisy neighbour` проблемы. Лучше cache per service domain.
-- **Cross-region sync transactions** — latency × 2-10×. Применять только если действительно нужно (финансы); иначе eventual consistency.
-- **«Database is slow → add cache»** без понимания, **почему** slow. Может быть не helps (write-heavy), может ухудшить (consistency проблемы).
+- **Cross-region sync transactions** — задержка × 2-10×. Применять только если действительно нужно (финансы); иначе eventual consistency.
+- **«Database is slow → add cache»** без понимания, **почему** медленно. Может не помочь (write-heavy), может ухудшить (consistency проблемы).
 - **Resharding без plan** — попытка online resharding without dual-write / CDC → outage. Сначала проектировать sharding с запасом.
 
 ---

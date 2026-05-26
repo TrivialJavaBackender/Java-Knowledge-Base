@@ -10,7 +10,7 @@
 | Масштабирование | Всё или ничего | Отдельные сервисы |
 | Разработка | Простой старт | Сложнее (сеть, распределённые транзакции) |
 | Консистентность | ACID транзакции | Eventual consistency |
-| Latency | Вызовы in-process | Network round-trips |
+| Задержка | Вызовы in-process | Network round-trips |
 | Отказоустойчивость | Single point of failure | Частичные отказы |
 
 **Когда монолит лучше:** стартап, небольшая команда, неясные границы домена. Microservices — когда команды независимы и разные части нужно масштабировать по-разному.
@@ -149,12 +149,12 @@ Coordinator → все: "Commit"
 ## API Gateway
 
 Единая точка входа для всех клиентов. Выполняет:
-- Routing → нужный сервис
+- Маршрутизация → нужный сервис
 - Auth/AuthZ
-- Rate limiting
+- Ограничение скорости
 - SSL termination
-- Request aggregation (собрать данные из нескольких сервисов)
-- Caching
+- Агрегация запросов (собрать данные из нескольких сервисов)
+- Кэширование
 
 ```
 Mobile App → API Gateway → User Service
@@ -194,7 +194,7 @@ CLOSED             OPEN
 
 ## Очередь сообщений / потоковая передача событий
 
-**Зачем:** decoupling, async processing, буферизация spike трафика.
+**Зачем:** decoupling, async processing, буферизация всплесков трафика.
 
 **Queue (RabbitMQ):** сообщение читает один потребитель. Point-to-point.
 
@@ -206,7 +206,7 @@ CLOSED             OPEN
 
 ---
 
-## Caching в микросервисах
+## Кэширование в микросервисах
 
 Кэширование — отдельная большая тема, полностью раскрытая в модуле `caching-deep-dive`:
 
@@ -215,7 +215,7 @@ CLOSED             OPEN
 - **Anti-patterns** (stampede, penetration, breakdown, avalanche, hot/big keys) → [`caching-deep-dive/theory/ANTI_PATTERNS.md`](../../caching-deep-dive/theory/ANTI_PATTERNS.md)
 - **Distributed caching, Redis, Caffeine** — соответствующие файлы того же модуля
 
-В контексте микросервисов кэш чаще всего ставится перед slow downstream'ом (DB, external API) или в API Gateway для read-heavy эндпоинтов.
+В контексте микросервисов кэш чаще всего ставится перед медленным нижестоящим сервисом (DB, external API) или в API Gateway для read-heavy эндпоинтов.
 
 ---
 
@@ -305,7 +305,7 @@ Event Sourcing почти всегда идёт в паре с CQRS:
 
 **Три столпа наблюдаемости:**
 
-**Metrics** — агрегированные числовые данные: RPS, latency p99, error rate. Prometheus + Grafana.
+**Metrics** — агрегированные числовые данные: RPS, задержка p99, error rate. Prometheus + Grafana.
 
 **Logs** — детальные записи событий. Structured logging (JSON) → ELK/Loki. Уровни: ERROR, WARN, INFO, DEBUG.
 
@@ -372,7 +372,7 @@ service OrderService {
 **Проблемы sync:**
 - Temporal coupling — B должен быть доступен пока A делает запрос
 - Каскадные отказы — если B падает, A тоже деградирует
-- Latency accumulation — цепочка из 5 синхронных вызовов × 50ms = 250ms минимум
+- Накопление задержки — цепочка из 5 синхронных вызовов × 50ms = 250ms минимум
 
 ### Asynchronous (Kafka, RabbitMQ, SQS)
 
@@ -403,7 +403,7 @@ A publishes запрос с correlationId, слушает reply-queue, матч�
 - Fire-and-forget (отправка email, аудит лог)
 - Long-running operations (генерация отчётов, конвертация видео)
 - Fan-out (одно событие → много потребителей)
-- Буферизация при spike нагрузки (Kafka как буфер перед slow consumer)
+- Буферизация при всплеске нагрузки (Kafka как буфер перед slow consumer)
 - Temporal decoupling (B может быть offline)
 
 **Проблемы async:**
@@ -416,13 +416,13 @@ A publishes запрос с correlationId, слушает reply-queue, матч�
 
 | | REST | gRPC | Kafka/Async |
 |---|---|---|---|
-| Coupling | Temporal | Temporal | Decoupled |
-| Latency | Низкая | Очень низкая | Выше (async) |
-| Throughput | Средний | Высокий | Очень высокий |
-| Schema | Нет (OpenAPI опционально) | Строгая (protobuf) | Avro/JSON |
-| Reliability | Retry + CB | Retry + CB | At-least/Exactly-once |
-| Debugging | Простой | Средний | Сложнее |
-| Use case | CRUD, user-facing | Внутренние сервисы, streaming | Events, long tasks, fan-out |
+| Связность | Temporal | Temporal | Decoupled |
+| Задержка | Низкая | Очень низкая | Выше (async) |
+| Пропускная способность | Средний | Высокий | Очень высокий |
+| Схема | Нет (OpenAPI опционально) | Строгая (protobuf) | Avro/JSON |
+| Надёжность | Retry + CB | Retry + CB | At-least/Exactly-once |
+| Отладка | Простой | Средний | Сложнее |
+| Применение | CRUD, user-facing | Внутренние сервисы, streaming | Events, long tasks, fan-out |
 
 ### Outbox Pattern (reliable async)
 

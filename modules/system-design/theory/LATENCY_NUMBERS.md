@@ -34,9 +34,9 @@ TLS handshake (TLS 1.3 cold)                 ~100 ms     (1 RT)
 TLS handshake (TLS 1.2 cold)                 ~200 ms     (2 RT)
 ```
 
-### Important orders of magnitude
+### Ключевые порядки величин
 
-| Operation | Latency | Relative |
+| Операция | Задержка | Относительно |
 |-----------|---------|----------|
 | L1 cache | 1 ns | 1× |
 | L2 cache | 4 ns | 4× |
@@ -53,7 +53,7 @@ TLS handshake (TLS 1.2 cold)                 ~200 ms     (2 RT)
 
 ## Следствия для архитектуры
 
-### Cache аggressively
+### Кэшируй агрессивно
 
 Hit ratio 95% → 95% запросов = `1 µs` (RAM access), 5% = `10 ms` (DB). Average = `0.5 ms` вместо `10 ms` без кэша → 20× speedup.
 
@@ -70,7 +70,7 @@ Sequential disk read = 200 µs/MB. Random = 10 µs/4KB = 2.5 ms/MB → 12× slow
 
 → Поэтому LSM-trees (append-only), columnar storage (последовательный scan колонки), log-structured filesystems быстрее для analytics.
 
-### Batching и pipelining
+### Батчинг и pipelining
 
 Каждый network RT в datacenter = 500 µs. Если делаешь 100 sequential `GET` к Redis → 50 ms. Pipelining (batch 100) → 1 RT = 500 µs (100× speedup).
 
@@ -81,9 +81,9 @@ pipelined:    1 × 500µs + 100 × processing = ~600 µs
 
 См. Redis pipelining, gRPC streaming, JDBC batch insert.
 
-### Avoid cross-region calls in hot path
+### Избегай межрегиональных вызовов в горячем пути
 
-Каждый cross-region call = 80-150 ms. Если в request flow есть один такой — уже за 200ms response time.
+Каждый cross-region call = 80-150 ms. Если в потоке запроса есть один такой — уже за 200 ms время ответа.
 
 → Multi-region активно реплицируется (хоть и eventual consistent), critical state локально.
 
@@ -110,9 +110,9 @@ C(N) = N / (1 + α(N-1) + βN(N-1))
 ```
 
 - При `β = 0` — это закон Amdahl (limit `1/α`)
-- При `β > 0` — есть **negative scalability**: добавление узлов **уменьшает** throughput сверх определённой точки (из-за coherence overhead)
+- При `β > 0` — есть **negative scalability**: добавление узлов **уменьшает** пропускную способность сверх определённой точки (из-за coherence overhead)
 
-**Practical:** в distributed systems coherence (replication, gossip, consensus) растёт нелинейно. После определённого размера cluster добавление узла увеличивает latency.
+**На практике:** в distributed systems coherence (replication, gossip, consensus) растёт нелинейно. После определённого размера cluster добавление узла увеличивает задержку.
 
 → Cassandra рекомендует ≤ 100 nodes per cluster для balance. K8s — 5000 nodes хард-лимит. PostgreSQL streaming replication ~ 5-10 replicas comfortably.
 
@@ -120,7 +120,7 @@ C(N) = N / (1 + α(N-1) + βN(N-1))
 
 ## Степени двойки (для оценки ёмкости)
 
-| Power | Value | Memorable |
+| Степень | Значение | Запоминается |
 |-------|-------|-----------|
 | 2^10 | 1,024 | ~1 K |
 | 2^16 | 65,536 | ~64 K |
@@ -133,9 +133,9 @@ C(N) = N / (1 + α(N-1) + βN(N-1))
 
 **Use case:** «storage for 100M users × 1 KB profile each» = `100M × 1KB = 100 GB`. Если 10 KB → 1 TB. Если 1 MB photo each → 100 TB.
 
-### Storage capacities
+### Объём хранилища
 
-| Size | Bytes | Use case |
+| Размер | Байт | Применение |
 |------|-------|----------|
 | KB | ~10^3 | Single record, small JSON |
 | MB | ~10^6 | Image, large document |
@@ -148,7 +148,7 @@ C(N) = N / (1 + α(N-1) + βN(N-1))
 
 ## Диапазоны QPS / TPS (по типам систем)
 
-| System | QPS / TPS |
+| Система | QPS / TPS |
 |--------|-----------|
 | Single PostgreSQL primary | 10K writes, 50K reads (with optimization) |
 | Single Redis node | 100K-1M ops |
@@ -164,7 +164,7 @@ C(N) = N / (1 + α(N-1) + βN(N-1))
 
 ## Соображения стоимости
 
-Latency и пропускная способность — не единственные оси. Cost часто решает архитектуру:
+Задержка и пропускная способность — не единственные оси. Стоимость часто решает архитектуру:
 
 - **AWS S3 storage** ~ $0.023 / GB / month (standard)
 - **AWS S3 egress** ~ $0.09 / GB (внешний интернет) → 1 TB = $90 per transfer

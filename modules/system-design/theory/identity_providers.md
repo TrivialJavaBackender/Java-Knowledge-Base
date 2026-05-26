@@ -53,11 +53,11 @@ ES256: ECDSA-SHA256 (более компактные ключи и подпис�
 
 | Алгоритм | Тип | Кто подписывает | Кто проверяет | Когда использовать |
 |----------|-----|-----------------|---------------|--------------------|
-| HS256 | Symmetric (HMAC) | shared secret | shared secret | AS == RS (один сервис) |
-| RS256 | Asymmetric (RSA) | private key (AS) | public key (любой) | Микросервисы, федерация |
-| ES256 | Asymmetric (ECDSA) | private key (AS) | public key (любой) | То же что RS256, но компактнее |
+| HS256 | Симметричный (HMAC) | shared secret | shared secret | AS == RS (один сервис) |
+| RS256 | Асимметричный (RSA) | private key (AS) | public key (любой) | Микросервисы, федерация |
+| ES256 | Асимметричный (ECDSA) | private key (AS) | public key (любой) | То же что RS256, но компактнее |
 
-В микросервисах и federated сценариях — RS256/ES256: Resource Server проверяет токен публичным ключом, который безопасно публикуется. Private key никогда не покидает AS.
+В микросервисах и федеративных сценариях — RS256/ES256: Resource Server проверяет токен публичным ключом, который безопасно публикуется. Private key никогда не покидает AS.
 
 ### Валидация JWT (Resource Server)
 
@@ -106,7 +106,7 @@ public Map<String, Object> me(@AuthenticationPrincipal Jwt jwt) {
 }
 ```
 
-### Stateless vs Stateful
+### Без состояния vs с состоянием
 
 | | Session (stateful) | JWT (stateless) |
 |---|---|---|
@@ -122,7 +122,7 @@ JWT stateless — отозвать до `exp` нельзя без какого-�
 
 **1. Короткий TTL + refresh rotation.** access_token живёт 5–15 минут, refresh_token (длинный TTL) хранится на сервере и может быть отозван. При каждом обмене refresh выдаётся новый — старый инвалидируется. Если refresh пытаются использовать дважды (token reuse) — это признак компрометации, инвалидируем всю цепочку.
 
-**2. Blocklist в Redis по `jti`.** При выходе пользователя — сохранить `jti` отозванного токена с TTL до `exp`. Каждый запрос: Redis lookup по jti. Добавляет latency и зависимость от Redis, зато даёт мгновенный logout.
+**2. Blocklist в Redis по `jti`.** При выходе пользователя — сохранить `jti` отозванного токена с TTL до `exp`. Каждый запрос: Redis lookup по jti. Добавляет задержку и зависимость от Redis, зато даёт мгновенный logout.
 
 **3. Token introspection** — Resource Server при каждом запросе спрашивает AS:
 
@@ -212,7 +212,7 @@ Payment Service проверяет токен: выдан AS, scope содерж
 
 Это ответ на вопрос "как один сервис доверяет другому в микросервисах".
 
-### Refresh Token rotation
+### Ротация Refresh Token
 
 ```
 Client → AS:
@@ -255,9 +255,9 @@ id_token (JWT):
 
 **Главное правило:** id_token предназначен клиентскому приложению (Client). access_token предназначен Resource Server. Не передавай id_token в API как Bearer.
 
-### Discovery endpoint
+### Конечная точка обнаружения (Discovery endpoint)
 
-Все OIDC-совместимые AS публикуют метаданные по стандартному URL. Приложению не нужно hardcode-ить адреса endpoint'ов:
+Все OIDC-совместимые AS публикуют метаданные по стандартному URL. Приложению не нужно хардкодить адреса конечных точек:
 
 ```
 GET https://accounts.google.com/.well-known/openid-configuration
@@ -274,7 +274,7 @@ Spring Security использует `issuer-uri` в конфиге и сам з
 
 ---
 
-## SAML 2.0 — XML federation в enterprise
+## SAML 2.0 — XML-федерация для корпоративной среды
 
 SAML (Security Assertion Markup Language, 2005) решает ту же задачу SSO что и OIDC, но через XML. Появился до OAuth2 и до мобильной эпохи, поэтому ориентирован на браузерные HTTP redirects и POST-формы.
 
@@ -285,7 +285,7 @@ SAML (Security Assertion Markup Language, 2005) решает ту же зада�
 ### Ключевое отличие от OAuth2: push vs pull
 
 OAuth2 — **pull**: клиент сам запрашивает токен у AS.  
-SAML — **push**: IdP POST'ит Assertion прямо в браузере на SP (через форму с SAMLResponse).
+SAML — **push**: IdP отправляет Assertion напрямую в браузере на SP (через форму с SAMLResponse).
 
 ```
 SAML SP-initiated flow:
@@ -294,7 +294,7 @@ SAML SP-initiated flow:
 2. SP видит: нет сессии → формирует SAMLRequest (XML, сжат, base64) → редиректит на IdP
 3. Пользователь логинится в IdP (может через Windows Kerberos — SSO без ввода пароля)
 4. IdP формирует SAMLResponse (XML с Assertion, подписан RSA приватным ключом IdP)
-5. IdP POST'ит форму в браузер → браузер автоматически POST'ит на app.company.com/saml/acs
+5. IdP отправляет форму в браузер → браузер автоматически отправляет POST на app.company.com/saml/acs
 6. SP проверяет подпись XML (используя публичный ключ IdP из metadata)
 7. SP создаёт сессию для пользователя → редиректит на /report
 ```
@@ -334,7 +334,7 @@ Assertion содержит атрибуты пользователя: email, г�
 | Транспорт | HTTP form POST / redirect | HTTP REST |
 | Mobile | Плохо (нет redirect_uri flow) | Отлично |
 | Корпоративная среда | Стандарт де-факто | Активно внедряется |
-| Настройка | XML metadata обмен | Discovery endpoint |
+| Настройка | XML metadata обмен | Конечная точка обнаружения |
 | Refresh | Нет стандарта | Refresh token |
 
 **Правило:** если сам выбираешь IdP для нового приложения — OIDC. Если нужна интеграция с корпоративным AD/Okta где IT требует SAML — SAML.
@@ -361,7 +361,7 @@ Assertion содержит атрибуты пользователя: email, г�
 
 **Memory-hard** означает, что для перебора нужно много RAM на каждое вычисление. GPU имеет быстрые ядра, но мало RAM на ядро — атака на GPU нерентабельна. Argon2id (RFC 9106) — победитель Password Hashing Competition 2015.
 
-### Salt — защита от rainbow tables
+### Соль — защита от rainbow tables
 
 Соль — случайные байты (≥ 16), уникальные для каждого пароля. Без соли одинаковые пароли дают одинаковые хэши, и атакующий может precompute таблицу хэшей для популярных паролей.
 

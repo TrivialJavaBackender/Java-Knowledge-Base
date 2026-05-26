@@ -60,14 +60,14 @@ Client: GET /index.html
 Server: вот index.html + PUSH /style.css + PUSH /script.js
 ```
 
-**Stream Prioritization:** можно указать приоритет stream'а (критические ресурсы первыми).
+**Stream Prioritization:** можно указать приоритет потока (критические ресурсы первыми).
 
 **Требует TLS** (на практике — HTTPS обязателен, хотя технически опционален).
 
 ### HTTP/3 (QUIC)
 
-HTTP/2 решил head-of-line на уровне HTTP, но не TCP: потеря одного пакета → все stream'ы ждут повторной отправки.  
-HTTP/3 переходит на **QUIC** (UDP + TLS встроен) — каждый stream независим на уровне транспорта.
+HTTP/2 решил head-of-line на уровне HTTP, но не TCP: потеря одного пакета → все потоки ждут повторной отправки.  
+HTTP/3 переходит на **QUIC** (UDP + TLS встроен) — каждый поток независим на уровне транспорта.
 
 | | HTTP/1.1 | HTTP/2 | HTTP/3 |
 |---|---|---|---|
@@ -85,8 +85,8 @@ HTTP/3 переходит на **QUIC** (UDP + TLS встроен) — кажд�
 | Протокол | Транспорт | Применение |
 |----------|-----------|------------|
 | HTTP/1.1, HTTP/2, HTTP/3 | TCP / QUIC | Web, REST API |
-| WebSocket | TCP (upgrade от HTTP) | Real-time: чат, игры, биржа |
-| gRPC | HTTP/2 (TLS) | Microservices, streaming RPC |
+| WebSocket | TCP (upgrade от HTTP) | В реальном времени: чат, игры, биржа |
+| gRPC | HTTP/2 (TLS) | Microservices, потоковый RPC |
 | MQTT | TCP | IoT, pub/sub, low-bandwidth |
 | AMQP | TCP | Message brokers (RabbitMQ) |
 | SMTP/IMAP/POP3 | TCP | Email |
@@ -116,12 +116,12 @@ Server → 101 Switching Protocols
 **Можно ли построить REST на WebSockets?** — технически да, но это антипаттерн:
 - REST предполагает stateless request/response. WebSocket — stateful, постоянное соединение.
 - HTTP методы (GET/POST/PUT/DELETE), коды ответа, кэширование — не существуют в WS
-- WebSocket нужен для push-данных от сервера, bidirectional streaming, real-time
+- WebSocket нужен для push-данных от сервера, двунаправленной потоковой передачи, работы в реальном времени
 
 **Правильный выбор:**
 - REST (HTTP) → request/response, CRUD, кэшируемость
-- WebSocket → real-time уведомления, чат, live data (котировки, scoreboard)
-- gRPC → server/client/bidirectional streaming с типизированным API
+- WebSocket → уведомления в реальном времени, чат, live data (котировки, scoreboard)
+- gRPC → серверная/клиентская/двунаправленная потоковая передача с типизированным API
 - SSE (Server-Sent Events) → server push в одну сторону, проще WebSocket
 
 ---
@@ -143,11 +143,11 @@ Server → 101 Switching Protocols
 **GET должен быть идемпотентным** потому что:
 1. Браузеры кэшируют GET — повторный запрос может не дойти до сервера
 2. Прокси и CDN кэшируют GET
-3. Prefetching — браузер может выполнить GET заранее
+3. Предзагрузка — браузер может выполнить GET заранее
 4. "Back" кнопка повторяет GET без предупреждения
-5. Crawler'ы обходят GET-ссылки
+5. Поисковые роботы обходят GET-ссылки
 
-GET с side-effects нарушает эти ожидания → кэши вернут старый результат, prefetch изменит данные.
+GET с side-effects нарушает эти ожидания → кэши вернут старый результат, предзагрузка изменит данные.
 
 **POST не идемпотентен** — повторная отправка = повторная операция (дублирование заказа, платежа). Браузер предупреждает при повторной отправке формы.
 

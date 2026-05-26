@@ -6,7 +6,7 @@
 
 ## Bloom Filter
 
-**Цель:** проверить «может ли элемент быть в множестве?» с low memory cost. **No false negatives** (если говорит «нет» — точно нет), **false positives возможны** (если говорит «да» — может быть нет).
+**Цель:** проверить «может ли элемент быть в множестве?» с низким расходом памяти. **Ложноотрицательных нет** (если говорит «нет» — точно нет), **ложноположительные возможны** (если говорит «да» — может быть нет).
 
 ### Структура
 
@@ -35,40 +35,40 @@ contains(x) → bool:
   return True  # possibly present (could be false positive)
 ```
 
-### Use cases
+### Применение
 
-- **Cache penetration prevention** — перед запросом к DB проверить Bloom: «есть такой userId?» Если Bloom говорит «нет» → 100% не в DB, skip query
-- **Deduplication** — URL crawler: «видели этот URL?»
-- **CDN** — does this URL exist in origin (negative cache)
-- **LSM-tree** point lookup optimization (Cassandra, RocksDB)
-- **Bitcoin SPV** clients — filter relevant transactions
+- **Защита от проникновения в кэш** — перед запросом к DB проверить Bloom: «есть такой userId?» Если Bloom говорит «нет» → 100% не в DB, пропустить запрос
+- **Дедупликация** — URL-краулер: «видели этот URL?»
+- **CDN** — есть ли этот URL в origin (негативный кэш)
+- **LSM-tree** — оптимизация точечного поиска (Cassandra, RocksDB)
+- **Bitcoin SPV** клиенты — фильтрация релевантных транзакций
 
 ### Ограничения
 
 - ✗ **Нельзя удалять** элементы из стандартного Bloom (обнуление битов ломает другие элементы)
-- ✗ Доля false positive растёт со временем, если добавили больше, чем планировали
+- ✗ Доля ложноположительных растёт со временем, если добавили больше, чем планировали
 - ✗ Нельзя итерироваться по элементам
 
 ### Counting Bloom Filter
 
-Вместо bits — counters. `add` increments, `remove` decrements. Можно удалять, но 4-8× больше memory.
+Вместо битов — счётчики. `add` увеличивает, `remove` уменьшает. Можно удалять, но требует в 4–8× больше памяти.
 
 ### Cuckoo Filter (альтернатива)
 
-- ✓ Поддерживает delete
-- ✓ Меньше памяти, чем Counting Bloom, при одинаковом FP rate
-- ✗ Insert может упасть при высоком load factor
+- ✓ Поддерживает удаление
+- ✓ Меньше памяти, чем Counting Bloom, при одинаковом уровне ложноположительных
+- ✗ Вставка может упасть при высоком коэффициенте заполнения
 - Используется в современных системах как замена Counting Bloom
 
 ---
 
 ## Count-Min Sketch (CMS)
 
-**Цель:** оценить **frequency** элемента в потоке. Approximate counting в constant memory.
+**Цель:** оценить **частоту** элемента в потоке. Приближённый подсчёт в константной памяти.
 
 ### Структура
 
-`d × w` matrix counters. `d` hash functions, каждая maps в одну из `w` columns.
+Матрица счётчиков `d × w`. `d` хеш-функций, каждая отображает в один из `w` столбцов.
 
 ```
         col 0  col 1  col 2  ...  col w-1
@@ -92,38 +92,38 @@ count(x) → estimate:
 
 ### Свойства
 
-- **Overestimates** (никогда не undercounts)
-- Error bounded: `ε ≈ 2/w`, probability of bound exceeded: `δ ≈ 1/e^d`
+- **Завышает** (никогда не занижает)
+- Ошибка ограничена: `ε ≈ 2/w`, вероятность превышения границы: `δ ≈ 1/e^d`
 
-### Use cases
+### Применение
 
-- **Heavy hitters** — top-K queries в streaming
-- **Network traffic analysis** — какие IP отправляют больше всего
-- **Database query optimization** — frequency for index selectivity
-- **Recommender systems** — co-occurrence counts
+- **Heavy hitters** — top-K запросов в потоке
+- **Анализ сетевого трафика** — какие IP отправляют больше всего
+- **Оптимизация запросов БД** — частота для избирательности индексов
+- **Рекомендательные системы** — счётчики совместных вхождений
 
 ### Top-K
 
 CMS + heap = `top_K`:
-- CMS tracks frequencies
-- Min-heap размером K хранит current top K
-- Each item: estimate freq, if > min(heap) → update heap
+- CMS отслеживает частоты
+- Min-heap размером K хранит текущий top K
+- Для каждого элемента: оцениваем частоту, если > min(heap) → обновляем heap
 
 ---
 
 ## HyperLogLog (HLL)
 
-**Цель:** approximate count distinct elements. `count_distinct` точно требует O(n) memory (HashSet); HLL — O(log log n) memory.
+**Цель:** приближённый подсчёт уникальных элементов. Точный `count_distinct` требует O(n) памяти (HashSet); HLL — O(log log n).
 
-### Idea
+### Идея
 
-- Hash каждый element → uniform random bits
-- Track **maximum number of leading zeros** в hashes — corresponds к approximate log2(distinct count)
-- Multiple hash functions / partitions → average для accuracy
+- Хешируем каждый элемент → равномерно случайные биты
+- Отслеживаем **максимум ведущих нулей** в хешах — соответствует приближённому log2(число уникальных)
+- Несколько хеш-функций / разделов → усреднение для точности
 
 ### Размер
 
-**~12 KB для error 2%, 1+ billion distinct elements**. Compare к HashSet: 1B items × 8 bytes = 8 GB.
+**~12 КБ при ошибке 2%, более 1 млрд уникальных элементов**. Для сравнения, HashSet: 1 млрд элементов × 8 байт = 8 ГБ.
 
 ### Операции
 
@@ -139,12 +139,12 @@ count_distinct() → estimate:
   harmonic_mean(registers) * m * α  # bias correction
 ```
 
-### Use cases
+### Применение
 
-- **Unique visitors** counting (Redis `PFCOUNT`)
-- **Cardinality в analytics** (Druid, BigQuery — built-in `APPROX_COUNT_DISTINCT`)
-- **DDoS detection** — unique source IPs
-- **Privacy** — Apple uses HLL variants для differential privacy
+- **Подсчёт уникальных посетителей** (Redis `PFCOUNT`)
+- **Кардинальность в аналитике** (Druid, BigQuery — встроенный `APPROX_COUNT_DISTINCT`)
+- **Обнаружение DDoS** — уникальные IP-адреса источников
+- **Приватность** — Apple использует варианты HLL для дифференциальной приватности
 
 ### Redis HyperLogLog
 
@@ -163,31 +163,31 @@ PFCOUNT result            → union cardinality
 
 ### Top-K (Misra-Gries / Space-Saving)
 
-Streaming top-K with bounded memory. `O(K)` space, suitable when K is small (top 100, 1000).
+Top-K в потоке с ограниченной памятью. Пространство `O(K)`, подходит когда K невелик (top 100, 1000).
 
 ### MinHash
 
-Approximate Jaccard similarity (set similarity). Two sets — sample fingerprints — compare counts of overlapping.
+Приближённое сходство Жаккара (сходство множеств). Два множества — выборка отпечатков — сравниваем число совпадений.
 
-**Use case:** plagiarism detection, near-duplicate document detection.
+**Применение:** обнаружение плагиата, поиск почти дублирующихся документов.
 
 ### Quotient Filter
 
-Modern alternative to Bloom — better cache locality, supports delete.
+Современная альтернатива Bloom — лучшая локальность кэша, поддерживает удаление.
 
 ---
 
 ## Сравнительная таблица
 
-| Structure | Use case | Memory | False rate | Notes |
+| Структура | Применение | Память | Ошибка | Примечания |
 |-----------|----------|--------|------------|-------|
-| **Bloom Filter** | Membership query | ~1.2 MB / 1M @ 1% | False positives | No delete (standard) |
-| **Counting Bloom** | Membership with delete | 4-8× Bloom | Same | Supports delete |
-| **Cuckoo Filter** | Better Bloom | Less than Counting Bloom | Same | Supports delete, modern |
-| **Count-Min Sketch** | Frequency | KB-MB range | Overestimates | Approximate frequencies |
-| **HyperLogLog** | Count distinct | ~12 KB / billion | ±2% | Cardinality only |
-| **Top-K (Misra-Gries)** | Top-K items | O(K) | Approximate | When K is small |
-| **MinHash** | Set similarity | O(k) per set | Approximate | Jaccard estimation |
+| **Bloom Filter** | Проверка принадлежности | ~1.2 МБ / 1M @ 1% | Ложноположительные | Нет удаления (стандартный) |
+| **Counting Bloom** | Принадлежность с удалением | 4–8× Bloom | Аналогично | Поддерживает удаление |
+| **Cuckoo Filter** | Улучшенный Bloom | Меньше Counting Bloom | Аналогично | Поддерживает удаление, современный |
+| **Count-Min Sketch** | Частота | КБ–МБ | Завышает | Приближённые частоты |
+| **HyperLogLog** | Подсчёт уникальных | ~12 КБ / млрд | ±2% | Только кардинальность |
+| **Top-K (Misra-Gries)** | Top-K элементы | O(K) | Приближённая | Когда K невелик |
+| **MinHash** | Сходство множеств | O(k) на множество | Приближённая | Оценка Жаккара |
 
 ---
 
@@ -195,11 +195,11 @@ Modern alternative to Bloom — better cache locality, supports delete.
 
 Приближённое ≠ точное. Не используй, если:
 
-- **Нужна строгая корректность** — финансовые транзакции (никаких false positive или false negative)
-- **Маленький датасет** — overhead не оправдан (используй HashSet, HashMap)
-- **Нужны точные счётчики** для биллинга — HyperLogLog даёт приближение; нужны exact counters
+- **Нужна строгая корректность** — финансовые транзакции (никаких ложноположительных или ложноотрицательных)
+- **Маленький датасет** — оверхед не оправдан (используй HashSet, HashMap)
+- **Нужны точные счётчики** для биллинга — HyperLogLog даёт приближение; нужны точные счётчики
 
-**Паттерн:** приближённые структуры в hot-path (cache, dedup, real-time-аналитика), точные — в batch (ночные агрегаты, финансовое закрытие).
+**Паттерн:** приближённые структуры на горячем пути (кэш, дедупликация, аналитика в реальном времени), точные — в batch (ночные агрегаты, финансовое закрытие).
 
 ---
 
@@ -209,10 +209,10 @@ Modern alternative to Bloom — better cache locality, supports delete.
 - **Cassandra** — Bloom Filter per SSTable для read optimization
 - **PostgreSQL** — Bloom filter index extension (`bloom` extension)
 - **BigQuery** — `APPROX_COUNT_DISTINCT` (HLL)
-- **Apache Druid** — HLL для COUNT DISTINCT в queries
+- **Apache Druid** — HLL для COUNT DISTINCT в запросах
 - **Snowflake** — built-in approximate functions
 - **Facebook** — Apache Pinot for approximate top-K в feeds
-- **Akamai / Cloudflare** — CMS для real-time traffic analysis
+- **Akamai / Cloudflare** — CMS для анализа трафика в реальном времени
 
 ---
 
