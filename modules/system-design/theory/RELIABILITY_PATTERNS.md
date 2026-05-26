@@ -267,27 +267,160 @@ Producer → Queue → Consumer (retry 5×)
 
 ## Ключи идемпотентности
 
-См. [`distributed_systems.md`](distributed_systems.md#idempotency-key) для базы. Здесь — production-практика.
+Клиент генерирует уникальный ключ (UUIDv4/v7) и передаёт с каждым мутирующим запросом. Сервер запоминает `(key → result)` и при повторном обращении возвращает сохранённый ответ, не выполняя операцию повторно.
 
-**Ключ генерируется клиентом:** `idempotency_key = UUID().toString()` для каждой операции.
+### Область ключа (scope)
 
-**Дедупликация на сервере:**
+Ключ **не глобальный** — lookup всегда составной: `(user_id, idempotency_key)`. Это исключает межпользовательские коллизии: даже одинаковые UUID у разных клиентов попадают в разные пространства.
 
-```python
-def process_payment(idempotency_key, amount, account):
-    with redis.lock(f"idempotency:{idempotency_key}", timeout=10):
-        cached = redis.get(f"result:{idempotency_key}")
-        if cached:
-            return cached  # уже обработано, возвращаем кэш
-        
-        result = actually_charge(amount, account)
-        redis.setex(f"result:{idempotency_key}", ttl=24h, value=result)
-        return result
+### Валидация запроса (request fingerprint)
+
+При совпадении ключа сервер сравнивает хеш тела запроса (или значимых полей: сумма, получатель, валюта) с сохранённым:
+
+- **Совпал** — настоящий retry → возвращаем закешированный ответ
+- **Не совпал** — коллизия или ошибка клиента → **409 Conflict** (`idempotency key already used for a different request`)
+
+Stripe возвращает 400 с кодом `idempotency_key_in_use` в этом случае.
+
+### Хранение: БД vs Redis vs гибрид
+
+**Redis-only:**
+
+```
+SET idempotency:{user_id}:{key} {response_json} NX EX 86400
 ```
 
-**TTL для idempotency keys:** обычно 24 часа (баланс между стоимостью хранилища и окном повторов).
+- Быстрый lookup, TTL встроен
+- **Проблема:** Redis не даёт ACID-гарантий. При падении Redis записи теряются → retry выполнит операцию повторно. Для некритичных операций (лайки, уведомления) — допустимо. Для платежей — нет
 
-**Подход Stripe:** все изменяющие состояние эндпоинты поддерживают заголовок `Idempotency-Key`. Документированные лучшие практики.
+**БД-only (в той же транзакции):**
+
+```sql
+CREATE TABLE idempotency_keys (
+    user_id     BIGINT       NOT NULL,
+    key         VARCHAR(64)  NOT NULL,
+    request_hash BYTEA,
+    status      VARCHAR(16)  DEFAULT 'started',  -- started → completed / failed
+    response_code INT,
+    response_body JSONB,
+    created_at  TIMESTAMPTZ  DEFAULT now(),
+    expires_at  TIMESTAMPTZ  DEFAULT now() + INTERVAL '24 hours',
+    PRIMARY KEY (user_id, key)
+);
+```
+
+Ключевое свойство: `INSERT INTO idempotency_keys` и бизнес-операция — **в одной транзакции**. Атомарность гарантирована средствами БД: либо обе записались, либо ни одна. При crash-recovery невозможна ситуация «операция выполнилась, а ключ потерялся».
+
+```python
+def process_payment(user_id, idempotency_key, request):
+    request_hash = sha256(canonical(request))
+    with db.transaction():
+        existing = db.query(
+            "SELECT * FROM idempotency_keys WHERE user_id=%s AND key=%s",
+            user_id, idempotency_key
+        )
+        if existing:
+            if existing.request_hash != request_hash:
+                raise Conflict("idempotency key reused for different request")
+            if existing.status == 'started':
+                raise Conflict("request is being processed, retry later")
+            return existing.response_code, existing.response_body
+
+        db.execute(
+            "INSERT INTO idempotency_keys (user_id, key, request_hash, status) "
+            "VALUES (%s, %s, %s, 'started')",
+            user_id, idempotency_key, request_hash
+        )
+        result = execute_business_logic(request)
+        db.execute(
+            "UPDATE idempotency_keys SET status='completed', "
+            "response_code=%s, response_body=%s WHERE user_id=%s AND key=%s",
+            result.code, result.body, user_id, idempotency_key
+        )
+    return result
+```
+
+**Гибрид (Redis + БД) — подход Stripe:**
+
+```
+Redis: быстрый кэш (SET NX EX) для hot-path → экономит поход в БД на 99% retry
+БД:    source of truth, запись атомарно с бизнес-транзакцией
+```
+
+Поток:
+1. Проверить Redis → есть ответ → вернуть
+2. Redis miss → проверить БД → есть → вернуть (и прогреть Redis)
+3. БД miss → выполнить операцию, записать в БД (транзакционно), потом SET в Redis
+4. Если Redis недоступен → работаем через БД (медленнее, но корректно)
+
+### Что если Redis упал во время retry
+
+При **Redis-only** схеме — ключ потерян, retry выполнит операцию повторно. Для платежей это двойное списание.
+
+При **гибриде** — Redis это только кэш. Fallback на БД:
+
+```
+Retry приходит → Redis down → идём в БД → ключ есть → возвращаем кэшированный ответ
+```
+
+Корректность не страдает, только latency растёт (10–50 мс вместо 1 мс).
+
+**Вывод:** для финансовых операций source of truth для ключей идемпотентности — **всегда БД**, а не Redis. Redis — ускорение, не гарантия.
+
+### TTL и очистка
+
+TTL определяет, как долго ключ «жив». После истечения ключ удаляется, и повторный запрос с тем же ключом выполнит операцию заново. Это **ожидаемое поведение**: через 24–72 часа retry с тем же ключом — скорее новая попытка, а не retry сбоя.
+
+**TTL — это про очистку, а не про проверку при каждом запросе.** Lookup идёт по составному ключу `(user_id, key)`. Если ключ найден и не истёк — возвращаем кэш. Если не найден (никогда не было или уже вычищен) — новая операция. Фильтровать по `created_at` при каждом запросе не нужно.
+
+Реализация очистки:
+
+| Хранилище | Механизм TTL |
+|-----------|--------------|
+| Redis | `EX 86400` — автоматически, встроено |
+| PostgreSQL | `expires_at` + pg_cron: `DELETE FROM idempotency_keys WHERE expires_at < now()` |
+| PostgreSQL (высокая нагрузка) | партиционирование по дню: `DROP` устаревших партиций целиком — O(1) вместо поштучного DELETE |
+
+### Отдельная таблица или вместе с данными
+
+**Отдельная таблица (рекомендуемый подход):**
+- Чистое разделение ответственности — idempotency не загрязняет бизнес-схему
+- Единая таблица для всех эндпоинтов
+- Простая очистка (партиционирование, cron)
+- Легко добавлять метаданные (`request_hash`, `status`, `response_body`)
+
+**Колонка в бизнес-таблице** (e.g., `payments.idempotency_key UNIQUE`):
+- Плюс: `UNIQUE`-constraint даёт атомарную защиту «бесплатно»
+- Минус: связывает idempotency с конкретной сущностью; у каждого эндпоинта своя таблица; нет единообразной очистки; `NULL`-ы для записей без ключа
+
+На практике большинство систем (Stripe, Adyen) используют **отдельную таблицу** + запись в ней в той же транзакции, что и бизнес-операция.
+
+### Конкурентные retry (in-flight дедупликация)
+
+Два retry прилетают одновременно, пока первый запрос ещё обрабатывается:
+
+```
+Retry A → INSERT idempotency_keys ... status='started' → OK → обрабатываем
+Retry B → INSERT idempotency_keys ... → CONFLICT (PK) → читаем status='started'
+       → знаем, что кто-то уже обрабатывает → 409 / Retry-After: 2
+```
+
+В Redis: `SET ... NX` (set-if-not-exists) даёт ту же семантику. Кто первый — тот обрабатывает, остальные ждут или получают 409.
+
+### Итого: уровни защиты от коллизий
+
+| Уровень | Что предотвращает |
+|---------|-------------------|
+| Scope `(user_id, key)` | Межпользовательские коллизии |
+| Request fingerprint (SHA-256 тела) | Внутрипользовательские коллизии и баги клиента |
+| UUIDv4/v7 (122 бита энтропии) | Случайные коллизии (вероятность ~10⁻¹⁸) |
+| TTL + очистка | Рост хранилища, расширение окна коллизий |
+| In-flight дедупликация (`status`) | Гонка параллельных retry |
+
+### Источники
+
+- [Stripe — Designing robust and predictable APIs with idempotency](https://stripe.com/blog/idempotency) — эталонный подход с описанием ACID-phases
+- [Brandur Leach — Implementing Stripe-like idempotency keys in Postgres](https://brandur.org/idempotency-keys) — глубокий разбор реализации с рисками Redis-only
 
 ---
 

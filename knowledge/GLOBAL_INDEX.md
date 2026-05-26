@@ -278,7 +278,7 @@ Canonical concept → owner file map. One concept, one owner. Other modules must
 - Lamport / vector clocks → modules/system-design/theory/distributed_systems.md
 - quorum (R + W > N) → modules/system-design/theory/distributed_systems.md
 - distributed locks → modules/system-design/theory/distributed_systems.md
-- idempotency key → modules/system-design/theory/distributed_systems.md
+- idempotency key → modules/system-design/theory/RELIABILITY_PATTERNS.md
 - Saga pattern → modules/system-design/theory/microservice_patterns.md
 - Outbox pattern → modules/system-design/theory/microservice_patterns.md
 - Circuit Breaker pattern → modules/system-design/theory/microservice_patterns.md
