@@ -8,7 +8,7 @@
 
 ## Прямой против обратного прокси
 
-**Forward proxy** — на стороне **клиента**, скрывает identity клиента от сервера. Корпоративный internet gateway, censorship circumvention, ISP cache (1990s).
+**Forward proxy** — на стороне **клиента**, скрывает личность клиента от сервера. Корпоративный internet gateway, обход цензуры, ISP cache (1990s).
 
 ```
 Client → Forward Proxy → Internet → Server
@@ -47,8 +47,8 @@ Client → Reverse Proxy → Backend Pool
 
 **Сильные стороны:**
 - Battle-tested, повсеместен (60%+ websites)
-- Простой config syntax
-- Отличный static file serving
+- Простой синтаксис конфигурации
+- Отличная отдача статических файлов
 - gzip / FastCGI / PHP-FPM integration
 
 **Слабые места:**
@@ -62,9 +62,9 @@ Client → Reverse Proxy → Backend Pool
 
 **Сильные стороны:**
 - Самый быстрый L4/L7 (С + custom event loop)
-- Excellent наблюдаемость (stats page, health states)
+- Отличная наблюдаемость (stats page, health states)
 - TCP mode (database proxy, любые TCP-based)
-- Stick tables (sessions, rate limit) с в memory
+- Stick tables (сессии, ограничение скорости) в памяти
 
 **Слабые места:**
 - Менее распространён чем Nginx
@@ -75,7 +75,7 @@ Client → Reverse Proxy → Backend Pool
 ### Envoy (2016, by Lyft)
 
 **Сильные стороны:**
-- **xDS API** — динамическая конфигурация без reload (получает config from control plane)
+- **xDS API** — динамическая конфигурация без reload (получает конфигурацию от control plane)
 - HTTP/2 + gRPC native
 - Hot reload, blue/green LDS config swap
 - Filter chain (extensible — WASM filters)
@@ -102,20 +102,20 @@ Client → Reverse Proxy → Backend Pool
 
 ---
 
-## Reverse proxy vs API Gateway vs Service Mesh
+## Обратный прокси vs API Gateway vs Service Mesh
 
 Часто путают. Это разные уровни абстракции:
 
 | | Reverse Proxy | API Gateway | Service Mesh |
 |---|---|---|---|
 | Где живёт | Edge (single instance/HA pair) | Edge (per app) | Per-pod sidecar |
-| Routing | Path/host-based | Path + API contract (OpenAPI/GraphQL) | Service-to-service |
-| Auth | Basic JWT | OAuth2/OIDC full flow | mTLS identity |
+| Маршрутизация | Path/host-based | Path + API contract (OpenAPI/GraphQL) | Service-to-service |
+| Аутентификация | Basic JWT | OAuth2/OIDC full flow | mTLS identity |
 | Rate limit | IP-based | Per-API key / tier | Per-service |
-| Наблюдаемость | Logs | + API analytics | + Distributed tracing, per-call |
-| Examples | Nginx, HAProxy | Kong, Apigee, Tyk, AWS API Gateway | Istio, Linkerd, Consul Connect |
+| Наблюдаемость | Логи | + API analytics | + Distributed tracing, per-call |
+| Примеры | Nginx, HAProxy | Kong, Apigee, Tyk, AWS API Gateway | Istio, Linkerd, Consul Connect |
 
-**Service Mesh** добавляет infrastructure для inter-service communication (mTLS, retries, circuit breaker) **без изменения кода**. Цена — N×2 sidecars (envoy + app в каждом pod), сложность операционная.
+**Service Mesh** добавляет инфраструктуру для межсервисного взаимодействия (mTLS, retries, circuit breaker) **без изменения кода**. Цена — N×2 sidecars (envoy + app в каждом pod), сложность операционная.
 
 ---
 
@@ -178,7 +178,7 @@ location / {
 
 ## X-Forwarded-* headers
 
-Когда есть chain `Client → CDN → LB → App`, приложение видит CDN/LB IP вместо клиента. Headers решают:
+Когда есть цепочка `Client → CDN → LB → App`, приложение видит CDN/LB IP вместо клиента. Заголовки решают:
 
 ```
 X-Forwarded-For: <client_ip>, <proxy1_ip>, <proxy2_ip>
@@ -187,9 +187,9 @@ X-Forwarded-Host: example.com       (оригинальный Host)
 X-Real-IP: <client_ip>              (Nginx-specific, single client IP)
 ```
 
-**Security pitfall:** клиент может **подделать** `X-Forwarded-For` если LB / proxy его не перезаписывает. Доверять только если LB обеспечивает (CloudFront, ALB перезаписывают).
+**Уязвимость безопасности:** клиент может **подделать** `X-Forwarded-For` если LB / прокси его не перезаписывает. Доверять только если LB обеспечивает (CloudFront, ALB перезаписывают).
 
-**Modern alternative:** `Forwarded` header (RFC 7239), стандартизированный формат, но менее распространён.
+**Современная альтернатива:** `Forwarded` header (RFC 7239), стандартизированный формат, но менее распространён.
 
 ---
 
@@ -207,7 +207,7 @@ upstream backend {
 
 ---
 
-## HA reverse proxy
+## Отказоустойчивый обратный прокси
 
 Reverse proxy сам не должен быть SPOF.
 
@@ -227,10 +227,10 @@ Ingress controller (Nginx/Traefik) в Deployment, обычно 2+ replicas, expo
 
 ## Практические соображения
 
-- **Buffer size tuning:** Nginx `proxy_buffers` для slow clients (нужно много буфера) vs быстрых (мало). По умолчанию ~4 KB × 8 — обычно мало для крупных ответов.
-- **Timeouts:** `proxy_read_timeout` (60s default) — может убить долгие SSE / WebSocket. Поднять до 3600s для потоковой передачи.
-- **HTTP/2 к бэкенду:** Nginx supports HTTP/2 client-facing, **но не backend-facing** до 1.25+. Envoy / HAProxy 2+ — оба направления.
-- **Logging cost:** access log на каждый запрос — IO-heavy. Buffer + async + sampling в hot path.
+- **Настройка размера буфера:** Nginx `proxy_buffers` для медленных клиентов (нужно много буфера) vs быстрых (мало). По умолчанию ~4 KB × 8 — обычно мало для крупных ответов.
+- **Таймауты:** `proxy_read_timeout` (60s default) — может убить долгие SSE / WebSocket. Поднять до 3600s для потоковой передачи.
+- **HTTP/2 к бэкенду:** Nginx поддерживает HTTP/2 со стороны клиента, **но не со стороны бэкенда** до 1.25+. Envoy / HAProxy 2+ — оба направления.
+- **Стоимость логирования:** access log на каждый запрос — IO-heavy. Buffer + async + sampling в hot path.
 
 ---
 

@@ -60,7 +60,7 @@ GET /api/v1/notifications/:id
 ## 4. Архитектура
 
 ```
-Сервисы-клиенты (Order, Auth, Marketing) → эмитят события
+Сервисы-клиенты (Order, Auth, Marketing) → публикуют события
   ↓
 Notification Service (API)
   ↓ (постановка в очередь)

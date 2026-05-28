@@ -19,7 +19,7 @@
 
 ### Active-Passive (Hot-Cold)
 
-Один регион **primary**, остальные **standby**: получают реплицированные данные, не обслуживают трафик.
+Один регион **первичный**, остальные **резервные**: получают реплицированные данные, не обслуживают трафик.
 
 ```
 US-East (primary) — все writes и reads
@@ -31,7 +31,7 @@ APAC (passive)    — копия
 **Переключение на резерв:** при сбое US-East — продвижение EU в primary, переключение DNS, перезапуск сервисов.
 
 - ✓ Просто: нет разрешения конфликтов
-- ✓ Строгая согласованность (один primary)
+- ✓ Строгая согласованность (один первичный узел)
 - ✓ Неиспользуемая мощность (passive-регионы простаивают) — обратная сторона
 - ✗ Высокий RTO (восстановление 5–30 минут)
 - ✗ Для пользователей EU/APAC задержка = межрегиональная
@@ -53,14 +53,14 @@ US-East ←→ EU ←→ APAC
 - ✗ Eventual consistency между регионами (типичная задержка 50–200 мс)
 - ✗ Сложность в эксплуатации
 
-### Hybrid (Active-Passive с edge cache)
+### Гибридный (Active-Passive с пограничным кэшем)
 
 Активен один регион, **CDN / read replicas** в других для локальных чтений.
 
 ```
 US-East (writes + reads)
    ↓ async replicate
-EU read replica (только reads, локальная latency)
+EU read replica (только reads, локальная задержка)
 APAC read replica
 ```
 
@@ -81,11 +81,11 @@ APAC read replica
 
 - ✓ Простой
 - ✗ Зависит от clock sync (NTP — точность 1-10 ms; clock skew → потеря)
-- ✗ Silent data loss
+- ✗ Тихая потеря данных
 
 **Используют:** Cassandra (default), Riak, DynamoDB Global Tables.
 
-### Application-Level Conflict Resolution
+### Разрешение конфликтов на уровне приложения
 
 Конфликт возвращается клиенту, приложение решает (слияние, ручная проверка, бизнес-правила).
 
@@ -104,9 +104,9 @@ Replication detect conflict (same key, parallel writes):
 
 ### CRDT-based
 
-Math-guaranteed merge. См. [CRDT.md](CRDT.md).
+Математически гарантированное слияние. См. [CRDT.md](CRDT.md).
 
-### Sticky to source region (Region Affinity)
+### Привязка к домашнему региону (Region Affinity)
 
 Пользователь привязан к региону (home region). Записи только туда, репликация к остальным — асинхронная.
 
@@ -120,7 +120,7 @@ User B (создан в US) → US primary
 - ✗ Межрегиональные записи для пользователей не в домашнем регионе (путешественники)
 - Используют: Salesforce, custom enterprise apps
 
-### Spanner / TrueTime — globally strong consistency
+### Spanner / TrueTime — глобальная строгая согласованность
 
 Google Spanner использует **TrueTime API** (GPS + атомарные часы) для ограниченной неопределённости времени (`~5 ms`). Ожидание `commit_timestamp + uncertainty` гарантирует строгую согласованность (linearizable) **без накладных расходов 2PC**.
 
@@ -149,13 +149,13 @@ Cross-region query:
   "Show me posts by user 123" → query goes to EU region
 ```
 
-### Encryption + key residency
+### Шифрование и привязка ключей к региону
 
 Данные могут быть в нескольких регионах (ради задержки), но ключ шифрования — только в домашнем регионе. Без ключа данные нечитаемы.
 
 **AWS KMS multi-region keys** — ключ реплицируется, но доступ управляется по региону.
 
-### Replication restrictions
+### Ограничения репликации
 
 Примеры из реальной практики:
 - **AWS Outposts** для on-premise sovereign data
@@ -258,7 +258,7 @@ Sentinel/orchestrator:
 
 ### Geo-DNS routing
 
-DNS routing-policy переключает запросы пользователей в работоспособный регион:
+Политика маршрутизации DNS переключает запросы пользователей в работоспособный регион:
 
 ```
 Route 53 / Cloudflare DNS:
@@ -287,8 +287,8 @@ Route 53 / Cloudflare DNS:
 ## Примеры из продакшена
 
 - **AWS DynamoDB Global Tables** — active-active multi-region, LWW conflict resolution
-- **Aurora Global Database** — active-passive с promoted region option; RTO ~ 1 min
-- **MongoDB Atlas Global Clusters** — region-affinity sharding
+- **Aurora Global Database** — active-passive с опцией продвижения региона; RTO ~ 1 min
+- **MongoDB Atlas Global Clusters** — шардирование с привязкой к региону
 - **CockroachDB Multi-Region** — Raft + locality awareness, можно «pin» rows к региону
 - **Cloudflare Workers** — глобальные вычисления на пограничных узлах; хранилище Durable Objects привязано к региону
 - **Discord** — multi-region voice servers, central catalog DB

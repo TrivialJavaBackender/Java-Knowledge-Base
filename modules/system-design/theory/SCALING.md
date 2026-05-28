@@ -8,7 +8,7 @@
 
 ## Вертикальное против горизонтального масштабирования
 
-**Vertical (scale up)** — увеличить мощность одного узла: больше CPU/RAM/SSD. Дёшево до определённого предела (AWS x1e.32xlarge — 128 vCPU, 3.9 ТБ RAM), просто (код не меняем), но имеет жёсткий лимит и cost factor (одна нода = один SPOF).
+**Vertical (scale up)** — увеличить мощность одного узла: больше CPU/RAM/SSD. Дёшево до определённого предела (AWS x1e.32xlarge — 128 vCPU, 3.9 ТБ RAM), просто (код не меняем), но имеет жёсткий лимит и cost factor (один узел = один SPOF).
 
 **Horizontal (scale out)** — добавлять узлы. Нет верхнего предела, но требует:
 - Stateless services (или externalised state)
@@ -63,7 +63,7 @@ DB отделяется от приложения. Можно масштабир
               writes      reads
 ```
 
-Чтения масштабируются через replica. Eventual consistency для read-side. Записи остаются на первичном узле. Read-your-writes через sticky session или чтение с leader для критичного.
+Чтения масштабируются через replica. Eventual consistency для read-side. Записи остаются на первичном узле. Read-your-writes через sticky session или чтение с лидера для критичного.
 
 ### Этап 5 — Caching (любой этап)
 
@@ -107,7 +107,7 @@ DB отделяется от приложения. Можно масштабир
 
 ### Этап 9 — Edge / CDN-heavy (любая шкала)
 
-Static assets на CDN, API через POP (Cloudflare Workers, Lambda@Edge). Latency измеряется в км от пользователя.
+Static assets на CDN, API через POP (Cloudflare Workers, Lambda@Edge). Задержка измеряется в км от пользователя.
 
 ---
 
@@ -130,8 +130,8 @@ Static assets на CDN, API через POP (Cloudflare Workers, Lambda@Edge). La
 | Этап | Узкое место | Решение |
 |------|-----------|---------|
 | Single server | CPU / RAM | Vertical scaling, profiling |
-| Separate DB | DB connection pool | HikariCP tuning, more replicas |
-| App pool | Пропускная способность LB | More LB nodes, anycast |
+| Separate DB | DB connection pool | HikariCP tuning, больше реплик |
+| App pool | Пропускная способность LB | Больше узлов LB, anycast |
 | Read replicas | Пропускная способность записи | Sharding, NoSQL для специфичной рабочей нагрузки |
 | Sharding | Cross-shard transactions | Saga, domain-aligned shard key |
 | Microservices | Сетевая задержка, отладка | Service mesh, distributed tracing |
@@ -160,7 +160,7 @@ Static assets на CDN, API через POP (Cloudflare Workers, Lambda@Edge). La
 - **Один большой shared cache** для всех сервисов — `noisy neighbour` проблемы. Лучше cache per service domain.
 - **Cross-region sync transactions** — задержка × 2-10×. Применять только если действительно нужно (финансы); иначе eventual consistency.
 - **«Database is slow → add cache»** без понимания, **почему** медленно. Может не помочь (write-heavy), может ухудшить (consistency проблемы).
-- **Resharding без plan** — попытка online resharding without dual-write / CDC → outage. Сначала проектировать sharding с запасом.
+- **Resharding без plan** — попытка online resharding without dual-write / CDC → сбой. Сначала проектировать sharding с запасом.
 
 ---
 

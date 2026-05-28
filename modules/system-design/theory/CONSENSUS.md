@@ -9,7 +9,7 @@
 ## Зачем нужен консенсус
 
 Сценарии:
-1. **Leader election** — кто primary в replica set?
+1. **Leader election** — кто первичный узел в replica set?
 2. **Atomic broadcast** — все узлы должны увидеть одинаковую последовательность сообщений
 3. **Distributed lock** — только один владелец блокировки
 4. **Configuration management** — общая «source of truth» (Consul, etcd)
@@ -26,12 +26,12 @@ Raft — современный консенсус, разработанный �
 ### Роли
 
 - **Leader** — единственный (на term), принимает писательские операции
-- **Follower** — пассивно следует за leader (heartbeats)
+- **Follower** — пассивно следует за лидером (heartbeats)
 - **Candidate** — временная роль во время выборов
 
 ### Терм
 
-Монотонно растущий счётчик. Каждый терм имеет не более одного лидера. При выборе нового leader — `term++`.
+Монотонно растущий счётчик. Каждый терм имеет не более одного лидера. При выборе нового лидера — `term++`.
 
 ### Выборы лидера
 
@@ -66,7 +66,7 @@ Leader → followers (в next AppendEntries или heartbeat): updated leaderCom
 Followers apply committed entries to state machines
 ```
 
-**Safety property:** зафиксированные записи сохраняются при смене лидера (потому что новый leader должен иметь все зафиксированные записи в своём log, иначе он не получил бы большинства голосов).
+**Safety property:** зафиксированные записи сохраняются при смене лидера (потому что новый лидер должен иметь все зафиксированные записи в своём log, иначе он не получил бы большинства голосов).
 
 ### Постоянное хранение состояния
 
@@ -111,7 +111,7 @@ Phase 2 (Accept):
 
 ### Multi-Paxos
 
-Для replicated state machine (последовательность значений). Оптимизация: один stable proposer (leader) — пропускает Phase 1 пока не сменится leader. На практике сильно похоже на Raft.
+Для replicated state machine (последовательность значений). Оптимизация: один stable proposer (лидер) — пропускает Phase 1 пока не сменится лидер. На практике сильно похоже на Raft.
 
 **Используется в продакшене:** Google Spanner (Paxos для репликации), Chubby (распределённая блокировка Google), Cassandra LWT (Lightweight Transactions).
 
@@ -121,7 +121,7 @@ Phase 2 (Accept):
 |---|---|---|
 | Читаемость | Сложный | Разработан для понятности |
 | Роли | Proposer/Acceptor/Learner — перекрывающиеся | Leader/Follower/Candidate — строгие |
-| Выборы лидера | Не централизованные (любой Proposer) | Централизованные (один leader) |
+| Выборы лидера | Не централизованные (любой Proposer) | Централизованные (один лидер) |
 | Репликация лога | Не явная в basic Paxos | Основная часть протокола |
 | Применение | Spanner, Cassandra LWT, Chubby | etcd, Consul, CockroachDB, KRaft, RethinkDB |
 | Год | 1989/1998 | 2014 |
@@ -157,7 +157,7 @@ kube-apiserver → etcd cluster (3-5 nodes, Raft)
 
 ### Kafka KRaft (Kafka 3.3+)
 
-Замена ZooKeeper для metadata. Kafka brokers выбирают controller через Raft (`__cluster_metadata` topic — Raft log).
+Замена ZooKeeper для metadata. Kafka-брокеры выбирают контроллер через Raft (`__cluster_metadata` topic — Raft log).
 
 ```
 KRaft controllers (3-5 nodes) — Raft consensus
@@ -168,7 +168,7 @@ KRaft controllers (3-5 nodes) — Raft consensus
 
 ### CockroachDB / TiKV — распределённый SQL
 
-Каждая **range** (sub-shard) реплицирована через Raft. 1000s of Raft groups в кластере.
+Каждая **range** (sub-shard) реплицирована через Raft. Тысячи Raft-групп в кластере.
 
 ```
 Range 1: [Replica A, Replica B, Replica C] — Raft group 1
@@ -176,7 +176,7 @@ Range 2: [Replica B, Replica C, Replica D] — Raft group 2
 ...
 ```
 
-→ Параллельно тысячи Raft instances; каждая транзакция затрагивает несколько ranges (2PC across Raft groups).
+→ Параллельно тысячи Raft-экземпляров; каждая транзакция затрагивает несколько ranges (2PC между Raft-группами).
 
 ### Spanner (Google) — глобальный SQL
 
@@ -222,11 +222,11 @@ Leader → majority ack: commit decision
 Leader → followers: leaderCommit (piggyback на next AppendEntries)
 ```
 
-→ Cross-region Raft: 80-150 ms per write. **Локальный кластер**: < 5 ms.
+→ Cross-region Raft: 80-150 мс на запись. **Локальный кластер**: < 5 мс.
 
 ### Пропускная способность
 
-Single Raft leader limit: ~ 10K-50K writes/sec (network bound). Для большей пропускной способности:
+Предел одного Raft-лидера: ~ 10K-50K записей/сек (ограничено сетью). Для большей пропускной способности:
 - **Batch operations** (Raft groups в TiKV пакуют commands)
 - **Sharded Raft groups** (CockroachDB / TiKV — 1000s of groups)
 - **Pipelining** — отправлять следующий пакет, не дожидаясь подтверждения предыдущего

@@ -47,7 +47,7 @@ TLS handshake (TLS 1.2 cold)                 ~200 ms     (2 RT)
 | HDD seek | 10 ms | 10,000,000× |
 | Cross-region network RT | 150 ms | 150,000,000× |
 
-**Insight:** разница RAM → SSD → network → cross-region растёт в **сотни/тысячи раз** каждая ступень. Поэтому **локальность** (cache, page cache, near-cache) даёт огромный выигрыш.
+**Суть:** разница RAM → SSD → network → cross-region растёт в **сотни/тысячи раз** каждая ступень. Поэтому **локальность** (cache, page cache, near-cache) даёт огромный выигрыш.
 
 ---
 
@@ -55,7 +55,7 @@ TLS handshake (TLS 1.2 cold)                 ~200 ms     (2 RT)
 
 ### Кэшируй агрессивно
 
-Hit ratio 95% → 95% запросов = `1 µs` (RAM access), 5% = `10 ms` (DB). Average = `0.5 ms` вместо `10 ms` без кэша → 20× speedup.
+Hit ratio 95% → 95% запросов = `1 µs` (RAM access), 5% = `10 ms` (DB). Average = `0.5 ms` вместо `10 ms` без кэша → ускорение в 20×.
 
 ```
 Effective latency = hit_ratio × cache_lat + (1-hit_ratio) × db_lat
@@ -64,15 +64,15 @@ Effective latency = hit_ratio × cache_lat + (1-hit_ratio) × db_lat
 
 См. [`caching-deep-dive/BASICS.md`](../../caching-deep-dive/theory/BASICS.md) для cache hierarchy.
 
-### Sequential > Random
+### Последовательный доступ vs случайный (sequential vs random)
 
-Sequential disk read = 200 µs/MB. Random = 10 µs/4KB = 2.5 ms/MB → 12× slower.
+Последовательное чтение с диска = 200 µs/MB. Случайное = 10 µs/4KB = 2.5 ms/MB → в 12× медленнее.
 
-→ Поэтому LSM-trees (append-only), columnar storage (последовательный scan колонки), log-structured filesystems быстрее для analytics.
+→ Поэтому LSM-trees (append-only), колоночное хранилище (последовательный скан колонки), log-structured filesystems быстрее для аналитики.
 
-### Батчинг и pipelining
+### Батчинг и конвейерная обработка (pipelining)
 
-Каждый network RT в datacenter = 500 µs. Если делаешь 100 sequential `GET` к Redis → 50 ms. Pipelining (batch 100) → 1 RT = 500 µs (100× speedup).
+Каждый network RT в datacenter = 500 µs. Если делаешь 100 sequential `GET` к Redis → 50 ms. Конвейерная обработка (batch 100) → 1 RT = 500 µs (ускорение в 100×).
 
 ```
 sequential:   100 × 500µs = 50 ms
@@ -85,17 +85,17 @@ pipelined:    1 × 500µs + 100 × processing = ~600 µs
 
 Каждый cross-region call = 80-150 ms. Если в потоке запроса есть один такой — уже за 200 ms время ответа.
 
-→ Multi-region активно реплицируется (хоть и eventual consistent), critical state локально.
+→ Multi-region активно реплицируется (хоть и с eventual consistency), критическое состояние хранится локально.
 
 ### TLS 1.3 + session resumption
 
-TLS 1.2 cold = 2 RT = 200 ms (на US ↔ EU). TLS 1.3 cold = 1 RT = 100 ms. TLS 1.3 0-RTT (session resume) = **0 ms** (можно начать application data сразу).
+TLS 1.2 cold = 2 RT = 200 ms (на US ↔ EU). TLS 1.3 cold = 1 RT = 100 ms. TLS 1.3 0-RTT (session resume) = **0 ms** (можно начать отправку данных приложения сразу).
 
 → Для mobile / API-heavy — обязательно session resumption.
 
-### HTTP/2 multiplexing
+### HTTP/2 мультиплексирование (multiplexing)
 
-HTTP/1.1: 6 параллельных connections × N requests. HTTP/2: один connection, N streams параллельно. Меньше TLS handshake overhead, лучше head-of-line.
+HTTP/1.1: 6 параллельных соединений × N запросов. HTTP/2: одно соединение, N потоков параллельно. Меньше оверхеда на TLS handshake, лучше head-of-line.
 
 ---
 
@@ -112,9 +112,9 @@ C(N) = N / (1 + α(N-1) + βN(N-1))
 - При `β = 0` — это закон Amdahl (limit `1/α`)
 - При `β > 0` — есть **negative scalability**: добавление узлов **уменьшает** пропускную способность сверх определённой точки (из-за coherence overhead)
 
-**На практике:** в distributed systems coherence (replication, gossip, consensus) растёт нелинейно. После определённого размера cluster добавление узла увеличивает задержку.
+**На практике:** в распределённых системах coherence (replication, gossip, consensus) растёт нелинейно. После определённого размера кластера добавление узла увеличивает задержку.
 
-→ Cassandra рекомендует ≤ 100 nodes per cluster для balance. K8s — 5000 nodes хард-лимит. PostgreSQL streaming replication ~ 5-10 replicas comfortably.
+→ Cassandra рекомендует ≤ 100 узлов на кластер для баланса. K8s — хард-лимит 5000 узлов. PostgreSQL streaming replication — комфортно 5–10 реплик.
 
 ---
 
@@ -131,18 +131,18 @@ C(N) = N / (1 + α(N-1) + βN(N-1))
 | 2^40 | 1,099,511,627,776 | ~1 T |
 | 2^50 | ~1.13 × 10^15 | ~1 P |
 
-**Use case:** «storage for 100M users × 1 KB profile each» = `100M × 1KB = 100 GB`. Если 10 KB → 1 TB. Если 1 MB photo each → 100 TB.
+**Пример:** «storage for 100M users × 1 KB profile each» = `100M × 1KB = 100 GB`. Если 10 KB → 1 TB. Если 1 MB photo each → 100 TB.
 
 ### Объём хранилища
 
 | Размер | Байт | Применение |
 |------|-------|----------|
-| KB | ~10^3 | Single record, small JSON |
-| MB | ~10^6 | Image, large document |
-| GB | ~10^9 | RAM, small DB |
-| TB | ~10^12 | Single-node SSD, mid-size DB |
-| PB | ~10^15 | Big data warehouse, video archive |
-| EB | ~10^18 | Internet-scale (Facebook ~ 300 PB, YouTube ~ 1 EB total) |
+| KB | ~10^3 | Одна запись, небольшой JSON |
+| MB | ~10^6 | Изображение, большой документ |
+| GB | ~10^9 | RAM, небольшая БД |
+| TB | ~10^12 | SSD одного узла, средняя БД |
+| PB | ~10^15 | Хранилище больших данных, видеоархив |
+| EB | ~10^18 | Интернет-масштаб (Facebook ~ 300 PB, YouTube ~ 1 EB всего) |
 
 ---
 
@@ -173,7 +173,7 @@ C(N) = N / (1 + α(N-1) + βN(N-1))
 - **RDS PostgreSQL db.r6g.large** ~ $0.30 / hour (~ $220/month)
 - **CloudFront** ~ $0.085 / GB (10 TB+ tier — $0.025)
 
-**CDN economics:** moving from `origin → user` (egress paid) to `origin → CDN (one-time) → users (CDN edge)` (cheaper egress) — типичная экономия 60-80% для static assets.
+**Экономика CDN:** moving from `origin → user` (egress paid) to `origin → CDN (one-time) → users (CDN edge)` (cheaper egress) — типичная экономия 60-80% для статических ресурсов.
 
 ---
 

@@ -193,7 +193,7 @@ T=A_resp или T=B_resp: берём первый, второй отменяем
 
 Библиотека Netflix `concurrency-limits` использует **AIMD** (Additive Increase, Multiplicative Decrease, как в TCP):
 - Успешный ответ → limit += 1
-- Спайк задержки или ошибка → limit /= 2
+- Всплеск задержки или ошибка → limit /= 2
 
 → Сходится в «sweet spot», где downstream работает комфортно.
 
@@ -259,7 +259,7 @@ Producer → Queue → Consumer (retry 5×)
 - **Kafka** — вручную: писать в отдельный топик `__failed` после исчерпания попыток
 
 **Эксплуатационный шаблон:**
-1. Мониторинг глубины DLQ (алёрт если растёт)
+1. Мониторинг глубины DLQ (алерт если растёт)
 2. Периодический разбор сообщений (часто: баг в потребителе, изменение схемы)
 3. Re-drive после фикса (переложить сообщения обратно в основную очередь)
 
@@ -449,7 +449,7 @@ Error budget: 0.1%
 Если burn rate > threshold → freeze деплоев, фокус на reliability
 ```
 
-**Мониторинг:** алёрты по burn rate (multi-window) — отличаются от простых алёртов по порогу.
+**Мониторинг:** алерты по burn rate (multi-window) — отличаются от простых алертов по порогу.
 
 См. [`infrastructure/OBSERVABILITY.md`](../../infrastructure/theory/OBSERVABILITY.md#sli--slo--sla).
 

@@ -73,7 +73,7 @@ backend_B weight=1
 
 `shard = hash(client_ip) % N_backends` — один клиент всегда попадает на тот же бэкенд. Альтернатива стики-сессии.
 
-- ✓ Простая sticky session без cookies
+- ✓ Простая стики-сессия без cookies
 - ✗ NAT-ed клиенты (корпоративные сети) — все за одним IP → один бэкенд перегружен
 
 ### Consistent Hashing
@@ -133,7 +133,7 @@ LB ставит cookie `LB_SESSION=backend_id`; последующие запр�
 - Бэкенд с состоянием (in-memory cache per user, WebSocket session)
 - В большинстве случаев — **избегать**, делать бэкенд без состояния
 
-**Trade-off:**
+**Компромисс:**
 - Sticky = неравномерное распределение, потеря данных при отказе бэкенда
 - Без состояния + внешнее хранилище (Redis) — стандартная практика
 
@@ -225,7 +225,7 @@ Service A → Envoy sidecar → mTLS → Envoy sidecar → Service B
 
 ## Антипаттерны
 
-- **Sticky sessions для всего** — мешает auto-scaling, потеря при failover. Выносите состояние в Redis.
+- **Sticky sessions для всего** — мешает auto-scaling, потеря при переключении на резерв (failover). Выносите состояние в Redis.
 - **Single LB instance** — SPOF. Нужно минимум 2 в HA pair (active-passive или active-active).
 - **No health checks** — LB шлёт трафик на мёртвый бэкенд, пока не получит таймаут (10+ сек).
 - **Deep health check на каждый запрос** — `GET /health` делает SELECT * FROM users → нагрузка на БД.

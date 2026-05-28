@@ -8,13 +8,13 @@
 
 ## Зачем лидер
 
-- **Database replication** — primary получает writes, реплики только reads
-- **Distributed lock holder** — единственный обработчик ресурса
-- **Task coordinator** — scheduler decides what runs where (Kafka group coordinator, K8s controller-manager)
-- **Cluster config decisions** — кто авторитет на rebalance, sharding
-- **Aggregation point** — global counter, monotonic ID generator
+- **Репликация базы данных** — primary получает writes, реплики только reads
+- **Держатель распределённой блокировки** — единственный обработчик ресурса
+- **Координатор задач** — планировщик определяет, что где выполняется (Kafka group coordinator, K8s controller-manager)
+- **Решения по конфигурации кластера** — кто авторитет на rebalance, sharding
+- **Точка агрегации** — глобальный счётчик, генератор монотонных ID
 
-Без лидера — нужен distributed consensus per operation. С лидером — лидер решает, потом реплицирует.
+Без лидера — нужен распределённый консенсус на каждую операцию. С лидером — лидер решает, потом реплицирует.
 
 ---
 
@@ -42,7 +42,7 @@
 
 **Use cases:** etcd, Consul, CockroachDB, KRaft, TiKV, RethinkDB.
 
-**Компромисс:** требует stable membership (Joint Consensus для config changes), нужен fsync.
+**Компромисс:** требует стабильного состава участников (Joint Consensus для config changes), нужен fsync.
 
 ---
 
@@ -77,9 +77,9 @@ else:
 
 ## Выборы на основе gossip (Cassandra, Riak)
 
-В Dynamo-style — нет одного лидера. Каждый узел — peer. Gossip protocol распространяет cluster state.
+В Dynamo-style — нет одного лидера. Каждый узел — peer. Gossip protocol распространяет состояние кластера.
 
-Для специфичных задач (per-token range coordinator) — choose by deterministic function (consistent hashing).
+Для специфичных задач (per-token range coordinator) — координатор определяется детерминированной функцией (consistent hashing).
 
 → Не «выборы лидера» в классическом смысле; нет единой точки координации.
 
@@ -109,7 +109,7 @@ Other nodes: watch lease expiry timestamp
 
 **Проблема:** network partition → две части кластера, обе думают что лидер.
 
-### Quorum-based
+### На основе кворума (quorum-based)
 
 Выборы требуют **большинства голосов**. При partition только большая сторона может выбрать лидера.
 
@@ -132,13 +132,13 @@ L1 recovers, attempts write with epoch=5.
 Storage: latest epoch is 6 → reject L1's write with stale token.
 ```
 
-См. Kleppmann «How to do distributed locking» — fencing essential для distributed locks.
+См. Kleppmann «How to do distributed locking» — fencing обязателен для распределённых блокировок.
 
 ### STONITH (Shoot The Other Node In The Head)
 
-Hardware fencing: новый лидер физически выключает старого через iLO / IPMI / cloud API.
+Аппаратное ограждение (hardware fencing): новый лидер физически выключает старого через iLO / IPMI / cloud API.
 
-Используется в high-availability HBase, традиционных Pacemaker clusters.
+Используется в высокодоступных (high-availability) кластерах HBase, традиционных Pacemaker clusters.
 
 ---
 
@@ -148,20 +148,20 @@ Hardware fencing: новый лидер физически выключает с
 
 Не делайте Raft cross-region (задержка × 3-10). Вместо: **regional Raft group** + cross-region async replication (с conflict resolution).
 
-CockroachDB doing this with «replication zones», Spanner with multiple Paxos groups per region.
+CockroachDB использует «replication zones», Spanner — несколько Paxos-групп на регион.
 
 ### One-shot vs continuous
 
 - **One-shot leader** — выбрать раз, держать долго. Раз в день кто-то делает backup.
-- **Per-task leader** — выбирается на каждое задание (часто в queue-based systems): кто следующий доступный обработчик.
+- **Per-task leader** — выбирается на каждое задание (часто в системах на основе очередей): кто следующий доступный обработчик.
 
-Continuous Raft подходит для долгоживущего лидера. Per-task — often simpler через distributed lock (через Redis SETNX или etcd lease).
+Continuous Raft подходит для долгоживущего лидера. Per-task — often simpler через распределённую блокировку (через Redis SETNX или etcd lease).
 
-### Distributed locks vs leader election
+### Распределённые блокировки vs выборы лидера
 
 Похоже, но не одно и то же:
-- **Distributed lock** — эксклюзивный доступ к **ресурсу** (file, row, queue). Может быть много locks.
-- **Leader election** — эксклюзивная роль в **кластере**. Один лидер.
+- **Распределённая блокировка** — эксклюзивный доступ к **ресурсу** (file, row, queue). Может быть много блокировок.
+- **Выборы лидера** — эксклюзивная роль в **кластере**. Один лидер.
 
 Тонкость: lock без fencing token = вы можете потерять роль лидера и не знать (см. Kleppmann's critique of Redlock).
 
@@ -171,18 +171,18 @@ Continuous Raft подходит для долгоживущего лидера.
 
 | Инструмент | Механизм | Применение |
 |------|-----------|-----|
-| **etcd** | Raft + leases | K8s, modern services |
-| **Consul** | Raft + sessions | Service discovery, locks |
-| **ZooKeeper** | ZAB + ephemeral znodes | Kafka legacy, HBase, Solr |
-| **Redis SET NX EX** | Single-instance lock | Simple, NOT for HA (см. Redlock critique) |
-| **Redlock (multi-Redis)** | Quorum across N Redis | Controversial — Kleppmann критикует |
-| **DB row lock + heartbeat** | `SELECT FOR UPDATE` + TTL | Simple для DB-backed apps |
+| **etcd** | Raft + leases | K8s, современные сервисы |
+| **Consul** | Raft + sessions | Обнаружение сервисов, блокировки |
+| **ZooKeeper** | ZAB + ephemeral znodes | Kafka (легаси), HBase, Solr |
+| **Redis SET NX EX** | Блокировка на одном экземпляре | Просто, НЕ для HA (см. Redlock critique) |
+| **Redlock (multi-Redis)** | Кворум по N Redis | Спорно — Kleppmann критикует |
+| **DB row lock + heartbeat** | `SELECT FOR UPDATE` + TTL | Просто для приложений на основе БД |
 
 ---
 
 ## Примеры из продакшена
 
-### K8s — controller manager leader election
+### K8s — выборы лидера controller manager
 
 ```yaml
 # K8s controllers (kube-controller-manager, kube-scheduler) use leader election via Lease object:
@@ -199,22 +199,22 @@ spec:
 
 Реализация: каждый кандидат пытается обновить Lease через optimistic concurrency. Если обновление успешно → лидер, продлевает каждые `leaseDuration × 0.7`.
 
-### Elasticsearch — master election
+### Elasticsearch — выборы мастера
 
-Cluster master (handles cluster state changes). Использует **quorum-based** election (modified from Bully + tiebreaker). До 7.x — Zen Discovery, после 7.x — own modified Raft-like.
+Мастер кластера (обрабатывает изменения состояния кластера). Использует выборы на основе кворума (modified from Bully + tiebreaker). До 7.x — Zen Discovery, после 7.x — собственный алгоритм, близкий к Raft.
 
-### Kafka consumer group coordinator
+### Kafka — координатор группы потребителей
 
-Каждый topic-partition group имеет coordinator broker (выбран на основе hash(group_id) % N_brokers). Member joins group → coordinator assigns partitions через rebalance protocol.
+Каждая группа topic-partition имеет брокер-координатор (выбирается на основе hash(group_id) % N_brokers). Участник входит в группу → координатор распределяет партиции через протокол перебалансировки.
 
 ---
 
 ## Подводные камни
 
-- **Не использовать quorum** (Bully на even nodes) — расщепление кластера возможно
-- **Слишком короткий lease** — частые re-elections под нагрузкой
+- **Не использовать кворум** (Bully на чётных узлах) — расщепление кластера возможно
+- **Слишком короткий lease** — частые повторные выборы под нагрузкой
 - **Слишком длинный lease** — медленное переключение на резерв (failover)
-- **No fencing** — устаревший лидер продолжает записи после восстановления
+- **Отсутствие fencing** — устаревший лидер продолжает записи после восстановления
 - **GC pause** (JVM) длиннее lease → ложная смена лидера, два «лидера» одновременно
 - **Clock skew** — leases assumed synchronized clocks; используй monotonic clocks где можно
 

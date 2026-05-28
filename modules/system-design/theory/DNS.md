@@ -12,7 +12,7 @@ Root (.) → TLD (.com) → Authoritative (example.com) → Records (www.example
 
 - **Root servers** — 13 logical (anycast many physical) служат корневой зоной
 - **TLD servers** — `.com`, `.org`, `.io`, country codes (`.us`, `.ru`)
-- **Authoritative** — управляются владельцем домена (через DNS provider — Route 53, Cloudflare DNS)
+- **Authoritative** — управляются владельцем домена (через DNS-провайдер — Route 53, Cloudflare DNS)
 - **Recursive resolver** — DNS клиент (через ISP, или 8.8.8.8 Google, 1.1.1.1 Cloudflare): идёт по иерархии, кэширует ответы
 
 ---
@@ -36,7 +36,7 @@ Root (.) → TLD (.com) → Authoritative (example.com) → Records (www.example
 
 ## TTL и кэширование
 
-Каждая запись имеет **TTL** (time-to-live в секундах). Recursive resolver кэширует ответ на TTL секунд → дальнейшие запросы не идут в authoritative.
+Каждая запись имеет **TTL** (time-to-live в секундах). Рекурсивный резолвер кэширует ответ на TTL секунд → дальнейшие запросы не идут в authoritative.
 
 ```
 Authoritative: A example.com → 1.2.3.4 TTL=300
@@ -55,7 +55,7 @@ Production tip: для важных конечных точек держать T
 
 ## Методы DNS-маршрутизации (на уровне authoritative)
 
-Современные DNS providers поддерживают «умные» политики: ответ зависит от запрашивающего.
+Современные DNS-провайдеры поддерживают «умные» политики: ответ зависит от запрашивающего.
 
 ### Маршрутизация по задержке (Latency-based routing)
 
@@ -117,13 +117,13 @@ DNS-ответы можно подделать (DNS cache poisoning, MITM). **DN
 
 ## Инциденты DNS из реальной практики
 
-- **Dyn DDoS (2016-10-21)** — Mirai botnet атаковал Dyn (DNS provider). Twitter, Netflix, Reddit недоступны 5+ часов. Урок: DNS — критическая зависимость, не SPOF.
+- **Dyn DDoS (2016-10-21)** — Mirai botnet атаковал Dyn (DNS-провайдер). Twitter, Netflix, Reddit недоступны 5+ часов. Урок: DNS — критическая зависимость, не SPOF.
   → [Wikipedia — 2016 Dyn cyberattack](https://en.wikipedia.org/wiki/2016_Dyn_cyberattack)
-- **Cloudflare 1.1.1.1 BGP leak (2022-06-21)** — region down 90 мин из-за BGP misconfiguration. DNS resolver был частично недоступен.
+- **Cloudflare 1.1.1.1 BGP leak (2022-06-21)** — region down 90 мин из-за BGP misconfiguration. DNS-резолвер был частично недоступен.
 - **Facebook outage (2021-10-04)** — внутренний BGP misconfig сделал DNS недоступным; даже инженеры не могли войти в офис (badge readers зависели от DNS).
   → [Cloudflare blog — Facebook DNS-via-BGP outage](https://blog.cloudflare.com/october-2021-facebook-outage/)
 
-**Урок:** имейте альтернативный DNS provider (multi-CDN setup или secondary DNS), не полагайтесь на единственный.
+**Урок:** имейте альтернативный DNS-провайдер (multi-CDN setup или secondary DNS), не полагайтесь на единственный.
 
 ---
 

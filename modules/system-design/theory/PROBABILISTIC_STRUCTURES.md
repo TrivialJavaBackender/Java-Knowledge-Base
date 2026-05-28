@@ -210,7 +210,7 @@ Top-K в потоке с ограниченной памятью. Простра
 - **PostgreSQL** — Bloom filter index extension (`bloom` extension)
 - **BigQuery** — `APPROX_COUNT_DISTINCT` (HLL)
 - **Apache Druid** — HLL для COUNT DISTINCT в запросах
-- **Snowflake** — built-in approximate functions
+- **Snowflake** — встроенные приближённые функции
 - **Facebook** — Apache Pinot for approximate top-K в feeds
 - **Akamai / Cloudflare** — CMS для анализа трафика в реальном времени
 
@@ -218,18 +218,18 @@ Top-K в потоке с ограниченной памятью. Простра
 
 ## Источники
 
-**Papers:**
+**Статьи:**
 - [Bloom (1970) — «Space/Time Trade-offs in Hash Coding with Allowable Errors»](https://web.archive.org/web/20120307010822/http://www.cs.upc.edu/~diaz/p422-bloom.pdf) — оригинал
 - [Cormode, Muthukrishnan (2005) — «An Improved Data Stream Summary: The Count-Min Sketch»](http://dimacs.rutgers.edu/~graham/pubs/papers/cmsoft.pdf)
 - [Flajolet et al. (2007) — «HyperLogLog: the analysis of a near-optimal cardinality estimation algorithm»](http://algo.inria.fr/flajolet/Publications/FlFuGaMe07.pdf)
 - [Fan et al. (2014) — «Cuckoo Filter: Practically Better Than Bloom»](https://www.cs.cmu.edu/~dga/papers/cuckoo-conext2014.pdf)
 
-**Engineering:**
+**Инженерные ресурсы:**
 - [Cloudflare — Probabilistic algorithms in DDoS protection](https://blog.cloudflare.com/when-bloom-filters-dont-bloom/)
 - [Discord — Why Discord is switching from Go to Rust](https://discord.com/blog/why-discord-is-switching-from-go-to-rust) — Bloom filter performance critical path
 - [Redis Bloom Filter documentation](https://redis.io/docs/data-types/probabilistic/bloom-filter/)
 - [PostgreSQL bloom extension](https://www.postgresql.org/docs/current/bloom.html)
 
-**Books:**
+**Книги:**
 - *Data Streaming Algorithms* (S. Muthukrishnan, 2005) — academic textbook
 - *Database Internals* (Petrov, 2019) — Bloom в LSM context

@@ -56,7 +56,7 @@ A: merge
 
 ## SWIM (Scalable Weakly-consistent Infection-style Process Group Membership)
 
-Конкретный gossip-based failure detection protocol (Das et al., 2002). Используется в Hashicorp Memberlist (Serf, Consul).
+Конкретный протокол обнаружения сбоев на основе Gossip (Das et al., 2002). Используется в Hashicorp Memberlist (Serf, Consul).
 
 ```
 Periodically (каждые ~1 секунду), узел A:
@@ -113,7 +113,7 @@ Every 10 min:
 
 ### Hashicorp Consul / Serf
 
-Memberlist (SWIM-based) для service discovery, обнаружения сбоев. Каждый агент Consul обменивается gossip-сообщениями с остальными.
+Memberlist (SWIM-based) для обнаружения сервисов и обнаружения сбоев. Каждый агент Consul обменивается gossip-сообщениями с остальными.
 
 ### Riak
 
@@ -137,7 +137,7 @@ Gossip для координации.
 
 | | Преимущества | Недостатки |
 |---|---|---|
-| **Пропускная способность** | Константна на узел (~постоянное число эпох × небольшое состояние) | Неэкономично для малых кластеров (лучше broadcast) |
+| **Пропускная способность** | Константна на узел (~постоянное число эпох × небольшое состояние) | Неэкономично для малых кластеров (лучше широковещательная рассылка) |
 | **Задержка** | O(log N) для распространения | Не мгновенно — могут пройти секунды до осведомлённости всех узлов |
 | **Согласованность** | Eventually consistent | Не подходит для строго согласованных операций (linearizable) |
 | **Устойчивость** | Выдерживает единичные сбои | Враждебная среда (Byzantine) → нужны другие подходы |
@@ -153,7 +153,7 @@ Gossip для координации.
 | Задержка | Секунды (раунды) | Миллисекунды (один RT) |
 | Применение | Состояние кластера, обнаружение сбоев, anti-entropy | Критические операции (смена конфигурации, выборы лидера) |
 | Децентрализованный? | Полностью | На основе лидера |
-| Пропускная способность | Низкая (константа на узел) | Выше (broadcast до большинства) |
+| Пропускная способность | Низкая (константа на узел) | Выше (широковещательная рассылка до большинства) |
 
 **Паттерн:** gossip — для **распространения информации** (состав кластера, метрики), консенсус — для **критических решений** (кто лидер, какое значение зафиксировано).
 
@@ -209,7 +209,7 @@ class GossipNode:
 
 ## Источники
 
-**Papers:**
+**Статьи:**
 - [Demers et al. (1987) — «Epidemic Algorithms for Replicated Database Maintenance»](https://www.cs.cornell.edu/projects/Quicksilver/public_pdfs/epidemic.pdf) — оригинал
 - [Das et al. (2002) — «SWIM: Scalable Weakly-consistent Infection-style Process Group Membership Protocol»](https://www.cs.cornell.edu/projects/Quicksilver/public_pdfs/SWIM.pdf)
 - [van Renesse et al. (2008) — «Efficient Reconciliation and Flow Control for Anti-Entropy Protocols»](https://www.cs.cornell.edu/home/rvr/papers/flowgossip.pdf)
@@ -219,6 +219,6 @@ class GossipNode:
 - [Cassandra Gossip](https://cassandra.apache.org/doc/latest/cassandra/architecture/dynamo.html#gossip)
 - [Akka Cluster Gossip](https://doc.akka.io/docs/akka/current/typed/cluster.html#gossip)
 
-**Books:**
+**Книги:**
 - *Database Internals* (Petrov, 2019) — gossip, anti-entropy chapter
 - *Designing Data-Intensive Applications* (Kleppmann) — gossip-related sections

@@ -23,15 +23,15 @@ Inverted index:
   ...
 ```
 
-**Поиск "brown fox":** пересечение posting list'ов `[doc1, doc2] ∩ [doc1, doc3] = [doc1]`. **doc1 — match.**
+**Поиск "brown fox":** пересечение списков публикаций `[doc1, doc2] ∩ [doc1, doc3] = [doc1]`. **doc1 — match.**
 
 ---
 
 ## Структуры
 
-### Posting list
+### Список публикаций (posting list)
 
-Для каждого term — отсортированный список doc ID.
+Для каждого термина — отсортированный список doc ID.
 
 ```
 "brown" → [1, 2, 7, 12, 35, 100, ...]
@@ -40,11 +40,11 @@ Inverted index:
 Может содержать дополнительные данные:
 - **Term frequency** (TF) — сколько раз встречается в документе (для ranking)
 - **Positions** — где в документе (для phrase queries)
-- **Field info** — title / body / tags (для boosting'а)
+- **Field info** — title / body / tags (для повышения релевантности / boosting)
 
-### Dictionary (lexicon)
+### Словарь (dictionary / lexicon)
 
-Отображение term → расположение posting list'а (offset в файле или указатель).
+Отображение термина → расположение списка публикаций (offset в файле или указатель).
 
 Реализации:
 - **Hash table** — lookup O(1), но без range-запросов
@@ -61,7 +61,7 @@ Inverted index:
 
 ---
 
-## Пайплайн индексации
+## Конвейер индексации
 
 ```
 Текст документа →
@@ -73,69 +73,69 @@ Inverted index:
   6. Index                 → добавить term → doc-сопоставление
 ```
 
-### Tokenization
+### Токенизация (tokenization)
 
-- **Whitespace tokenizer** — split по пробелам. Просто, но хрупко («hello,world» → 1 токен).
+- **Whitespace tokenizer** — разбивает по пробелам. Просто, но хрупко («hello,world» → 1 токен).
 - **Standard tokenizer** — language-aware (Unicode), снимает пунктуацию.
-- **Edge n-gram** — `apple` → `a`, `ap`, `app`, `appl`, `apple` (для autocomplete без trie).
-- **CJK / Korean** — отдельные tokenizers (Kuromoji, Nori).
+- **Edge n-gram** — `apple` → `a`, `ap`, `app`, `appl`, `apple` (для автодополнения без trie).
+- **CJK / Korean** — отдельные токенизаторы (Kuromoji, Nori).
 
-### Stemming
+### Стемминг (stemming)
 
 «running, runs, ran» → «run». Snowball, Porter stemmer.
 
 - ✓ Лучше полнота (найдёт «runs» при запросе «running»)
-- ✗ Может давать false positives («fishing» → «fish»)
+- ✗ Может давать ложные срабатывания («fishing» → «fish»)
 
-### Lemmatization
+### Лемматизация (lemmatization)
 
-Похоже на stemming, но возвращает реальную базовую форму слова (через словарь). Точнее, но медленнее.
+Похоже на стемминг, но возвращает реальную базовую форму слова (через словарь). Точнее, но медленнее.
 
 ---
 
 ## Обработка запроса
 
-### Boolean query
+### Булев запрос (boolean query)
 
 ```
 "brown AND fox NOT lazy"
 ```
 
-- `brown` posting list = [1, 2]
-- `fox` posting list = [1, 3]
+- `brown` список публикаций = [1, 2]
+- `fox` список публикаций = [1, 3]
 - Пересечение (AND): [1]
 - `lazy` = [3]
 - Вычитание (NOT): [1] − [3] = [1]
 
 → Результат: doc1.
 
-### Phrase query
+### Фразовый запрос (phrase query)
 
 ```
 "brown fox"  (точная фраза)
 ```
 
-Posting lists с **позициями**:
+Списки публикаций с **позициями**:
 - `brown` → [(doc1, pos=3), (doc2, pos=2)]
 - `fox` → [(doc1, pos=4), (doc3, pos=3)]
 
 Проверка: `brown` на pos N + `fox` на pos N+1 в одном документе. Match: doc1.
 
-### Wildcard / prefix
+### Запрос с подстановкой (wildcard / prefix)
 
 ```
 "brown*"
 ```
 
-Скан lexicon по всем терминам, начинающимся с «brown»: `brown`, `brownie`, `browns`, … объединение всех posting list'ов.
+Скан словаря по всем терминам, начинающимся с «brown»: `brown`, `brownie`, `browns`, … объединение всех списков публикаций.
 
-### Fuzzy
+### Нечёткий запрос (fuzzy)
 
 ```
 "fix~"  (edit distance 1)
 ```
 
-Поиск всех терминов в пределах edit distance: `fix`, `fox`, `fit`. Объединение posting list'ов.
+Поиск всех терминов в пределах edit distance: `fix`, `fox`, `fit`. Объединение списков публикаций.
 
 ---
 
@@ -151,7 +151,7 @@ IDF(t) = log(N / |{документы, содержащие t}|)
 Score(t, d) = TF(t, d) × IDF(t)
 ```
 
-**Insight:** частые термы (высокая document frequency) → низкий IDF → менее значимы. Редкие термы → высокий IDF → бустят score.
+**Суть:** частые термы (высокая document frequency) → низкий IDF → менее значимы. Редкие термы → высокий IDF → повышают релевантность.
 
 ### BM25 (современный стандарт)
 
@@ -166,11 +166,11 @@ b ≈ 0.75 (length normalization)
 
 → **Дефолт в Lucene / Elasticsearch с версии 5.0.**
 
-### Vector search (на основе embedding'ов)
+### Векторный поиск (на основе эмбеддингов)
 
-Современная альтернатива: encode документов и запросов в **векторное пространство**, cosine similarity. Семантическая близость. См. [`VECTOR_DBS_RAG.md`](VECTOR_DBS_RAG.md).
+Современная альтернатива: документы и запросы кодируются в **векторное пространство**, cosine similarity. Семантическая близость. См. [`VECTOR_DBS_RAG.md`](VECTOR_DBS_RAG.md).
 
-### Custom boosting
+### Кастомное повышение релевантности (custom boosting)
 
 ```
 score = BM25_score(query, doc) × boost_factor
@@ -186,9 +186,9 @@ Boost-факторы:
 
 ## Lucene / Elasticsearch — архитектура
 
-### Segments
+### Сегменты (segments)
 
-Lucene хранит данные в **иммутабельных segments**. Новые документы → новый segment. Периодический merge (похоже на compaction в LSM).
+Lucene хранит данные в **иммутабельных сегментах** (segments). Новые документы → новый сегмент. Периодический merge (похоже на compaction в LSM).
 
 ```
 Index:
@@ -201,33 +201,33 @@ Index:
   → merge результатов
 ```
 
-### Refresh interval
+### Интервал обновления (refresh interval)
 
-Свежие документы не доступны для поиска мгновенно. Дефолт Elasticsearch: refresh раз в секунду (создаёт новый segment и открывает его для поиска).
+Свежие документы не доступны для поиска мгновенно. Дефолт Elasticsearch: refresh раз в секунду (создаёт новый сегмент и открывает его для поиска).
 
-→ **Near-real-time search**, не строго в реальном времени. Для критичной мгновенной видимости — `?refresh=true` (ценой большего числа segments).
+→ **Поиск почти в реальном времени (near-real-time search)**, не строго мгновенный. Для критичной мгновенной видимости — `?refresh=true` (ценой большего числа сегментов).
 
-### Sharding
+### Шардирование (sharding)
 
-Индекс разбивается на **N shards** (дефолт 5 в ES). Каждый shard — независимый Lucene-index. Поиск веерно распределяется (fan-out) по всем shards и объединяет результаты.
+Индекс разбивается на **N шардов** (дефолт 5 в ES). Каждый шард — независимый Lucene-index. Поиск веерно распределяется (fan-out) по всем шардам и объединяет результаты.
 
 ```
 поиск "brown fox":
-  → координирующий узел fan-out по 5 shards
-  → каждый shard ищет локально
+  → координирующий узел fan-out по 5 шардам
+  → каждый шард ищет локально
   → координатор делает merge top-K
   → возвращает глобальный top-K
 ```
 
-### Replication
+### Репликация (replication)
 
-У каждого shard — N replicas (дефолт 1). Read-трафик load-balanced. Переключение на резерв (failover) на replica при сбое primary.
+У каждого шарда — N реплик (дефолт 1). Трафик чтения балансируется по нагрузке. Переключение на резерв (failover) на реплику при сбое primary.
 
 ---
 
 ## Сценарии
 
-- **Application search** — поисковая строка в продуктах, knowledge base
+- **Application search** — поисковая строка в продуктах, база знаний
 - **Log search** (Kibana, Loki) — поиск по миллиардам строк логов
 - **E-commerce search** — каталоги Amazon, eBay
 - **News / content** — поиск в Twitter, Reddit
@@ -237,17 +237,17 @@ Index:
 
 ## Подводные камни
 
-- **Размер индекса** — inverted index часто 50–200% от исходного текста. Закладывайте хранилище.
-- **Стоимость обновления** — каждое обновление документа создаёт новый segment, который затем merge'ится. Тяжёлая нагрузка на обновление → дорогие merges.
-- **Высокая cardinality поля** — поле «timestamp» с миллионами уникальных значений → раздутый индекс.
-- **Reindex** — смена схемы (новый analyzer, новые поля) → полный reindex (часы для большой системы).
-- **Aggregations (термин Elasticsearch)** на high-cardinality полях → взрыв памяти.
+- **Размер индекса** — инвертированный индекс часто 50–200% от исходного текста. Закладывайте хранилище.
+- **Стоимость обновления** — каждое обновление документа создаёт новый сегмент, который затем сливается (merge). Тяжёлая нагрузка на обновление → дорогие слияния.
+- **Высокая кардинальность поля** — поле «timestamp» с миллионами уникальных значений → раздутый индекс.
+- **Переиндексация (reindex)** — смена схемы (новый analyzer, новые поля) → полная переиндексация (часы для большой системы).
+- **Aggregations (термин Elasticsearch)** на полях с высокой кардинальностью → взрыв памяти.
 
 ---
 
-## Альтернативы по use case
+## Альтернативы по сценарию использования
 
-| Use case | Инструмент |
+| Сценарий | Инструмент |
 |---|---|
 | Общий full-text search | Elasticsearch / OpenSearch |
 | Lightweight, embedded | Apache Lucene напрямую |

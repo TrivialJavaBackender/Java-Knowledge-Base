@@ -15,7 +15,7 @@ WHERE earth_distance(lat, lon, driver_lat, driver_lon) < 5000
 ORDER BY distance ASC LIMIT 100;
 ```
 
-→ Full table scan, расчёт расстояния на каждую строку. На 1M водителей — секунды.
+→ Полное сканирование таблицы, расчёт расстояния на каждую строку. На 1M водителей — секунды.
 
 **Решение:** **пространственный индекс** — структура, разбивающая 2D-плоскость на регионы, чтобы запрос обходил только нужные.
 
@@ -39,7 +39,7 @@ ORDER BY distance ASC LIMIT 100;
 
 ### Точность vs длина
 
-| Length | Precision |
+| Длина | Точность |
 |--------|-----------|
 | 1 | ~5000 km |
 | 3 | ~150 km |
@@ -63,14 +63,14 @@ ORDER BY distance ASC LIMIT 100;
 
 ### Применение
 
-- Простой spatial search в РБД (PostgreSQL `WHERE substring(geohash,1,5) = 'XXXXX'`)
+- Простой пространственный поиск в РБД (PostgreSQL `WHERE substring(geohash,1,5) = 'XXXXX'`)
 - Geohashing в Redis sorted sets (легко sort + range)
 
 ---
 
 ## S2 (Google)
 
-Библиотека Google: разбивает sphere на cells через **Hilbert curve**. Преодолевает ограничения Geohash.
+Библиотека Google: разбивает сферу на ячейки через **Hilbert curve**. Преодолевает ограничения Geohash.
 
 ### Идея
 
@@ -88,7 +88,7 @@ Cell IDs at level 0: ~ 85 trillion km² (entire planet face)
 - **Сферический:** корректно учитывает кривизну Земли;
 - **Иерархический:** ID ячейки хранят иерархию родитель-потомок;
 - **Сохраняет локальность:** соседние ячейки имеют похожие ID
-- **Эффективный:** integer cell ID (8 байт), быстрое сравнение
+- **Эффективный:** целочисленный идентификатор ячейки (8 байт), быстрое сравнение
 
 ### Применение
 
@@ -129,18 +129,18 @@ Resolution 9 (popular for ride-share): ~ 0.1 km²
 | | Geohash | S2 | H3 |
 |---|---|---|---|
 | Форма ячейки | Прямоугольник | Квадрат (на face) | Шестиугольник |
-| Соседи равноудалены | No | No | **Yes** |
-| Сортируемые ID | **Yes** (строки) | Yes (целые) | Yes (uint64) |
-| Иерархичность | Yes | **Yes** (родитель-потомок) | Yes |
-| Открытый исходный код | Yes | **Yes** | **Yes** |
+| Соседи равноудалены | Нет | Нет | **Да** |
+| Сортируемые ID | **Да** (строки) | Да (целые) | Да (uint64) |
+| Иерархичность | Да | **Да** (родитель-потомок) | Да |
+| Открытый исходный код | Да | **Да** | **Да** |
 | Уровни разрешения | 12 | 30 | 15 |
-| Распространённость | Simple | Google services | Uber |
+| Распространённость | Простой | Google services | Uber |
 
 ---
 
 ## Quadtree
 
-Рекурсивное разбиение 2D-плоскости. Каждый узел делится на 4 квадранта при превышении threshold.
+Рекурсивное разбиение 2D-плоскости. Каждый узел делится на 4 квадранта при превышении порога.
 
 ```
 Root: whole world
@@ -168,20 +168,20 @@ def find_nearby(point, radius, node):
 
 ### Применение
 
-- **In-memory spatial index** для игровых карт, RTS
+- **Пространственный индекс в памяти** для игровых карт, RTS
 - **PostGIS** — альтернатива R-tree
 - **Image processing** (квадратные деревья изображений)
 
 ### Ограничения
 
 - **Неравномерные данные** — если все точки в одной области → разбалансированное дерево, глубокое
-- **Вставка / удаление** — может требовать rebalance
+- **Вставка / удаление** — может требовать перебалансировки
 
 ---
 
 ## R-tree
 
-R-tree группирует объекты в **bounding rectangles** (MBR — Minimum Bounding Rectangle). Иерархия:
+R-tree группирует объекты в **ограничивающие прямоугольники** (MBR — Minimum Bounding Rectangle). Иерархия:
 
 ```
 Root MBR (covers whole)
@@ -200,7 +200,7 @@ Root MBR (covers whole)
 ### Свойства
 
 - **Сбалансированный** — глубина ограничена
-- **Удобен для обновлений** — insert находит самое плотное MBR, обновления идут вверх
+- **Удобен для обновлений** — вставка находит самое плотное MBR, обновления идут вверх
 - **Поддерживает** произвольные формы (не только точки): полигоны, линии
 
 ### Применение
@@ -212,7 +212,7 @@ Root MBR (covers whole)
 
 ### R+ tree, R* tree
 
-Оптимизации: лучшие эвристики split, меньше пересекающихся MBR.
+Оптимизации: лучшие эвристики разбиения, меньше пересекающихся MBR.
 
 ---
 
@@ -225,7 +225,7 @@ Root MBR (covers whole)
 | **Elasticsearch** | geo_point / geo_shape (BKD tree) | Полнотекстовый поиск + пространственный |
 | **Redis** | GEO commands (geohash + sorted set) | Быстро, всё в памяти |
 | **Cassandra** | Нет нативного — вручную через geohash-ключ |
-| **In-memory** | H3 / S2 / Quadtree library | Оптимально для высоконагруженных сервисов |
+| **В памяти** | H3 / S2 / Quadtree library | Оптимально для высоконагруженных сервисов |
 
 ---
 
@@ -287,7 +287,7 @@ Rider app → request ride at (lat, lon)
 
 ## Источники
 
-**Papers:**
+**Статьи:**
 - [Guttman (1984) — «R-Trees: A Dynamic Index Structure for Spatial Searching»](http://www-db.deis.unibo.it/courses/SI-LS/papers/Gut84.pdf)
 - [Beckmann et al. (1990) — «The R*-tree: An Efficient and Robust Access Method for Points and Rectangles»](https://www.dpi.inpe.br/Cursos/sib-2009/material/aula07/papers/r-star_tree.pdf)
 - [Niemeyer (2008) — Geohash explained](https://web.archive.org/web/20080305223755/http://blog.labix.org/2008/02/26/geohash-explanation)

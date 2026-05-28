@@ -118,7 +118,7 @@ public Map<String, Object> me(@AuthenticationPrincipal Jwt jwt) {
 
 ### Отзыв JWT (revocation)
 
-JWT stateless — отозвать до `exp` нельзя без какого-то серверного состояния. Три подхода:
+JWT без состояния — отозвать до `exp` нельзя без какого-то серверного состояния. Три подхода:
 
 **1. Короткий TTL + refresh rotation.** access_token живёт 5–15 минут, refresh_token (длинный TTL) хранится на сервере и может быть отозван. При каждом обмене refresh выдаётся новый — старый инвалидируется. Если refresh пытаются использовать дважды (token reuse) — это признак компрометации, инвалидируем всю цепочку.
 
@@ -567,7 +567,7 @@ Employee открывает внутренний портал
 A: Для public clients (SPA, mobile) client_secret нельзя хранить безопасно. PKCE решает проблему для них. Для confidential clients PKCE дополнительно защищает от authorization code interception — рекомендован и там.
 
 **Q: Почему JWT нельзя отозвать?**  
-A: JWT stateless — сервер не хранит состояния. Отзыв только через: blocklist в Redis (по jti claim), короткий TTL + refresh rotation, или token introspection (каждый раз спрашивает AS).
+A: JWT без состояния — сервер не хранит состояния. Отзыв только через: blocklist в Redis (по jti claim), короткий TTL + refresh rotation, или token introspection (каждый раз спрашивает AS).
 
 **Q: В чём разница access_token и id_token?**  
 A: access_token — для Resource Server, говорит "что разрешено". id_token — для Client, говорит "кто пользователь". access_token не нужно декодировать клиенту, id_token не нужно передавать в API.
