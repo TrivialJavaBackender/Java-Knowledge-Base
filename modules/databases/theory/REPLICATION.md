@@ -10,12 +10,12 @@
 
 Четыре цели, часто пересекаются:
 
-1. **Durability** — данные не пропадут, если один узел сгорит. RAID — на уровне диска; репликация — на уровне узла/DC.
-2. **Read scaling** — несколько реплик отвечают на чтение; write остаётся узким местом, но 80% workload — чтения.
-3. **Low latency** — реплика рядом с пользователем (geo-replication).
-4. **High availability** — при падении одного узла другой берёт нагрузку.
+1. **Надёжность данных (Durability)** — данные не пропадут, если один узел сгорит. RAID — на уровне диска; репликация — на уровне узла/DC.
+2. **Масштабирование чтения (Read scaling)** — несколько реплик отвечают на чтение; write остаётся узким местом, но 80% workload — чтения.
+3. **Низкая задержка (Low latency)** — реплика рядом с пользователем (geo-replication).
+4. **Высокая доступность (High availability)** — при падении одного узла другой берёт нагрузку.
 
-> Репликация **не решает** проблему ёмкости (storage size, write throughput) — для этого нужно **шардирование** (см. [SHARDING.md](SHARDING.md)).
+> Репликация **не решает** проблему ёмкости (размер хранилища, пропускная способность записи) — для этого нужно **шардирование** (см. [SHARDING.md](SHARDING.md)).
 
 ---
 
@@ -41,9 +41,9 @@ Client reads  → Leader (для consistency) или → Replicas (eventual)
 - Понятный failover (один кандидат → новый leader)
 
 **Слабые стороны:**
-- Leader — single point для write throughput
-- Failover — несколько секунд downtime (детектирование + promotion)
-- Stale reads с реплик (replication lag)
+- Leader — единственная точка для пропускной способности записи
+- Failover — несколько секунд простоя (детектирование + promotion)
+- Устаревшие чтения с реплик (replication lag)
 
 ---
 
@@ -61,9 +61,9 @@ Leader → local fsync ✓ → Client: OK
 Leader → Replica (async, в фоне)
 ```
 
-- ✓ Низкая latency commit (1 fsync)
+- ✓ Низкая задержка коммита (1 fsync)
 - ✗ Потеря данных при failover: если leader умер до отправки на replica → промоутнутый replica не имеет последних commits
-- ✗ Replication lag — stale reads с реплик
+- ✗ Replication lag — устаревшие чтения с реплик
 
 ### Synchronous replication
 
@@ -77,16 +77,16 @@ Leader → Client: OK
 ```
 
 - ✓ Zero data loss при failover (если хотя бы одна sync replica жива)
-- ✗ Latency commit = max(leader fsync, replica round-trip + fsync) — обычно +1-10ms
+- ✗ Задержка коммита = max(leader fsync, replica round-trip + fsync) — обычно +1-10ms
 - ✗ Доступность падает: если sync replica недоступна, leader блокируется или переходит в degraded mode
 
 ### Semi-sync / quorum sync
 
 Компромисс: leader ждёт `K` реплик из `N`, не все.
 
-- **MySQL semi-sync** — leader ждёт хотя бы одну replica подтвердила приём (не fsync) перед ack клиенту
+- **MySQL semi-sync** — leader ждёт, пока хотя бы одна реплика подтвердила приём (не fsync) перед ack клиенту
 - **PostgreSQL synchronous_commit = remote_write/remote_apply** + `synchronous_standby_names` с условиями (`ANY 2 (replica_a, replica_b, replica_c)`)
-- **MongoDB write concern** `w: majority` — wait for majority of replica set
+- **MongoDB write concern** `w: majority` — ждать подтверждения от большинства реплик
 
 Финтех / payment systems обычно используют sync на одну local replica + async на DR-replica.
 
@@ -100,9 +100,9 @@ Async replication — replica всегда отстаёт. Lag измеряет�
 
 | Сценарий | Проблема | Решение |
 |----------|----------|---------|
-| User обновляет профиль, перезагружает страницу — видит старое | Read after write violation | Sticky session, чтение с leader для своих writes |
-| Дашборд показывает разные числа в разных виджетах | Inconsistent reads | Bounded staleness check, версионирование данных |
-| User видит, что его сообщение в чате «пропало» (потом появляется) | Monotonic reads violation | Один пользователь — одна replica с привязкой |
+| Пользователь обновляет профиль, перезагружает страницу — видит старое | Нарушение read-after-write | Sticky session, чтение с leader для своих writes |
+| Дашборд показывает разные числа в разных виджетах | Несогласованные чтения | Bounded staleness check, версионирование данных |
+| Пользователь видит, что его сообщение в чате «пропало» (потом появляется) | Нарушение monotonic reads | Один пользователь — одна replica с привязкой |
 
 ### Read-your-writes consistency
 
@@ -110,7 +110,7 @@ Async replication — replica всегда отстаёт. Lag измеряет�
 
 Реализации:
 1. **Чтение с leader** для критичных операций (профиль, корзина, баланс)
-2. **Sticky session**: один user → одна replica → если она получила write, она же отдаёт read
+2. **Sticky session**: один пользователь → одна replica → если она получила write, она же отдаёт read
 3. **LSN-based check**: после write клиент запоминает LSN (PostgreSQL `pg_current_wal_lsn()`); при read проверяет `pg_last_wal_replay_lsn() >= my_lsn`; если нет — fallback на leader
 4. **Quorum reads** (если есть): R + W > N → пересечение гарантирует свежие данные
 
@@ -132,7 +132,7 @@ Async replication — replica всегда отстаёт. Lag измеряет�
 
 Несколько узлов принимают writes одновременно. Используется для:
 - **Cross-DC active-active** — каждый DC имеет свой leader, синхронизация peer-to-peer
-- **Multi-region** — leader близкий к пользователю, низкая latency
+- **Multi-region** — leader близкий к пользователю, низкая задержка
 - **Edge / offline-first** — клиент = leader (Couchbase Mobile, IPFS)
 
 ```
@@ -156,7 +156,7 @@ DC1 Leader ↔ DC2 Leader ↔ DC3 Leader
 При конфликте БД возвращает обе версии, приложение решает (merge, выбор последнего по бизнес-логике, показ пользователю «выберите версию»).
 
 - ✓ Гибкость, нет потерь
-- ✗ Сложность в коде каждого resolver'а
+- ✗ Сложность в коде каждого резолвера
 - Реализации: Riak siblings, CouchDB conflict docs, Dynamo concurrent versions
 
 ### CRDTs (Conflict-free Replicated Data Types)
@@ -173,11 +173,11 @@ DC1 Leader ↔ DC2 Leader ↔ DC3 Leader
 
 **Use cases:** real-time collab (Figma, Google Docs через Y.js / Automerge), shopping carts (Riak), offline-first apps.
 
-### Topology
+### Топология
 
-- **Star/Hub-and-spoke** — central node (плохо: SPOF)
+- **Star/Hub-and-spoke** — центральный узел (плохо: SPOF)
 - **Ring** — каждый знает следующего (lag растёт с расстоянием)
-- **All-to-all (mesh)** — каждый с каждым (N² connections, но самая robustness)
+- **All-to-all (mesh)** — каждый с каждым (N² connections, но наивысшая отказоустойчивость)
 
 ---
 
@@ -215,7 +215,7 @@ Client read → Coordinator → R nodes
 
 ### Sloppy quorum
 
-Если из N replicas доступны меньше W, координатор шлёт на «соседей» (не настоящих owners), пометив hint. Жертвует строгим quorum'ом ради availability.
+Если из N replicas доступны меньше W, координатор шлёт на «соседей» (не настоящих owners), пометив hint. Жертвует строгим кворумом ради доступности.
 
 - ✓ Запись принимается при partial outage
 - ✗ Strong consistency не гарантирована — sloppy узел не входит в R при чтении
@@ -298,7 +298,7 @@ PostgreSQL → WAL → Debezium PG connector → Kafka topic per table
 **Гарантии:** at-least-once delivery, ordering per row (если используется правильный partition key — обычно PK).
 
 **Use cases:**
-- **Outbox without table** — вместо отдельной outbox-таблицы и worker'а, Debezium читает изменения основных таблиц напрямую
+- **Outbox without table** — вместо отдельной outbox-таблицы и воркера, Debezium читает изменения основных таблиц напрямую
 - **Cache invalidation** — при UPDATE → событие → инвалидация Redis-ключа
 - **Search index sync** — синхронизация Elasticsearch с PostgreSQL
 - **Materialized views** в другой БД (event-driven projection)

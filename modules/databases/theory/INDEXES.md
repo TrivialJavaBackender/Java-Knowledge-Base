@@ -1,4 +1,4 @@
-# Indexes in PostgreSQL
+# Индексы в PostgreSQL
 
 ## Почему нет кластерных индексов
 

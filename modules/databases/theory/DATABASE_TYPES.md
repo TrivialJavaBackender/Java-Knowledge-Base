@@ -27,7 +27,7 @@
 | DynamoDB | Managed, бесконечное масштабирование, PAY-per-request |
 | Riak | Distributed, AP-система |
 
-**Когда:** сессии, кэш, rate limiting, real-time лидерборды.
+**Когда:** сессии, кэш, rate limiting, лидерборды в реальном времени.
 
 ### Document
 
@@ -37,21 +37,21 @@
 |------|-------------|
 | **MongoDB** | BSON, гибкая схема, горизонтальное шардирование |
 | CouchDB | HTTP API, eventually consistent |
-| Firestore | Managed, real-time sync |
+| Firestore | Managed, синхронизация в реальном времени |
 
 **Когда:** CMS, каталоги товаров, пользовательские профили с разной структурой.
 
 ### Wide-Column (Column Family)
 
-Строки с произвольным числом колонок, сгруппированных в "families". Хорош для разреженных данных и write-heavy нагрузки.
+Строки с произвольным числом колонок, сгруппированных в "families". Хорош для разреженных данных и нагрузки с преобладанием записи.
 
 | СУБД | Особенности |
 |------|-------------|
 | **Cassandra** | AP, линейное масштабирование, нет joins |
 | HBase | На Hadoop, CP |
-| ScyllaDB | C++ Cassandra-совместимая, меньше latency |
+| ScyllaDB | C++ Cassandra-совместимая, меньшую задержку |
 
-**Когда:** IoT-данные, временные ряды, очень высокий write throughput.
+**Когда:** IoT-данные, временные ряды, очень высокая пропускная способность записи.
 
 ### Graph
 
@@ -96,7 +96,7 @@
 | | OLTP | OLAP | HTAP |
 |---|---|---|---|
 | Нагрузка | Много коротких транзакций | Долгие аналитические запросы | Оба |
-| Оптимизация | Низкая latency, high throughput | Высокая пропускная способность | — |
+| Оптимизация | Низкая задержка, высокая пропускная способность | Высокая пропускная способность | — |
 | Данные | Строки | Колонки | Смешанно |
 | Пример | PostgreSQL, MySQL | ClickHouse, BigQuery, Redshift | TiDB, SingleStore |
 
@@ -118,7 +118,7 @@
 
 **Недостатки:**
 - INSERT/UPDATE медленнее — нужно обновить каждую колонку отдельно
-- Плохо для transactional workload (OLTP)
+- Плохо для транзакционной нагрузки (OLTP)
 
 **Примеры:** ClickHouse, Apache Parquet (формат), BigQuery, Redshift, DuckDB.
 
@@ -135,7 +135,7 @@
 | **Sorted Set (ZSet)** | `ZADD`, `ZRANGE`, `ZRANK`, `ZRANGEBYSCORE` | Лидерборды, очереди с приоритетом |
 | **Bitmap** | `SETBIT`, `BITCOUNT`, `BITOP` | Флаги активности, DAU tracking |
 | **HyperLogLog** | `PFADD`, `PFCOUNT` | Приблизительный count distinct |
-| **Stream** | `XADD`, `XREAD`, `XGROUP` | Event streaming, замена Kafka для простых случаев |
+| **Stream** | `XADD`, `XREAD`, `XGROUP` | Потоковая передача событий, замена Kafka для простых случаев |
 
 **Практические паттерны:**
 
@@ -165,7 +165,7 @@ PUBLISH channel-name "message"
 
 **Redis vs Memcached:**
 - Redis: персистентность (RDB/AOF), структуры данных, Lua скрипты, кластер, pub/sub
-- Memcached: только строки, нет персистентности, проще, чуть быстрее для pure cache
+- Memcached: только строки, нет персистентности, проще, чуть быстрее для чистого кэша
 
 ---
 
@@ -213,7 +213,7 @@ userRepo.findById(1) → map hit! → возвращает тот же User@0x1a
 
 ### Unit of Work
 
-Отслеживает все изменения в объектах за одну "работу" (request/transaction). В конце сбрасывает изменения в БД одним батчем.
+Отслеживает все изменения в объектах за одну "работу" (запрос/транзакция). В конце сбрасывает изменения в БД одним батчем.
 
 ```java
 // Hibernate Session = Unit of Work + Identity Map
@@ -247,7 +247,7 @@ for (Order o : orders) {
 // Всего: 1 + 100 = 101 запрос
 ```
 
-В логе Hibernate (если включён `hibernate.show_sql=true`) видно как 100 раз летит один и тот же `SELECT … FROM users WHERE id = ?`. На production это означает 100 round-trip'ов к БД, каждый по 1-5ms — итого сотни миллисекунд latency на одном эндпоинте.
+В логе Hibernate (если включён `hibernate.show_sql=true`) видно как 100 раз летит один и тот же `SELECT … FROM users WHERE id = ?`. На production это означает 100 обращений к БД, каждое по 1-5ms — итого сотни миллисекунд задержки на одном эндпоинте.
 
 **Почему ORM не решает это автоматически:** N+1 невидим на уровне domain-модели. Доступ `o.getUser()` — обычный геттер, ORM не знает, нужны ли тебе все пользователи или только один.
 
@@ -294,7 +294,7 @@ o.getItems().size();              // ❌ LazyInitializationException
 Решения:
 - Загружать связи внутри транзакции (`JOIN FETCH`, `@EntityGraph`).
 - Возвращать DTO, не Entity.
-- Open-Session-In-View — anti-pattern, держит соединение на всю длину HTTP-запроса (см. [`spring-frameworks/SPRING_DATA_JPA.md`](../../spring-frameworks/theory/SPRING_DATA_JPA.md)).
+- Open-Session-In-View — антипаттерн, держит соединение на всю длину HTTP-запроса (см. [`spring-frameworks/SPRING_DATA_JPA.md`](../../spring-frameworks/theory/SPRING_DATA_JPA.md)).
 
 ### Identity Map: видимость concurrent UPDATE
 
@@ -317,7 +317,7 @@ Identity Map гарантирует «один объект на ID в сесс�
 - [Hibernate ORM User Guide — Fetching strategies](https://docs.jboss.org/hibernate/orm/6.5/userguide/html_single/Hibernate_User_Guide.html#fetching)
 
 **Engineering posts:**
-- [Vlad Mihalcea — «The best way to handle the LazyInitializationException»](https://vladmihalcea.com/the-best-way-to-handle-the-lazyinitializationexception/) — все варианты с trade-off'ами.
-- [Vlad Mihalcea — «How to detect the Hibernate N+1 query problem during testing»](https://vladmihalcea.com/how-to-detect-the-n-plus-one-query-problem-during-testing/) — datasource-proxy для assert'ов в тестах.
+- [Vlad Mihalcea — «The best way to handle the LazyInitializationException»](https://vladmihalcea.com/the-best-way-to-handle-the-lazyinitializationexception/) — все варианты с компромиссами.
+- [Vlad Mihalcea — «How to detect the Hibernate N+1 query problem during testing»](https://vladmihalcea.com/how-to-detect-the-n-plus-one-query-problem-during-testing/) — datasource-proxy для проверок в тестах.
 - [Markus Winand — *Use The Index, Luke!* — Pagination chapter](https://use-the-index-luke.com/no-offset) — почему `OFFSET` плох даже без N+1.
 - [«MongoDB Schema Design Best Practices»](https://www.mongodb.com/developer/products/mongodb/mongodb-schema-design-best-practices/) — embedding vs referencing.

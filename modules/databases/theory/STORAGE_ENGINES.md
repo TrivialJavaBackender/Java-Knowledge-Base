@@ -1,6 +1,6 @@
 # Storage Engines
 
-Storage engine — слой БД, который превращает SQL/API-операции в физические I/O на диске. Выбор engine определяет write/read amplification, latency tail, recovery time, способ репликации.
+Storage engine — слой БД, который превращает SQL/API-операции в физические I/O на диске. Выбор engine определяет write/read amplification, задержку хвостовых запросов (latency tail), recovery time, способ репликации.
 
 > **Scope**: B-tree vs LSM-tree, Write-Ahead Log, compaction strategies, embedded engines (RocksDB/InnoDB). Index-уровневая теория — см. [INDEXES.md](INDEXES.md). MVCC и tuple-формат PostgreSQL — см. [TRANSACTIONS.md](TRANSACTIONS.md).
 
@@ -19,14 +19,14 @@ Storage engine — слой БД, который превращает SQL/API-о
 - Read-friendly: 1 point lookup = 3-4 страницы (root → internal → leaf → heap)
 - Range scan тривиален: листовые страницы связаны в двусвязный список
 - Index-Only Scan через covering index
-- Predictable latency — нет background compaction
+- Предсказуемая задержка — нет background compaction
 
 **Слабые стороны:**
 - Random write на UPDATE/INSERT в середину дерева — `page split` дорог (read-modify-write 2 страниц + WAL)
 - При INSERT с random PK (UUID v4) — fragmentation, ~50% утилизация страницы (B+ tree fill factor)
 - Write amplification ~ 1× (одна логическая запись = 1-2 физических, но WAL удваивает)
 
-**Mitigations:**
+**Меры противодействия:**
 - **Sequential UUID** (UUIDv7, ULID, Snowflake) → INSERT идёт в конец → no page splits
 - **FILLFACTOR** — оставлять free space в странице для будущих UPDATE без split
 - **CLUSTER** в PostgreSQL (одноразовый, ACCESS EXCLUSIVE lock) — переупорядочивает физически по индексу
@@ -35,7 +35,7 @@ Storage engine — слой БД, который превращает SQL/API-о
 
 ## LSM-tree storage engines
 
-**Принцип** (Log-Structured Merge-tree, O'Neil 1996): все записи идут в **memtable** (in-memory sorted structure, обычно red-black tree или skip list); при заполнении memtable сбрасывается на диск как **SSTable** (Sorted String Table — immutable отсортированный файл). Background **compaction** сливает SSTable'ы для удаления дубликатов и tombstones.
+**Принцип** (Log-Structured Merge-tree, O'Neil 1996): все записи идут в **memtable** (in-memory sorted structure, обычно red-black tree или skip list); при заполнении memtable сбрасывается на диск как **SSTable** (Sorted String Table — immutable отсортированный файл). Background **compaction** сливает SSTables для удаления дубликатов и tombstones.
 
 ```
 WRITE:
@@ -46,7 +46,7 @@ WRITE:
 READ:
   1. memtable lookup
   2. immutable memtables (если есть pending flush)
-  3. SSTable'ы по уровням L0 → L1 → ... → Ln (Bloom filter для пропуска)
+  3. SSTables по уровням L0 → L1 → ... → Ln (Bloom filter для пропуска)
 
 COMPACTION (background):
   L0 SSTable + overlapping L1 SSTable → новый L1 SSTable
@@ -55,12 +55,12 @@ COMPACTION (background):
 
 **Реализации:**
 - **RocksDB** (Facebook fork LevelDB) — embedded LSM. Используется в: TiKV, CockroachDB (Pebble — Go-port), Kafka Streams (state store), MyRocks (MySQL plugin), Cassandra 4+ (через storage proxy).
-- **Cassandra** — Dynamo-style + LSM (через storage proxy). Per-table SSTable'ы, compaction стратегии настраиваются.
+- **Cassandra** — Dynamo-style + LSM (через storage proxy). Per-table SSTables, compaction стратегии настраиваются.
 - **HBase** — на Hadoop, MemStore + HFile (LSM на HDFS).
 - **ScyllaDB** — C++ Cassandra-compatible с shard-per-CPU.
 
 **Сильные стороны:**
-- Write-friendly: append-only, sequential I/O → высокий write throughput (sequential disk ~ 500 MB/s vs random ~ 1 MB/s на HDD; на SSD разница меньше, но всё ещё есть)
+- Write-friendly: append-only, sequential I/O → высокая пропускная способность записи (sequential disk ~ 500 MB/s vs random ~ 1 MB/s на HDD; на SSD разница меньше, но всё ещё есть)
 - Compression — целые SSTable сжимаются лучше, чем разрозненные страницы
 - Snapshot тривиален — SSTable immutable, hard link или copy-on-write
 
@@ -68,18 +68,18 @@ COMPACTION (background):
 - **Read amplification** — point lookup в worst case проверяет memtable + N SSTable; Bloom filter снижает до ~1 false positive на 100 запросов, но всё равно >1 I/O
 - **Write amplification** — каждая запись прошла через N compaction уровней; на leveled compaction ~ 10-30×
 - **Space amplification** — копии старых версий до compaction; tombstones до полного прохода
-- **Compaction storms** — burst write → большой L0 → compaction съедает CPU/IO → стрессовая ситуация для latency tail
+- **Compaction storms** — burst write → большой L0 → compaction съедает CPU/IO → проблемы с задержкой хвостовых запросов
 - Range scan дороже, чем B-tree (читать все SSTable перекрытые range'ом)
 
 ---
 
 ## Compaction strategies (LSM)
 
-Compaction — главный tuning knob LSM-trees. Trade-off между **write amplification**, **read amplification**, **space amplification**.
+Compaction — главный tuning knob LSM-trees. Компромисс между **write amplification**, **read amplification**, **space amplification**.
 
 ### Size-Tiered Compaction (STCS) — Cassandra default до 2.0
 
-SSTable'ы группируются по схожему размеру. Когда накапливается N (обычно 4) SSTable одного размера — сливаются в одну большего. По мере роста таблицы — больше уровней.
+SSTables группируются по схожему размеру. Когда накапливается N (обычно 4) SSTable одного размера — сливаются в одну большего. По мере роста таблицы — больше уровней.
 
 ```
 L1 (мелкие):  [128MB] [128MB] [128MB] [128MB] → compact → L2 [512MB]
@@ -93,7 +93,7 @@ L2:           [512MB] [512MB] [512MB] [512MB] → compact → L3 [2GB]
 
 ### Leveled Compaction (LCS) — RocksDB default, Cassandra LCS
 
-Фиксированные уровни L0/L1/.../Ln, размер каждого следующего в 10× больше. Внутри уровня (кроме L0) SSTable'ы **не перекрываются** по range — каждый ключ в L_k встречается ровно в одной SSTable.
+Фиксированные уровни L0/L1/.../Ln, размер каждого следующего в 10× больше. Внутри уровня (кроме L0) SSTables **не перекрываются** по range — каждый ключ в L_k встречается ровно в одной SSTable.
 
 ```
 L0:  [overlap allowed]
@@ -109,7 +109,7 @@ L3:  ...                  ← total ~ 100GB
 
 ### Time-Window Compaction (TWCS) — Cassandra TWCS
 
-Для time-series. SSTable'ы группируются по окнам времени (например, 1 час). Окна не пересекаются → compaction только внутри окна. Старые окна удаляются TTL целиком (drop SSTable, не compact).
+Для time-series. SSTables группируются по окнам времени (например, 1 час). Окна не пересекаются → compaction только внутри окна. Старые окна удаляются TTL целиком (drop SSTable, не compact).
 
 - ✓ Минимальная write amp
 - ✓ Эффективный TTL drop (целая SSTable)
@@ -173,11 +173,11 @@ Crash recovery:
 synchronous_commit = on    # ждать fsync WAL до return клиенту (default)
 synchronous_commit = off   # не ждать → возможна потеря последних транзакций при crash (microseconds window)
 synchronous_commit = local # ждать локальный fsync, не ждать replica ACK
-synchronous_commit = remote_write # ждать пока replica приняла WAL (но не fsync'нула)
+synchronous_commit = remote_write # ждать пока replica приняла WAL (но не выполнила fsync)
 synchronous_commit = remote_apply # ждать пока replica применила (read-your-writes на standby)
 ```
 
-Trade-off: durability vs commit latency. Финтех — обычно `on` + sync replica. Аналитика — `off` приемлемо.
+Компромисс: надёжность данных vs задержка коммита. Финтех — обычно `on` + sync replica. Аналитика — `off` приемлемо.
 
 ### Group commit
 
@@ -185,7 +185,7 @@ Trade-off: durability vs commit latency. Финтех — обычно `on` + sy
 
 **Решение:** batch несколько COMMIT'ов одним fsync. PostgreSQL: `commit_delay = 100µs` + `commit_siblings = 5` — если в текущей транзакции есть 5+ active sibling, подождать 100µs и сделать общий fsync. MySQL: `innodb_flush_log_at_trx_commit = 1` (durable) + автоматический group commit с binlog.
 
-Эффект: throughput растёт в 10-100×, latency индивидуальной транзакции +100µs.
+Эффект: пропускная способность растёт в 10-100×, задержка индивидуальной транзакции +100µs.
 
 ---
 
@@ -229,15 +229,15 @@ RocksDB — не самостоятельная БД, а **embedded library** (�
 
 | | B-tree (InnoDB/PG) | LSM-tree (RocksDB/Cass) |
 |---|---|---|
-| Write throughput | Средний (random I/O) | Высокий (sequential append) |
-| Read latency | Низкая, predictable | Variable (Bloom + multi-level) |
+| Пропускная способность записи | Средняя (random I/O) | Высокая (sequential append) |
+| Задержка чтения | Низкая, предсказуемая | Переменная (Bloom + multi-level) |
 | Write amplification | ~ 1× | 10-30× (leveled) или 2-3× (sized) |
 | Space amplification | Низкая (page-level free space) | 1.1× (LCS) до 2× (STCS) |
 | Range scan | Очень эффективно | Дороже (multi-SSTable) |
-| Compression | Page-level (хуже) | SSTable-level (лучше) |
-| Crash recovery | WAL replay (быстро) | WAL → memtable replay (быстро) |
-| Snapshot | Сложнее (versioning) | Тривиально (immutable SST) |
-| Best for | OLTP, complex queries | Write-heavy, time-series, KV |
+| Сжатие | Page-level (хуже) | SSTable-level (лучше) |
+| Восстановление после сбоя | WAL replay (быстро) | WAL → memtable replay (быстро) |
+| Снапшот | Сложнее (versioning) | Тривиально (immutable SST) |
+| Лучше всего подходит для | OLTP, сложных запросов | Write-heavy, time-series, KV |
 
 ---
 

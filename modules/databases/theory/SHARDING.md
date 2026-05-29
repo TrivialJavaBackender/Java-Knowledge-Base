@@ -10,9 +10,9 @@
 
 Шардирование решает три проблемы, которые **не решает** репликация:
 
-1. **Storage size** — single node не вмещает датасет (десятки TB / петабайты)
-2. **Write throughput** — single leader не справляется (>50k writes/sec)
-3. **Working set memory** — индексы и hot data не влезают в RAM одного узла
+1. **Размер хранилища** — single node не вмещает датасет (десятки TB / петабайты)
+2. **Пропускная способность записи** — single leader не справляется (>50k writes/sec)
+3. **Рабочий набор в памяти** — индексы и hot data не влезают в RAM одного узла
 
 Если ни одна из проблем не наблюдается — **не шардируйте**. Шардинг добавляет сложность (cross-shard transactions, secondary indexes, joins), которая часто превышает выгоду.
 
@@ -20,9 +20,9 @@
 
 ---
 
-## Sharding strategies
+## Стратегии шардирования
 
-### Range sharding
+### Диапазонное шардирование (Range sharding)
 
 Ключи делятся по диапазонам.
 
@@ -41,7 +41,7 @@ shard2: user_id 2M    - 2.99M
 
 **Workaround для timestamp hot spot:** добавить prefix randomness (`{random_byte}:{timestamp}` → распределяется по shards).
 
-### Hash sharding
+### Хэш-шардирование (Hash sharding)
 
 Ключ хэшируется, по результату определяется shard.
 
@@ -57,7 +57,7 @@ shard = hash(user_id) % N_shards
 
 **Resharding fix:** consistent hashing вместо `% N` (см. ниже).
 
-### Directory / Lookup sharding
+### Справочное шардирование (Directory / Lookup sharding)
 
 Отдельный сервис хранит mapping `key → shard_id`.
 
@@ -68,29 +68,29 @@ Lookup service: { user:123 → shard5, user:456 → shard2, ... }
 - ✓ **Максимальная гибкость** — можно вручную перенести hot user на отдельный shard
 - ✓ Online migration — обновил mapping, никто не заметил
 - ✗ Lookup service = SPOF (нужно реплицировать)
-- ✗ Дополнительная latency (1 lookup перед каждым query)
+- ✗ Дополнительная задержка (1 lookup перед каждым query)
 - ✗ Сложность
 
 **Реализации:** Vitess (для MySQL), Couchbase vBuckets (с master coordinator), Foursquare (раньше).
 
-### Geographic sharding
+### Географическое шардирование (Geographic sharding)
 
 Ключи делятся по географии — пользователь EU в EU-shard, US в US-shard.
 
 - ✓ **Data residency** (GDPR — данные EU не покидают EU)
-- ✓ Низкая latency для local reads
+- ✓ Низкая задержка для локальных чтений
 - ✗ Cross-region queries (пользователь путешествует) — сложно
 - ✗ Несбалансированные регионы
 
 **Реализации:** Spanner zones, CockroachDB regions, custom через directory.
 
-### Composite sharding
+### Составное шардирование (Composite sharding)
 
 Иерархическое: `region → tenant → user`. Используется в multi-tenant SaaS.
 
 ---
 
-## Consistent Hashing
+## Consistent Hashing (согласованное хэширование)
 
 **Проблема naive hash sharding:** `shard = hash(key) % N`. При изменении N (добавление/удаление узла) — пересчёт всех ключей. Если N был 4, стал 5, ключ с `hash(k) = 7` уходил на shard 3, теперь — на shard 2. Перетасовка **K × (N-1) / N** ключей → весь датасет фактически нужно мигрировать.
 
@@ -124,9 +124,9 @@ node_c: 100 vnodes
 ```
 
 Дополнительные бонусы vnodes:
-- **Heterogeneous nodes** — мощный узел получает больше vnodes, слабый — меньше → пропорциональная нагрузка
+- **Неоднородные узлы** — мощный узел получает больше vnodes, слабый — меньше → пропорциональная нагрузка
 - **Failure recovery** — при падении узла его vnodes распределяются по **всем** остальным, не одному → нет перегрузки соседа
-- **Add node** — новый узел забирает кусочки у **всех** существующих равномерно
+- **Добавление узла** — новый узел забирает кусочки у **всех** существующих равномерно
 
 **Реализации:**
 - **DynamoDB** — оригинальная статья (vnodes + replication)
@@ -139,7 +139,7 @@ node_c: 100 vnodes
 
 ---
 
-## Rendezvous Hashing (HRW — Highest Random Weight)
+## Rendezvous Hashing (HRW — хэширование по наибольшему весу)
 
 Альтернатива consistent hashing, проще в реализации. Для каждого ключа:
 
@@ -152,7 +152,7 @@ def shard_for(key, nodes):
 
 - ✓ **Простота** — нет кольца, нет vnodes
 - ✓ Resilient — при удалении узла его ключи распределяются по **всем** остальным (для каждого выбирается новый max)
-- ✓ Weighted nodes — добавить weight в формулу
+- ✓ Взвешенные узлы — добавить weight в формулу
 - ✗ Lookup O(N) — нужно вычислить hash для **каждого** узла (не пройти по структуре)
 - ✗ N ключей × N узлов = O(N²) на сравнение для большого N (но обычно N узлов ≤ 1000)
 
@@ -162,7 +162,7 @@ def shard_for(key, nodes):
 
 ---
 
-## Hot key / Celebrity user problem
+## Горячий ключ / Celebrity user problem
 
 **Сценарий:** один shard получает непропорционально много трафика. Twitter — Justin Bieber tweets; видео — viral on TikTok; e-commerce — flash sale на один товар.
 
@@ -185,15 +185,15 @@ fun loadUser(id: UserId): User {
 }
 ```
 
-### 2. Caching hot keys aggressively
+### 2. Агрессивное кэширование горячих ключей
 
-Replicated near-cache во всех app-инстансах. Trade-off: stale data, но если запрос только на read — приемлемо.
+Реплицированный near-cache во всех app-инстансах. Trade-off: stale data, но если запрос только на read — приемлемо.
 
-### 3. Sticky sharding (Read replicas of hot shard)
+### 3. Sticky sharding (реплики для чтения с горячего шарда)
 
 Hot shard имеет больше read replicas; load balancer направляет на любую. Помогает только для read-heavy hot key.
 
-### 4. Key splitting
+### 4. Разбиение ключа (Key splitting)
 
 Hot key разбивается на N виртуальных ключей.
 
@@ -205,20 +205,20 @@ user:bieber:tweets  →  user:bieber:tweets:0
 ```
 
 - Write: пишущий выбирает random sub-key
-- Read: читающий запрашивает **все** sub-keys и merge'ит
+- Read: читающий запрашивает **все** sub-keys и объединяет
 - Эффективно для timeline / counter / log — то, что и так fan-out на read.
 
-### 5. Asymmetric replication
+### 5. Асимметричная репликация
 
 Hot key реплицируется на больше узлов. Применяется при leaderless (Cassandra) или с custom logic.
 
-### 6. Static partitioning of hot path
+### 6. Статическое партиционирование горячего пути
 
 Hot tenants выделяются на dedicated shards (через directory sharding) — изолированы от общего пула.
 
 ---
 
-## Resharding
+## Решардинг (Resharding)
 
 Самая сложная операция в шардированной системе. Сценарии:
 
@@ -231,9 +231,9 @@ Hot tenants выделяются на dedicated shards (через directory sha
 
 `% N` → `% (N+1)` пересчитывает ~99% ключей. Нужно остановить writes, мигрировать всё, переключить.
 
-→ В production unacceptable. Применимо только в greenfield / dev.
+→ В проде недопустимо. Применимо только в greenfield / dev.
 
-### Online resharding patterns
+### Паттерны онлайн-решардинга
 
 #### 1. Dual-write
 
@@ -250,8 +250,8 @@ Hot tenants выделяются на dedicated shards (через directory sha
 
 - ✓ Понятная семантика
 - ✗ Code complexity на app side (нужно знать про оба)
-- ✗ Latency × 2 на write
-- ✗ Partial failure handling сложен (написалось в old, не в new → divergence)
+- ✗ Задержка × 2 на write
+- ✗ Обработка частичных сбоев сложна (написалось в old, не в new → divergence)
 
 #### 2. CDC-based resharding
 
@@ -268,7 +268,7 @@ Hot tenants выделяются на dedicated shards (через directory sha
 ```
 
 - ✓ App code не меняется (если есть transparent routing)
-- ✓ Минимальный downtime (секунды на cutover)
+- ✓ Минимальное время простоя (секунды на cutover)
 - ✗ Требует CDC infra
 - ✗ Schema changes между old и new — отдельная задача
 
@@ -299,20 +299,20 @@ Vitess (Google → CNCF) — middleware для MySQL sharding. Координи�
 
 ---
 
-## Secondary indexes на sharded data
+## Вторичные индексы на шардированных данных
 
 Что делать с `WHERE email = 'x@y.com'`, если shard key — `user_id`?
 
-### Local secondary indexes
+### Локальные вторичные индексы
 
 Каждый shard ведёт **свой** локальный индекс по `email`. Query без shard key → **scatter-gather**: запрос отправляется на все shards, результаты сливаются.
 
-- ✓ Simple, нет cross-shard coordination
-- ✗ Latency = max(per-shard latency) — медленный shard тормозит весь запрос
+- ✓ Просто, нет cross-shard coordination
+- ✗ Задержка = max(per-shard latency) — медленный shard тормозит весь запрос
 - ✗ Scaling — добавление shards = больше fan-out
 - Реализации: Cassandra secondary index, MongoDB local index
 
-### Global secondary indexes
+### Глобальные вторичные индексы
 
 Отдельный «индекс-shard» (по `email`) хранит mapping `email → user_id`. Query: shard lookup на email-index → найти user_id → shard lookup на user-shard.
 
@@ -321,7 +321,7 @@ Vitess (Google → CNCF) — middleware для MySQL sharding. Координи�
 - ✗ Дополнительная инфраструктура
 - Реализации: DynamoDB Global Secondary Index, Spanner secondary index, Cassandra Materialized Views (deprecated из-за consistency проблем)
 
-### Search engine side
+### Через поисковый движок
 
 Sync через CDC → Elasticsearch. Search идёт в ES, fetch full row — в primary БД.
 
@@ -331,11 +331,11 @@ Sync через CDC → Elasticsearch. Search идёт в ES, fetch full row —
 
 ---
 
-## Cross-shard queries
+## Межшардовые запросы (Cross-shard queries)
 
 Joins, transactions, aggregations через shards — все «дорогие».
 
-**Strategies:**
+**Подходы:**
 
 1. **Avoid** — denormalize, дублировать данные внутри shard. Cassandra-way.
 2. **Application-level join** — query каждого shard, merge в коде. Подходит для маленьких N.
@@ -343,11 +343,11 @@ Joins, transactions, aggregations через shards — все «дорогие�
 4. **Distributed transactions** (2PC, Saga) — для writes; redacent. См. [system-design/microservice_patterns.md](../../system-design/theory/microservice_patterns.md).
 5. **Distributed SQL** (Spanner, Cockroach, Yugabyte) — DBMS делает scatter-gather прозрачно.
 
-**Antipattern:** наивное `SELECT ... JOIN` через shards в шардированной системе. Latency = max per-shard + merge cost.
+**Антипаттерн:** наивное `SELECT ... JOIN` через shards в шардированной системе. Задержка = max per-shard + стоимость слияния.
 
 ---
 
-## Sharding в практике
+## Шардирование на практике
 
 ### Twitter timeline (упрощённо)
 
