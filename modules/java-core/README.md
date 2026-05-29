@@ -41,10 +41,6 @@ modules/java-core/
 - **JVM observability (Prometheus, JFR, OpenTelemetry), JVM в Docker/K8s** → [`modules/infrastructure/`](../infrastructure/)
 - **Kotlin-specific: coroutines, suspend, Flow** → [`modules/kotlin-coroutines/`](../kotlin-coroutines/)
 
-## Прогресс
-
-См. [PROGRESS.md](PROGRESS.md) и [ROADMAP.md](ROADMAP.md).
-
 ## Интервью-вопросы
 
 См. [INTERVIEW_QUESTIONS.md](INTERVIEW_QUESTIONS.md) — Q&A по всем 15 темам, формат `qa-bold`.

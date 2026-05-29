@@ -44,10 +44,6 @@ modules/databases/
 - ETL/CDC в глубине (Debezium, Airbyte, Fivetran)
 - Database internals deep (B-tree split/merge, query optimizer, statistics)
 
-## Прогресс
-
-См. [PROGRESS.md](PROGRESS.md) и [ROADMAP.md](ROADMAP.md).
-
 ## Интервью-вопросы
 
 См. [INTERVIEW_QUESTIONS.md](INTERVIEW_QUESTIONS.md) — формат `qa-bold`.

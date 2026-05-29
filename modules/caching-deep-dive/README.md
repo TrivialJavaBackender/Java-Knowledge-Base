@@ -53,9 +53,9 @@ mvn exec:java -Dexec.mainClass="exercises.Ex05_CaffeineLoadingKt"
 - **kotlinx-coroutines-core** — async loading в Caffeine, write-behind
 - **JUnit 5** + **kotlin-test** — для тестов
 
-## Прогресс
+## Code review — на что смотреть
 
-См. [PROGRESS.md](PROGRESS.md) и [ROADMAP.md](ROADMAP.md).
+Запусти упражнение (`mvn exec:java`), затем смотри: корректность eviction-инвариантов (LRU/LFU), потокобезопасность (race на `ConcurrentHashMap`, видимость волатильных счётчиков), корректность TTL (lazy vs background, jitter), отсутствие cache stampede (single-flight через `computeIfAbsent`/`LoadingCache`), порядок при invalidation (DB → invalidate, не наоборот), выбор Caffeine `expireAfterWrite` vs `refreshAfterWrite`, отсутствие утечек в in-flight таблицах, семантику ETag/If-None-Match (304 без тела), равномерность и низкий remap rate в consistent hashing.
 
 ## Интервью-вопросы
 

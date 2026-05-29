@@ -61,4 +61,3 @@ docker run -p 8080:8080 spring-frameworks-learn
 
 1. Изучи теорию в порядке из [ROADMAP.md](ROADMAP.md)
 2. Ответь на вопросы из [INTERVIEW_QUESTIONS.md](INTERVIEW_QUESTIONS.md)
-3. Отмечай прогресс в [PROGRESS.md](PROGRESS.md)

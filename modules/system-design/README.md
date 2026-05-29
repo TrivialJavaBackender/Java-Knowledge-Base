@@ -64,10 +64,6 @@ modules/system-design/
 - **Observability / K8s / Helm** → [`modules/infrastructure/`](../infrastructure/)
 - **JVM internals** → [`modules/java-core/`](../java-core/)
 
-## Прогресс
-
-См. [PROGRESS.md](PROGRESS.md) и [ROADMAP.md](ROADMAP.md).
-
 ## Интервью-вопросы
 
 См. [INTERVIEW_QUESTIONS.md](INTERVIEW_QUESTIONS.md) — формат `qa-bold`.

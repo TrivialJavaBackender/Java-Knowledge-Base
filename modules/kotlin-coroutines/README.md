@@ -69,7 +69,10 @@ mvn exec:java -Dexec.mainClass="exercises.Ex01_BasicsKt"
 - `"проверь kotlin-coroutines Ex01"` — проверка реализации + запуск
 - `"следующий"` / `"next"` — следующий незавершённый модуль
 - `"квиз"` / `"quiz"` — 5 случайных вопросов из INTERVIEW_QUESTIONS.md
-- `"прогресс"` — текущий статус из PROGRESS.md
+
+## Code review — на что смотреть
+
+`mvn exec:java -Dexec.mainClass="exercises.ExNN_…Kt"`. Смотри: structured concurrency (`coroutineScope` vs `supervisorScope`), кооперативную отмену и обработку `CancellationException`, утечки scope, корректность `Dispatchers`, anti-паттерны `Flow`/`Channel`.
 
 ## Стек
 

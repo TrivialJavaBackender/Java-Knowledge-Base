@@ -48,7 +48,6 @@
 "проверь Ex01"     — проверка реализации + code review
 "следующий"        — следующий незавершённый модуль
 "квиз"             — 5 случайных вопросов из INTERVIEW_QUESTIONS.md
-"прогресс"         — текущий статус из PROGRESS.md
 ```
 
 ## Стек
@@ -132,6 +131,15 @@ src/main/java/by/pavel/
 в `src/main/java/by/pavel/`.
 
 ## Сборка и запуск (без Docker)
+
+```bash
+cd modules/infrastructure
+mvn spring-boot:run        # backend на :8080 (для упражнений logging/metrics)
+```
+
+## Code review — на что смотреть
+
+Корректность конфигурации (как проверять — см. «Как выполнять упражнения» выше): Dockerfile / `docker-compose.yml`, K8s-манифесты (`kubectl apply --dry-run=client`), Helm (`helm lint`, `helm template`), Logback JSON / PromQL. Смотри безопасность (non-root, secrets), resources/limits, probes, корректность лейблов/селекторов.
 
 ## Источники
 

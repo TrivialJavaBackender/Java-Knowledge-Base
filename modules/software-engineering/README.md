@@ -31,10 +31,6 @@ modules/software-engineering/
 - **Concurrency-specific testing (race conditions, CountDownLatch)** → [`modules/concurrency/`](../concurrency/)
 - **System design testing (chaos eng, contract testing)** — частично здесь, частично в [`infrastructure`](../infrastructure/)
 
-## Прогресс
-
-См. [PROGRESS.md](PROGRESS.md) и [ROADMAP.md](ROADMAP.md).
-
 ## Интервью-вопросы
 
 См. [INTERVIEW_QUESTIONS.md](INTERVIEW_QUESTIONS.md) — формат `qa-bold`.

@@ -70,7 +70,11 @@ mvn exec:java -Dexec.mainClass="exercises.Ex01_ThreadBasicsKt"
 - `"проверь Ex01"` — проверка реализации + запуск
 - `"следующий"` / `"next"` — следующий незавершённый модуль
 - `"квиз"` / `"quiz"` — 5 случайных вопросов из INTERVIEW_QUESTIONS.md
-- `"прогресс"` — текущий статус из PROGRESS.md
+
+## Code review — на что смотреть
+
+- **Kotlin Ex01–Ex18** (`mvn exec:java`): race condition, неправильные локи, утечки, корректность `wait/notify`, видимость (`volatile` / happens-before).
+- **Applied (Java, `src/main/java/applied/{reservations,bank,cache,orderbook,scheduler,ratelimiter}`)**: тесты `mvn test -Dtest=ClassName`; смотри thread safety, стратегию локов, корректность под конкуренцией.
 
 ## Стек
 

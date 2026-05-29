@@ -54,7 +54,10 @@ mvn exec:java -Dexec.mainClass="exercises.Ex01_SchemaBasicsKt"
 - `"проверь graphql-kotlin Ex01"` — проверка реализации + запуск
 - `"следующий"` / `"next"` — следующий незавершённый модуль
 - `"квиз"` / `"quiz"` — 5 случайных вопросов из INTERVIEW_QUESTIONS.md
-- `"прогресс"` — текущий статус из PROGRESS.md
+
+## Code review — на что смотреть
+
+`mvn exec:java -Dexec.mainClass="exercises.ExNN_…Kt"`. Смотри: корректность code-first схемы (nullability, типы), suspend-сигнатуры резолверов, батчинг через DataLoader **без `runBlocking`**, обработку ошибок (partial response, `DataFetcherExceptionHandler`), federation-директивы (`@key`/`@external`), anti-паттерны (утечки контекста, глобальные DataLoader, blocking-вызовы в реактивном пайплайне).
 
 ## Стек
 
