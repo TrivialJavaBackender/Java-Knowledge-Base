@@ -36,7 +36,7 @@ Throwable
 **`Error`** — environment-level катастрофы. `OutOfMemoryError`, `StackOverflowError`, `VirtualMachineError`. По соглашению **не ловить**:
 - состояние JVM может быть **поломано** (OOM = непредсказуемо, какой объект не получилось аллоцировать);
 - `Thread.UncaughtExceptionHandler` — место «последнего слова»;
-- Servlet-containers всё равно перезапустят request.
+- Servlet-containers всё равно перезапустят запрос.
 
 Исключение — `StackOverflowError` в parser, где **известно**, как восстановиться (ANTLR error recovery).
 
@@ -217,7 +217,7 @@ finally { return "from finally"; }
 // → "from finally", exception потерян!
 ```
 
-IDE и Checkstyle обычно warn'ят на `return` в `finally` — антипаттерн.
+IDE и Checkstyle обычно выдают предупреждение на `return` в `finally` — антипаттерн.
 
 ### 6.3. `throw` в `finally` подавляет
 
@@ -324,7 +324,7 @@ public void method() throws SQLException, IOException {
 }
 ```
 
-До Java 7 пришлось бы catch'ить отдельно или объявить `throws Exception`.
+До Java 7 пришлось бы перехватывать отдельно или объявить `throws Exception`.
 
 ---
 
@@ -358,7 +358,7 @@ String describe(ParseError e) {
 
 ---
 
-## 10. Catch-and-throw патrены
+## 10. Catch-and-throw паттерны
 
 ### 10.1. Wrap-and-rethrow (chained)
 

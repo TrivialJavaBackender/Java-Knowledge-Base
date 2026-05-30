@@ -33,7 +33,7 @@ Sun выбрала **type erasure** именно потому, что **сохр
 
 ---
 
-## 2. Что нельзя из-за эрасуры
+## 2. Что нельзя из-за стирания типов
 
 Прямо или косвенно вытекает из «`T` стирается в Object»:
 
@@ -180,7 +180,7 @@ class StringBox extends Box<String> {
 }
 ```
 
-После эрасуры:
+После стирания:
 - `Box.get()` имеет сигнатуру `Object get()`.
 - `StringBox.get()` объявлен как `String get()`.
 
@@ -436,7 +436,7 @@ TypeRef<List<User>> ref = new TypeRef<List<User>>() {};
 Type t = ref.type;   // List<User> — Type object!
 ```
 
-Идея: эрасура **сохраняет** generic-info **в class signature** (атрибут `Signature` в class file). Анонимный subclass с явным `<List<User>>` запоминает тип через свой `genericSuperclass`.
+Идея: стирание типов **сохраняет** generic-info **в class signature** (атрибут `Signature` в class file). Анонимный subclass с явным `<List<User>>` запоминает тип через свой `genericSuperclass`.
 
 Используется:
 - **Jackson `TypeReference`** — `objectMapper.readValue(json, new TypeReference<List<User>>(){})`;
@@ -472,7 +472,7 @@ Scala имеет более развитую систему: `ClassTag`, `TypeTa
 ## 12. Что обязательно знать на собесе
 
 1. **Type erasure** — что именно стирается, почему так сделано.
-2. **Что нельзя из-за эрасуры** (new T(), new T[], instanceof T, T.class, перегрузка, static T, catch T).
+2. **Что нельзя из-за стирания типов** (new T(), new T[], instanceof T, T.class, перегрузка, static T, catch T).
 3. **Bridge methods** — зачем, как их видеть в reflection, `isBridge()`.
 4. **Wildcards**: covariance (`? extends`), contravariance (`? super`), invariance (default).
 5. **PECS** — Producer-Extends, Consumer-Super.

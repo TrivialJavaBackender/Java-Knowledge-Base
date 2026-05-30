@@ -101,7 +101,7 @@ protected Class<?> loadClass(String name, boolean resolve) {
 
 **OSGi BundleClassLoader** — вообще не использует parent для большинства запросов. Каждый bundle декларирует `Import-Package` / `Export-Package`; ClassLoader bundle'а ходит **по графу зависимостей**, а не по дереву CL. Это позволяет иметь Spring 5 и Spring 6 в одной JVM одновременно.
 
-**JPMS ModuleLayer loaders** — routes по graph модулей, а не родительскому CL.
+**JPMS ModuleLayer loaders** — маршрутизирует по графу модулей, а не по родительскому CL.
 
 ### 3.2. Цена нарушения: ClassCastException
 
@@ -365,7 +365,7 @@ jmap -dump:format=b,file=heap.hprof <pid>
 2. Если их **больше одного** на одно webapp — почти наверняка leak.
 3. `Path to GC Roots` на одном из них (исключая weak/phantom) — найти конкретный GC root, держащий ссылку.
 
-Tomcat 9+ имеет встроенную фичу «Find leaks» в Manager App — runs detection logic после redeploy.
+Tomcat 9+ имеет встроенную фичу «Find leaks» в Manager App — запускает логику обнаружения утечек после redeploy.
 
 > Mark Thomas (Tomcat committer), [*Tomcat memory leak prevention*](https://cwiki.apache.org/confluence/display/TOMCAT/MemoryLeakProtection) — каноническая статья.
 
@@ -425,7 +425,7 @@ ModuleLayer layer = ModuleLayer.boot()
     .defineModulesWithOneLoader(cfg, ClassLoader.getSystemClassLoader());
 ```
 
-Используется фреймворками для plugin-architecture с изоляцией:
+Используется фреймворками для плагинной архитектуры с изоляцией:
 - Spring 6+ с native compilation;
 - Apache NetBeans Platform;
 - Pf4j;
@@ -456,7 +456,7 @@ try {
 - TCCL **наследуется** дочерним thread (`Thread.inheritedAccessControlContext`);
 - Shared thread pool сохраняет TCCL, который установил создавший pool — это снова источник CL leak.
 
-Spring, EJB, Servlet containers устанавливают TCCL на каждый request — поэтому фреймворки работают.
+Spring, EJB, Servlet containers устанавливают TCCL на каждый запрос — поэтому фреймворки работают.
 
 ---
 

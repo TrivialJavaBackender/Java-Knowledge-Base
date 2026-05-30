@@ -32,9 +32,9 @@ JVM на компайл-тайме литералов выбирает coder. Д
 
 ### 2.1. Экономия памяти
 
-| Use case | Java 8 | Java 9+ |
+| Сценарий | Java 8 | Java 9+ |
 |---|---|---|
-| 100K ASCII строк по 20 символов | ~4 MB (char[] = 2 байта/символ + header) | ~2 MB (byte[]) |
+| 100K ASCII строк по 20 символов | ~4 MB (char[] = 2 байта/символ + заголовок объекта) | ~2 MB (byte[]) |
 | HTTP headers (typical) | 100% | ~50% |
 | JSON keys | 100% | ~50% |
 | Локализованный UI (кириллица) | 100% | 100% (UTF16) |
@@ -57,7 +57,7 @@ public char charAt(int index) {
 }
 ```
 
-JIT обычно скомпилирует это так, что branch предсказан → стоимость почти нулевая. Но в специфических hot loops с `charAt` (древние парсеры на массивных String'ах) — иногда возникает регресс. Поэтому performance-engineers иногда работают с `byte[]` напрямую.
+JIT обычно скомпилирует это так, что branch предсказан → стоимость почти нулевая. Но в специфических hot loops с `charAt` (древние парсеры на массивных строках) — иногда возникает регресс. Поэтому performance-engineers иногда работают с `byte[]` напрямую.
 
 ### 2.3. `hash` — benign data race
 
@@ -239,11 +239,11 @@ new String(bytes, StandardCharsets.UTF_8);
 
 ## 7. `String` vs `StringBuilder` vs `StringBuffer`
 
-| Тип | Mutable | Thread-safe | Performance |
+| Тип | Изменяемый | Потокобезопасный | Производительность |
 |---|---|---|---|
-| `String` | нет | yes (immutable) | concat — JIT-инлайн (см. §4) |
-| `StringBuilder` | yes | нет | основной выбор |
-| `StringBuffer` | yes | yes (`synchronized`) | legacy, не используйте без честного sharing |
+| `String` | нет | да (immutable) | concat — JIT-инлайн (см. §4) |
+| `StringBuilder` | да | нет | основной выбор |
+| `StringBuffer` | да | да (`synchronized`) | legacy, не используйте без честного sharing |
 
 Capacity: `StringBuilder` начинает с 16, удваивается при overflow. Если знаешь размер — `new StringBuilder(expectedCapacity)` экономит resize. На массивных concat'ах:
 
@@ -255,7 +255,7 @@ for (Item item : items) {
 return sb.toString();
 ```
 
-**Не используйте `StringBuffer`** в современном коде. Synchronization не нужна в 99% случаев, deserves только historical artifact из Java 1.0.
+**Не используйте `StringBuffer`** в современном коде. Synchronization не нужна в 99% случаев — это лишь исторический артефакт из Java 1.0.
 
 ---
 

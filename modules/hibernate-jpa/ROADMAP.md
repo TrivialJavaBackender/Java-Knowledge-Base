@@ -1,7 +1,8 @@
 # Hibernate / JPA — Roadmap
 
-Порядок прохождения: **Основы → Жизненный цикл → Маппинг → Идентификаторы/наследование →
-Fetch и N+1 → Кэширование → Транзакции и блокировки → Запросы → Производительность**.
+Порядок прохождения: **Основы → Жизненный цикл → Маппинг → Продвинутый маппинг → Коллекции →
+Идентичность → Идентификаторы/наследование → Составные ключи → Fetch и N+1 → Кэширование →
+Транзакции и блокировки → Запросы → Производительность**.
 
 Web-sync берёт порядок теории на сайте из первого упоминания `theory/<NAME>.md` в этом файле.
 
@@ -23,40 +24,89 @@ Hibernate; `EntityManagerFactory` / `SessionFactory`; bootstrap; dialect; DDL-au
 ## Модуль 2 — Жизненный цикл сущности
 
 📖 [theory/ENTITY_LIFECYCLE.md](theory/ENTITY_LIFECYCLE.md) — persistence context; состояния
-transient/managed/detached/removed; dirty checking; flush modes; API `EntityManager`/`Session`.
+transient/managed/detached/removed; dirty checking; flush modes; внутренняя механика flush
+(write-behind, action queue, flush ordering, query flush).
 
 - [ ] Четыре состояния сущности и переходы между ними
 - [ ] Persistence context как Identity Map + Unit of Work
 - [ ] Dirty checking и snapshot-механизм
-- [ ] Flush modes (AUTO/COMMIT/MANUAL), когда происходит flush
+- [ ] Flush modes и внутренняя механика flush (почему SQL выполняется не там, где ожидаешь)
 
 ---
 
 ## Модуль 3 — Маппинг и ассоциации
 
 📖 [theory/MAPPINGS_ASSOCIATIONS.md](theory/MAPPINGS_ASSOCIATIONS.md) — `@Entity`/`@Embeddable`;
-ассоциации; owning vs inverse side; `mappedBy`; cascade; `orphanRemoval`; equals/hashCode.
+ассоциации; owning vs inverse side; `mappedBy`; cascade; `orphanRemoval`.
 
 - [ ] `@OneToMany` / `@ManyToOne` / `@ManyToMany` / `@OneToOne`
 - [ ] Owning side vs inverse side, роль `mappedBy`
 - [ ] Cascade types и `orphanRemoval`
-- [ ] equals/hashCode для сущностей (бизнес-ключ vs id)
 
 ---
 
-## Модуль 4 — Идентификаторы и наследование
+## Модуль 4 — Продвинутый маппинг и генерируемые БД значения
+
+📖 [theory/ADVANCED_MAPPINGS.md](theory/ADVANCED_MAPPINGS.md) — `@Column`/`@Table`/`@JoinColumn`
+детально; `@Enumerated`/`@Temporal`/`@Lob`/`@Access`; `@Convert`/`@AttributeConverter`;
+`@SecondaryTable`; Hibernate `@Formula`/`@Where`/`@Filter`; `@CreationTimestamp`/`@UpdateTimestamp`;
+`insertable`/`updatable`.
+
+- [ ] `@Enumerated(ORDINAL)` ловушка vs `STRING`; `@AttributeConverter`
+- [ ] `@Formula` / `@Where` / `@Filter` (Hibernate-специфика)
+- [ ] Значения, генерируемые БД, и флаги `insertable`/`updatable`
+
+---
+
+## Модуль 5 — Семантика коллекций
+
+📖 [theory/COLLECTIONS.md](theory/COLLECTIONS.md) — bag vs list vs set; `MultipleBagFetchException`;
+ordered vs sorted; `PersistentBag`/`Set`/`List`; `@OrderBy` vs `@OrderColumn`; `@ElementCollection`;
+extra lazy.
+
+- [ ] bag vs list vs set и чем опасен bag
+- [ ] `MultipleBagFetchException` и три решения
+- [ ] `@OrderBy` vs `@OrderColumn`, ordered vs sorted
+
+---
+
+## Модуль 6 — Идентичность сущностей и equals/hashCode
+
+📖 [theory/ENTITY_IDENTITY_EQUALS.md](theory/ENTITY_IDENTITY_EQUALS.md) — три вида идентичности;
+generated-id problem; proxy-safe `equals`; бизнес-ключ; почему мутабельные поля рвут hash-коллекции;
+опасность Lombok `@Data`.
+
+- [ ] Почему `equals` по сгенерированному `id` ломает `HashSet`
+- [ ] Proxy-safe `equals` (`instanceof` vs `getClass()`)
+- [ ] Бизнес-ключ / назначаемый UUID как правильная основа
+
+---
+
+## Модуль 7 — Идентификаторы и наследование
 
 📖 [theory/IDENTIFIERS_INHERITANCE.md](theory/IDENTIFIERS_INHERITANCE.md) — генерация id
-(IDENTITY/SEQUENCE/TABLE/UUID, pooled-lo); inheritance (SINGLE_TABLE/JOINED/TABLE_PER_CLASS);
-`@MappedSuperclass`.
+(IDENTITY/SEQUENCE/TABLE/UUID, pooled-lo); `@NaturalId` и natural id cache; inheritance
+(SINGLE_TABLE/JOINED/TABLE_PER_CLASS); `@MappedSuperclass`.
 
 - [ ] Стратегии генерации id и их влияние на batching
+- [ ] `@NaturalId`, natural id cache, `byNaturalId` lookup
 - [ ] Три стратегии наследования и их компромиссы
-- [ ] `@MappedSuperclass` vs `@Embeddable` vs наследование сущностей
 
 ---
 
-## Модуль 5 — Fetch-стратегии и N+1
+## Модуль 8 — Составные ключи
+
+📖 [theory/COMPOSITE_KEYS.md](theory/COMPOSITE_KEYS.md) — `@EmbeddedId` vs `@IdClass`;
+`@MapsId` и derived identifiers; составные FK; equals/hashCode для класса ключа; surrogate vs
+natural keys.
+
+- [ ] `@EmbeddedId` vs `@IdClass`, когда что
+- [ ] `@MapsId` / shared primary key
+- [ ] Почему класс составного ключа обязан переопределять equals/hashCode
+
+---
+
+## Модуль 9 — Fetch-стратегии и N+1
 
 📖 [theory/FETCHING_NPLUS1.md](theory/FETCHING_NPLUS1.md) — LAZY/EAGER; proxy + bytecode
 enhancement; `JOIN FETCH`; `@EntityGraph`; `@BatchSize`; subselect; N+1; `LazyInitializationException`.
@@ -68,7 +118,7 @@ enhancement; `JOIN FETCH`; `@EntityGraph`; `@BatchSize`; subselect; N+1; `LazyIn
 
 ---
 
-## Модуль 6 — Кэширование
+## Модуль 10 — Кэширование
 
 📖 [theory/CACHING.md](theory/CACHING.md) — L1 (persistence context); L2 (region factory,
 провайдеры); Query cache; concurrency strategies (READ_ONLY/NONSTRICT/READ_WRITE/TRANSACTIONAL);
@@ -81,7 +131,7 @@ enhancement; `JOIN FETCH`; `@EntityGraph`; `@BatchSize`; subselect; N+1; `LazyIn
 
 ---
 
-## Модуль 7 — Транзакции и блокировки
+## Модуль 11 — Транзакции и блокировки
 
 📖 [theory/TRANSACTIONS_LOCKING.md](theory/TRANSACTIONS_LOCKING.md) — JPA `EntityTransaction`;
 flush на коммите; оптимистичная блокировка `@Version`; пессимистичная `LockModeType`.
@@ -93,24 +143,25 @@ flush на коммите; оптимистичная блокировка `@Ver
 
 ---
 
-## Модуль 8 — Запросы
+## Модуль 12 — Запросы
 
-📖 [theory/QUERYING.md](theory/QUERYING.md) — JPQL/HQL; Criteria API; native queries;
-DTO-проекции; пагинация; `@NamedQuery`.
+📖 [theory/QUERYING.md](theory/QUERYING.md) — JPQL/HQL; bulk update/delete; подзапросы; функции;
+неявные/явные джойны; Criteria API; native queries; DTO-проекции; пагинация; `@NamedQuery`.
 
-- [ ] JPQL/HQL vs native SQL
+- [ ] JPQL/HQL vs native SQL; bulk update/delete и рассинхрон persistence context
+- [ ] Подзапросы, коррелированные подзапросы, `FUNCTION()`
 - [ ] Criteria API: когда оно оправдано
-- [ ] DTO-проекции vs загрузка сущностей
-- [ ] Пагинация и её ловушки
+- [ ] DTO-проекции vs загрузка сущностей; пагинация и её ловушки
 
 ---
 
-## Модуль 9 — Производительность и типичные ошибки
+## Модуль 13 — Производительность и типичные ошибки
 
 📖 [theory/PERFORMANCE_PITFALLS.md](theory/PERFORMANCE_PITFALLS.md) — batching
-(`jdbc.batch_size`); `StatelessSession`; OSIV anti-pattern; read-only запросы; частые ошибки.
+(`jdbc.batch_size`, order_inserts/updates, flush/clear, batch_versioned_data); `StatelessSession`;
+OSIV anti-pattern; read-only запросы; частые ошибки.
 
-- [ ] JDBC batching: настройка и предусловия
+- [ ] JDBC batching: настройка, предусловия, контроль памяти (flush/clear)
 - [ ] `StatelessSession` для массовых операций
 - [ ] Open Session In View: почему это anti-pattern
 - [ ] Read-only запросы и оптимизация памяти

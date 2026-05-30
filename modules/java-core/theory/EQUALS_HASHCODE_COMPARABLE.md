@@ -319,7 +319,7 @@ public boolean equals(Object o) {     // НЕ <T>, type — Object
 
 ---
 
-## 9. Performance considerations
+## 9. Производительность
 
 ### 9.1. `Objects.hash` vs Bloch formula
 
@@ -334,7 +334,7 @@ result = 31 * result + Objects.hashCode(field3);
 return result;
 ```
 
-Для hot path (часто-вызываемые equals/hashCode на ключах HashMap) — Bloch формула. Иначе — `Objects.hash` for readability.
+Для hot path (часто-вызываемые equals/hashCode на ключах HashMap) — Bloch формула. Иначе — `Objects.hash` для читаемости.
 
 ### 9.2. `String.hashCode` cache
 
@@ -421,7 +421,7 @@ Records закрывают **80% use cases для equals/hashCode** в совр�
 6. **TreeMap pitfall с BigDecimal** — compareTo vs equals inconsistency.
 7. **Modern Comparator API** — `comparing`, `thenComparing`, `nullsFirst`, `reversed`.
 8. **Records auto-equals** — главное преимущество records.
-9. **Bloch formula vs `Objects.hash`** — performance trade-off.
+9. **Bloch formula vs `Objects.hash`** — компромисс по производительности.
 10. **HashMap collision → tree-bin** (8+ collisions, requires Comparable keys).
 
 ---

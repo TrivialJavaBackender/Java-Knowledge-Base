@@ -107,7 +107,7 @@ public record Password(String value) {
 }
 ```
 
-Можно скрыть данные — accessor не обязан возвращать field directly.
+Можно скрыть данные — accessor не обязан возвращать поле напрямую.
 
 ### 2.6. Implementations и methods
 
@@ -203,7 +203,7 @@ String msg = switch (r) {
 };
 ```
 
-Эквивалент Rust'овского `Result<T, E>`, Kotlin'овского sealed hierarchy. Без exceptions, без null — explicit error path в типах.
+Эквивалент `Result<T, E>` из Rust, sealed hierarchy из Kotlin. Без exceptions, без null — explicit error path в типах.
 
 ### 3.4. Use case 3: API stability
 
@@ -325,7 +325,7 @@ String json = """
         """;
 ```
 
-Решает классическую проблему: SQL/JSON/HTML внутри Java строк выглядят ужасно с escape'ами и concat'ами.
+Решает классическую проблему: SQL/JSON/HTML внутри Java строк выглядят ужасно с escape-последовательностями и конкатенациями.
 
 ### 5.1. Правила indentation
 
@@ -480,7 +480,7 @@ Thread.startVirtualThread(() -> handleRequest());
 Executors.newVirtualThreadPerTaskExecutor()
 ```
 
-Lightweight threads, GB-scale (миллионы потоков on standard hardware). M:N модель: вируальный thread исполняется на pool **carrier** platform-threads.
+Lightweight threads, GB-scale (миллионы потоков на стандартном железе). M:N модель: виртуальный thread исполняется на pool **carrier** platform-threads.
 
 ### 10.2. Structured Concurrency (JEP 462, preview)
 

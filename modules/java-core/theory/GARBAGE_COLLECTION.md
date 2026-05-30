@@ -14,11 +14,11 @@
 
 Любой GC балансирует между тремя метриками:
 
-- **Latency (pause time)** — насколько долго приложение простаивает во время GC. Critical для real-time и interactive системы.
-- **Throughput** — доля CPU, которая идёт на полезную работу (а не на GC). Critical для batch-обработки.
+- **Задержка (pause time)** — насколько долго приложение простаивает во время GC. Critical для real-time и interactive системы.
+- **Пропускная способность (throughput)** — доля CPU, которая идёт на полезную работу (а не на GC). Critical для batch-обработки.
 - **Footprint** — память, нужная сверх heap (структуры self-bookkeeping, fragmentation). Critical для embedded и cloud-billing.
 
-Это **pick-two-of-three**: уменьшаешь pause time → растёт overhead на барьеры → теряется throughput; уменьшаешь footprint → больше CPU тратится на compaction. Каждый коллектор делает свой выбор — нет одного «лучшего» GC.
+Это **pick-two-of-three**: уменьшаешь pause time → растёт overhead на барьеры → теряется пропускная способность; уменьшаешь footprint → больше CPU тратится на compaction. Каждый коллектор делает свой выбор — нет одного «лучшего» GC.
 
 > Источник: Charlie Hunt, *Java Performance Companion* (Pearson, 2016), глава «GC Theory».
 
@@ -28,7 +28,7 @@
 
 Объект — мусор, если до него **нельзя добраться** из **GC roots** через цепочку ссылок. GC roots — это якоря, от которых начинается обход живого графа:
 
-- **Stack локалы и параметры всех активных потоков** — `Thread.currentThread().getStackTrace()` показывает, какие frame'ы есть, в каждом — свои locals.
+- **Stack локалы и параметры всех активных потоков** — `Thread.currentThread().getStackTrace()` показывает, какие фреймы есть, в каждом — свои locals.
 - **Статические поля всех загруженных классов** — `Class.getDeclaredFields()` без `instance`. Это самый коварный источник утечек: один static `Map` может удерживать гигабайты.
 - **JNI / FFM live references** — то, что захватил native код (через `NewGlobalRef` или `MemorySegment.scope`).
 - **Mounted CPU registers** — JIT может временно держать references в регистрах; safepoint синхронизирует это.
@@ -79,7 +79,7 @@ Reachability — статическое свойство в момент GC. Н�
    └─────────────────────────────────────────────────┘
 ```
 
-Default ratio для Parallel GC: Eden:Survivor = `-XX:SurvivorRatio=8` (то есть 80%:10%:10%), Young:Old = `-XX:NewRatio=2` (то есть 1/3 : 2/3). Для G1 эти ratios адаптивные — он сам выбирает размер регионов.
+Default ratio для Parallel GC: Eden:Survivor = `-XX:SurvivorRatio=8` (то есть 80%:10%:10%), Young:Old = `-XX:NewRatio=2` (то есть 1/3 : 2/3). Для G1 эти соотношения адаптивные — он сам выбирает размер регионов.
 
 ### 3.2. TLAB — почему аллокация в Java дешёвая
 
@@ -92,7 +92,7 @@ Default ratio для Parallel GC: Eden:Survivor = `-XX:SurvivorRatio=8` (то е
 
 Это **bump-the-pointer allocation**. Стоимость = одна арифметическая операция + branch на overflow. Поэтому в Java «создание объекта дёшево» — это правда. На уровне x86 это разница между `add rax, 32` и полноценным аллокатором типа `malloc`.
 
-Большие объекты (> `PretenureSizeThreshold`) идут сразу в Old, минуя TLAB и Eden. Размер этого порога не публичный, варьируется по collector'у.
+Большие объекты (> `PretenureSizeThreshold`) идут сразу в Old, минуя TLAB и Eden. Размер этого порога не публичный, варьируется по сборщику.
 
 > Подробнее: Aleksey Shipilëv, *JVM Anatomy Quark #4: TLAB Allocation* — <https://shipilev.net/jvm/anatomy-quarks/4-tlab-allocation/>
 
@@ -105,11 +105,11 @@ Default ratio для Parallel GC: Eden:Survivor = `-XX:SurvivorRatio=8` (то е
 - **Mixed GC** — G1-специфичный термин: собираются все young-регионы плюс **несколько** old-регионов. Аналог partial major.
 - **Full GC** — собирается весь heap. STW. На production — обычно симптом проблемы.
 
-Один важный нюанс: терминология **зависит от collector'а**. У ZGC нет «minor» — он concurrent. У Parallel — есть только «minor» и «full». Лог GC помечает каждую сборку конкретным именем, не пытайтесь угадать по `gc.log` без контекста.
+Один важный нюанс: терминология **зависит от сборщика**. У ZGC нет «minor» — он concurrent. У Parallel — есть только «minor» и «full». Лог GC помечает каждую сборку конкретным именем, не пытайтесь угадать по `gc.log` без контекста.
 
 ### 3.4. Tenuring threshold и promotion
 
-Объект, переживший один minor GC, копируется из Eden в S0. Пережил два — из S0 в S1. И так далее. Счётчик возраста хранится в **mark word** объекта (несколько бит). Когда возраст достигает `-XX:MaxTenuringThreshold` (default 15 для большинства collector'ов) — объект **promoted** в Old.
+Объект, переживший один minor GC, копируется из Eden в S0. Пережил два — из S0 в S1. И так далее. Счётчик возраста хранится в **mark word** объекта (несколько бит). Когда возраст достигает `-XX:MaxTenuringThreshold` (default 15 для большинства сборщиков) — объект **promoted** в Old.
 
 JVM может **динамически** уменьшать threshold, если survivor space переполняется: лучше отправить сразу в Old, чем падать с promotion failure. См. `-XX:+PrintTenuringDistribution` для лога.
 
@@ -126,7 +126,7 @@ JVM может **динамически** уменьшать threshold, если
 Простой и старый. Две фазы:
 
 1. **Mark**: обойти граф от roots, поставить каждому достижимому объекту «mark bit».
-2. **Sweep**: пройти всю heap, нашёл объект без bit'а — освободить.
+2. **Sweep**: пройти всю heap, нашёл объект без бита — освободить.
 
 **Преимущества:** простота, не требует свободного пространства сверх heap (in-place).
 
@@ -138,7 +138,7 @@ Mark-Sweep чисто исторический сейчас, используе�
 
 После mark — **сжать** живые объекты в начало региона. Свободное пространство становится contiguous, фрагментации нет.
 
-Цена: тяжёлая операция (memmove'ы), приходится **обновлять все ссылки** (адрес объекта изменился). Используется в Parallel Old, CMS final compact (когда CMS не справился), full G1.
+Цена: тяжёлая операция (memmove-перемещения), приходится **обновлять все ссылки** (адрес объекта изменился). Используется в Parallel Old, CMS final compact (когда CMS не справился), full G1.
 
 ### 4.3. Copying (semi-space)
 
@@ -152,7 +152,7 @@ Mark-Sweep чисто исторический сейчас, используе�
 
 **Недостатки:** **половина heap всегда свободна**. Это допустимо для young (там мало живых), но для old — катастрофично.
 
-Используется для Young GC во всех современных collector'ах. Eden + S0 → S1 — это и есть copying GC.
+Используется для Young GC во всех современных сборщиках. Eden + S0 → S1 — это и есть copying GC.
 
 ### 4.4. Generational combine
 
@@ -164,7 +164,7 @@ Mark-Sweep чисто исторический сейчас, используе�
 
 ## 5. Tri-color invariant и concurrent mark
 
-Когда GC хочет mark'ить **параллельно с приложением** (concurrent collector — G1, ZGC, Shenandoah), возникает классическая проблема: пока GC идёт от roots в графе, приложение **меняет ссылки**. Без защиты GC может пропустить живой объект.
+Когда GC хочет **помечать объекты параллельно с приложением** (concurrent collector — G1, ZGC, Shenandoah), возникает классическая проблема: пока GC идёт от roots в графе, приложение **меняет ссылки**. Без защиты GC может пропустить живой объект.
 
 Tri-color algorithm (Dijkstra, Lamport, 1978) представляет объекты в трёх цветах:
 
@@ -261,7 +261,7 @@ Single-threaded, stop-the-world, generational. Mark-copy young + mark-compact ol
 
 Multi-threaded версия Serial. **Все** фазы STW, но параллельные потоки. Mark-copy young + mark-compact old.
 
-Цель — **maximum throughput**, plateau pause time. Используйте для batch-обработки, ETL, BigData workloads.
+Цель — **максимальная пропускная способность**, plateau pause time. Используйте для batch-обработки, ETL, BigData workloads.
 
 Был default для server-class до JDK 8. С JDK 9 default — G1.
 
@@ -302,7 +302,7 @@ Deprecated в JDK 9, удалён в JDK 14 (JEP 363). Замещён G1.
 
 Все фазы практически concurrent. Pauses обычно **< 1 ms** независимо от heap.
 
-До JDK 21 ZGC был **non-generational** — всегда сканировал весь heap, что давало хороший latency, но плохой throughput на small heap. **Generational ZGC** (JEP 439, Java 21) добавил young/old разделение → теперь почти всегда лучше G1 по latency, и сравним по throughput.
+До JDK 21 ZGC был **non-generational** — всегда сканировал весь heap, что давало малую задержку, но низкую пропускную способность на small heap. **Generational ZGC** (JEP 439, Java 21) добавил young/old разделение → теперь почти всегда лучше G1 по задержке, и сравним по пропускной способности.
 
 `-XX:+UseZGC -XX:+ZGenerational` (или просто `-XX:+UseZGC` с JDK 23+).
 
@@ -319,7 +319,7 @@ Deprecated в JDK 9, удалён в JDK 14 (JEP 363). Замещён G1.
 
 В JDK 21+ Shenandoah тоже получил generational mode (preview).
 
-Используется в основном в Red Hat OpenJDK / Eclipse Temurin. Production выбор обычно — между G1 (default) и ZGC (low-latency).
+Используется в основном в Red Hat OpenJDK / Eclipse Temurin. Production выбор обычно — между G1 (default) и ZGC (с малой задержкой).
 
 > [Shenandoah Wiki](https://wiki.openjdk.org/display/shenandoah), Aleksey Shipilëv, *Shenandoah's Design* — [shipilev.net/jvm/diy-gc/](https://shipilev.net/jvm/diy-gc/).
 
@@ -332,13 +332,13 @@ Deprecated в JDK 9, удалён в JDK 14 (JEP 363). Замещён G1.
 
 ### 7.8. Выбор в production
 
-| Workload | Recommended |
+| Нагрузка | Рекомендация |
 |---|---|
-| Web backend, latency p99 < 100 ms | **G1** (default), переход на ZGC если pauses вид'ы |
+| Web backend, задержка p99 < 100 ms | **G1** (default), переход на ZGC если паузы видны |
 | Real-time trading, p99 < 10 ms | **ZGC** (с JDK 21 generational) |
-| Batch ETL, throughput-bound | **Parallel** (`-XX:+UseParallelGC`) |
+| Batch ETL, с привязкой к пропускной способности | **Parallel** (`-XX:+UseParallelGC`) |
 | Очень маленький heap (< 100 MB), один CPU | **Serial** (выбирается JVM-автоматом) |
-| Embedded, IoT | **Serial** или **Epsilon** для short-lived |
+| Embedded, IoT | **Serial** или **Epsilon** для короткоживущих задач |
 | Lambdas / FaaS | **Serial** или **Epsilon** (быстрый старт) |
 | Database, large heap (TB) | **ZGC** (sub-ms pauses scale to TB heap) |
 
@@ -348,7 +348,7 @@ Deprecated в JDK 9, удалён в JDK 14 (JEP 363). Замещён G1.
 
 **Safepoint** — точка в bytecode или JIT-коде, где поток может быть **безопасно** остановлен GC, JFR sampler, debugger, deoptimization. «Безопасно» означает:
 - Стек консистентен (никакой объект не в полусоздании);
-- Все references либо в JVM-known locations (стек, регистры на которые есть OopMap), либо JIT знает, как их извлечь.
+- Все ссылки либо в JVM-known locations (стек, регистры на которые есть OopMap), либо JIT знает, как их извлечь.
 
 JVM ставит safepoint-полл в нескольких местах:
 - **Backward branches циклов** (для tight loop ситуации, см. §8.1);
@@ -367,7 +367,7 @@ JVM ставит safepoint-полл в нескольких местах:
 Пример проблемы:
 ```java
 for (int i = 0; i < 1_000_000_000; i++) {
-    sum += arr[i];   // нет вызовов методов, нет backward jump'ов в bytecode виде
+    sum += arr[i];   // нет вызовов методов, нет backward-переходов в bytecode виде
 }
 ```
 
@@ -381,13 +381,13 @@ JIT может определить это как "counted loop" и **убрат
 
 «Fully concurrent» — это маркетинг. У всех современных GC есть **некоторые** STW фазы, просто короткие:
 
-| Collector | STW phases | Typical duration |
+| Сборщик | STW-фазы | Типичная длительность |
 |---|---|---|
 | G1 | Initial Mark, Remark, Cleanup, Evacuation | 5–200 ms |
 | ZGC | Mark Start, Mark End, Relocate Start | < 1 ms |
 | Shenandoah | Init Mark, Final Mark, Init Update Refs | < 10 ms |
 
-ZGC's "sub-ms" — реальность, потому что STW phases — это **только rooting** (scanning thread stacks). Mark и compact полностью concurrent.
+ZGC's "sub-ms" — реальность, потому что STW-фазы — это **только сканирование корней** (thread stacks). Mark и compact полностью concurrent.
 
 ---
 
@@ -465,7 +465,7 @@ User u = ref.get();
 
 GC собирает weakly-referenced объект на **первой же** возможности (любой GC цикл). Использования:
 - **`WeakHashMap`** — entry удаляется, когда ключ становится weakly reachable.
-- **Listener registries**, чтобы дерегистрация была автоматической при «забывании» listener'а.
+- **Listener registries**, чтобы дерегистрация была автоматической при «забывании» слушателя.
 - **ThreadLocal storage** для значений — listener-pattern на CL.
 
 ### 10.4. PhantomReference
@@ -519,7 +519,7 @@ Cleaner — рекомендуемая замена `finalize()` (см. §11).
 - `cgroup v1`: `/sys/fs/cgroup/memory/memory.limit_in_bytes`
 - `cgroup v2`: `/sys/fs/cgroup/memory.max`
 
-И настраивает heap соответственно. До Java 8u191 / Java 10 — этого не было; JVM читала host RAM → катастрофически промахивалась с heap sizing в container'ах.
+И настраивает heap соответственно. До Java 8u191 / Java 10 — этого не было; JVM читала host RAM → катастрофически промахивалась с heap sizing в контейнерах.
 
 `-XX:+UseContainerSupport` (default on с 10) — обязательно проверять, что не выключено.
 
@@ -538,8 +538,8 @@ Default `-XX:MaxRAMPercentage=25.0` — JVM возьмёт 25% от cgroup limit
 
 ### 12.2. AlwaysPreTouch
 
-`-XX:+AlwaysPreTouch` — на старте JVM **физически** touch'ает все страницы heap (memset 0). Это медленнее старта (секунды), но:
-- **Нет page-fault latency** на первой аллокации;
+`-XX:+AlwaysPreTouch` — на старте JVM **физически** обращается ко всем страницам heap (memset 0). Это медленнее старта (секунды), но:
+- **Нет задержки page-fault** на первой аллокации;
 - В контейнерах с swappy memory — гарантия, что heap реально аллоцирован.
 
 Для микросервиса с быстрым стартом (lambda) — не использовать (увеличит cold start). Для long-running service — включать.

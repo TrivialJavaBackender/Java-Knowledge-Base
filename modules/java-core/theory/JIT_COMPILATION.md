@@ -6,7 +6,7 @@
 
 Java стартовала в 1995 году как **interpreted language**. Идея «write once, run anywhere» требовала, чтобы JVM на каждой платформе **исполняла** одни и те же байткоды. Простейший способ — интерпретация: цикл, читающий инструкцию за инструкцией.
 
-Но интерпретация в 10–100 раз медленнее нативного кода. Java получила репутацию «медленного» языка, что мешало популярности в performance-sensitive нишах.
+Но интерпретация в 10–100 раз медленнее нативного кода. Java получила репутацию «медленного» языка, что мешало популярности в нишах с высокими требованиями к производительности.
 
 Решение пришло в 1999 году с HotSpot VM (купленным Sun у компании Longview Technologies, бывшей Animorphic). Главная идея: **не компилировать всё подряд, а только горячие методы**. Большинство кода исполняется редко — компилировать его — пустая трата времени. Профайлинг показывает, **что именно горячо** в этом конкретном запуске → компилируешь только это, и качественно.
 
@@ -81,7 +81,7 @@ C2 строит **SSA-граф** (Single Static Assignment) — внутренн
 
 ### 3.1. Inlining — главная оптимизация
 
-Метод inline'ится, если:
+Метод встраивается (inlining), если:
 - размер ≤ `-XX:MaxInlineSize` (default 35 байт bytecode);
 - метод hot ≤ `-XX:FreqInlineSize` (default 325 байт);
 - иерархия позволяет (см. §6 polymorphic call sites).
@@ -104,7 +104,7 @@ Inlining ценен не сам по себе (сэкономить call instruc
 
 JIT-анализ, определяющий **выходит ли объект из метода / потока**. Категории:
 
-- **NoEscape** — объект не покидает метод. JIT может сделать **scalar replacement**: разобрать объект на local-vars, heap-аллокация не происходит вообще. Например, `Iterator` в `for-each` цикле часто scalar-replace'ится.
+- **NoEscape** — объект не покидает метод. JIT может сделать **scalar replacement**: разобрать объект на local-vars, heap-аллокация не происходит вообще. Например, `Iterator` в `for-each` цикле часто подвергается scalar replacement.
 
 ```java
 for (String s : list) { System.out.println(s); }
@@ -121,7 +121,7 @@ while (it.hasNext()) {
 
 `Iterator it` — NoEscape (не уходит за пределы). C2 элиминирует объект полностью, поля `it` живут в регистрах.
 
-- **ArgEscape** — объект ушёл в other method, но не в global state. JIT может сделать **lock elision**: `synchronized` для thread-local объекта компилируется в no-op.
+- **ArgEscape** — объект ушёл в другой метод, но не в global state. JIT может сделать **lock elision**: `synchronized` для thread-local объекта компилируется в no-op.
 
 ```java
 synchronized (new Object()) { /* что-то */ }   // lock elided полностью
@@ -161,7 +161,7 @@ final int x = 42;
 int y = x * 2 + 1;   // → 85 в compile-time
 ```
 
-С генериками и lambda'ми constant folding часто видит то, что не видит programmer — например, после inline lambda тело становится «вшито» в callsite, и константные значения propagate'ятся.
+С генериками и лямбда-выражениями constant folding часто видит то, что не видит программист — например, после inline lambda тело становится «вшито» в callsite, и константные значения распространяются.
 
 ### 3.6. Dead code elimination
 
@@ -172,7 +172,7 @@ if (debug && expensive()) { ... }   // если debug = compile-time const false
 
 ### 3.7. Loop unrolling / vectorization
 
-Cycle `for (int i; i < N; i++)` может быть unrolled (несколько итераций в один блок без branch), векторизован (используются SIMD-инструкции AVX-2/AVX-512). См. [`FOREIGN_MEMORY_VECTOR.md`](FOREIGN_MEMORY_VECTOR.md) для Vector API — там autovectorization detailed.
+Cycle `for (int i; i < N; i++)` может быть unrolled (несколько итераций в один блок без branch), векторизован (используются SIMD-инструкции AVX-2/AVX-512). См. [`FOREIGN_MEMORY_VECTOR.md`](FOREIGN_MEMORY_VECTOR.md) для Vector API — там автовекторизация рассмотрена подробно.
 
 ### 3.8. Branch prediction & profile-guided layout
 
@@ -201,7 +201,7 @@ JIT строит оптимизации на **runtime profile** — на observ
 - Очередь на перекомпиляцию;
 - Деграда первых N вызовов после deopt (через interpreter).
 
-Если deopt частые — это **алерт**. На warmup-фазе deopt — норма; в steady state — обычно nondeterministic нагрузка (полиморфизм там, где JIT ожидал monomorphic).
+Если deopt частые — это **алерт**. На warmup-фазе deopt — норма; в steady state — обычно непредсказуемая нагрузка (полиморфизм там, где JIT ожидал monomorphic).
 
 ### 4.3. Логи
 
@@ -224,17 +224,17 @@ reason=unstable_if action=reinterpret
 
 ## 5. Polymorphic call sites
 
-Когда виртуальный метод вызывается в каком-то месте кода, C2 классифицирует **по числу типов**, виденных profile'ом:
+Когда виртуальный метод вызывается в каком-то месте кода, C2 классифицирует **по числу типов**, виденных профилем:
 
 - **Monomorphic** (1 тип) — inline single implementation + type guard. Стоимость почти как direct call.
 - **Bimorphic** (2 типа) — inline обе ветки + type guard. Чуть дороже monomorphic.
 - **Megamorphic** (3+ типов) — **нельзя** inline, используется vtable / itable lookup. Дорого: indirect jump, branch misprediction, потеря всех downstream-оптимизаций.
 
-Анти-паттерн: **call site, видевший много типов**, теряет inline **навсегда**. Даже если потом 99% вызовов с одного типа — profile уже «грязный». Поэтому warmup проекта должен происходить с реалистичным набором типов (иначе production-нагрузка деградирует, когда впервые появится новый тип).
+Анти-паттерн: **call site, видевший много типов**, теряет inline **навсегда**. Даже если потом 99% вызовов с одного типа — профиль уже «грязный». Поэтому warmup проекта должен происходить с реалистичным набором типов (иначе production-нагрузка деградирует, когда впервые появится новый тип).
 
 ### 5.1. Inline cache (IC)
 
-CPU-уровневая реализация call site: маленький cache из (type → target) пар. Hit — прямой jump. Miss — обновление IC. После 3 promotions IC становится megamorphic, на дальнейших miss выкидываются guard'ы.
+CPU-уровневая реализация call site: маленький кэш из (type → target) пар. Hit — прямой jump. Miss — обновление IC. После 3 promotions IC становится megamorphic, на дальнейших miss выкидываются защитные условия.
 
 Пример:
 ```java
@@ -256,7 +256,7 @@ for (Animal a : zoo) a.sound();   // 5 типов → megamorphic
 - partial escape analysis (PEA): объект может частично escape, JIT выделит только escape-part в heap;
 - polymorphic inline caches богаче;
 - проще модифицировать (Java vs C++);
-- основа для **Truffle** — фреймворк для DSL'ов и других-языков-на-JVM (JS, Python, R, Ruby на GraalVM).
+- основа для **Truffle** — фреймворк для DSL-ов и других-языков-на-JVM (JS, Python, R, Ruby на GraalVM).
 
 Подключение:
 ```
@@ -265,7 +265,7 @@ for (Animal a : zoo) a.sound();   // 5 типов → megamorphic
 -XX:+EnableJVMCI
 ```
 
-Недостатки: компиляция Graal'ом **медленнее** (Graal сам должен быть скомпилирован — chicken-and-egg). Фикс — **libgraal**: AOT-снимок Graal через `jaotc`, его можно линковать в JVM сразу.
+Недостатки: компиляция через Graal **медленнее** (Graal сам должен быть скомпилирован — проблема курицы и яйца). Фикс — **libgraal**: AOT-снимок Graal через `jaotc`, его можно линковать в JVM сразу.
 
 **GraalVM** — отдельный JDK distribution (от Oracle Labs), включающий Graal + libgraal + Native Image + Truffle. Это **отдельный продукт**, не входит в default OpenJDK.
 
@@ -293,12 +293,12 @@ native-image -jar app.jar
 **Преимущества**:
 - **Instant startup** (< 50 ms) — нет JVM warmup;
 - **Низкий RSS** (10–50 MB вместо 200+);
-- **Нет warmup latency** — peak performance сразу.
+- **Нет задержки прогрева** — peak performance сразу.
 
 **Ограничения**:
 - **Closed-world**: reflection / dynamic proxy / classloading в runtime требуют конфига `reflect-config.json`, иначе будет fail в runtime;
 - Нет class loading в runtime — никакого dynamic plugin loading;
-- Ограничения JIT-фич: нет deopt → нет speculative оптимизаций → код **в среднем** медленнее JIT-ed на long-running workload;
+- Ограничения JIT-фич: нет deopt → нет спекулятивных оптимизаций → код **в среднем** медленнее JIT-ed на long-running workload;
 - Старт компиляции занимает минуты (анализ + кодоген).
 
 ### 7.2. Где использовать
@@ -327,7 +327,7 @@ native-image -jar app.jar
 
 `PrintAssembly` требует [HSDIS plugin](https://github.com/openjdk/jdk/blob/master/src/utils/hsdis/README) — disassembler из binutils. С ним JIT-output показывает реальный x86/ARM код.
 
-**JITWatch** ([github.com/AdoptOpenJDK/jitwatch](https://github.com/AdoptOpenJDK/jitwatch)) — GUI tool для анализа hotspot_pid.log. Показывает дерево inline, deopt'ы, ассемблер.
+**JITWatch** ([github.com/AdoptOpenJDK/jitwatch](https://github.com/AdoptOpenJDK/jitwatch)) — GUI tool для анализа hotspot_pid.log. Показывает дерево inline, деоптимизации, ассемблер.
 
 **async-profiler** (`--cpu` mode) — flame graph CPU-времени, видно где JIT-скомпилированный код, где interpreter, где safepoint.
 
@@ -354,7 +354,7 @@ public int bench() { /* ... */ }
 
 ### 9.3. Anti-patterns
 
-- **`synchronized` на `Integer.valueOf(N)`, `String literal`, `Boolean`** — JIT может elide lock (escape-analyzed как thread-local), но семантика — race condition. Никогда не lock'ить на кэшированных объектах.
+- **`synchronized` на `Integer.valueOf(N)`, `String literal`, `Boolean`** — JIT может elide lock (escape-analyzed как thread-local), но семантика — race condition. Никогда не захватывать блокировку на кэшированных объектах.
 - **Hot loop без safepoint** — pause time bug, см. [`GARBAGE_COLLECTION.md`](GARBAGE_COLLECTION.md).
 - **Polymorphic call site** случайно (mock объект в тесте leaked в production prof) → megamorphic → деграда forever. Изоляция test/prof.
 
@@ -365,7 +365,7 @@ public int bench() { /* ... */ }
 ... did not compile (HugeMethodLimit)
 ```
 
-Чинится разбиением на меньшие методы. Часто встречается в auto-generated code (parser'ы, protobuf accessors, switch-on-many-cases).
+Чинится разбиением на меньшие методы. Часто встречается в auto-generated code (парсеры, protobuf accessors, switch-on-many-cases).
 
 ---
 
@@ -388,7 +388,7 @@ public int bench() { /* ... */ }
 - Safepoints, GC pauses → [`GARBAGE_COLLECTION.md`](GARBAGE_COLLECTION.md)
 - Code Cache для JIT-кода → [`JVM_MEMORY_AREAS.md`](JVM_MEMORY_AREAS.md)
 - Lock elision и memory model → [`modules/concurrency/theory/THREADS_BASICS.md`](../../concurrency/theory/THREADS_BASICS.md)
-- Bytecode, invokedynamic (что JIT inline'ит) → [`BYTECODE_INVOKEDYNAMIC.md`](BYTECODE_INVOKEDYNAMIC.md)
+- Bytecode, invokedynamic (что JIT встраивает) → [`BYTECODE_INVOKEDYNAMIC.md`](BYTECODE_INVOKEDYNAMIC.md)
 - Vector API autovectorization → [`FOREIGN_MEMORY_VECTOR.md`](FOREIGN_MEMORY_VECTOR.md)
 
 ### Внешние ресурсы

@@ -6,7 +6,7 @@
 
 Java имеет три **поколения** API для динамического доступа к классам, полям и методам. Каждое поколение решает проблемы предыдущего:
 
-| API | Год | Use case | Что добавил |
+| API | Год | Сценарий использования | Что добавил |
 |---|---|---|---|
 | **Reflection** | 1997 (Java 1.1) | introspection, фреймворки, сериализация | runtime API |
 | **MethodHandle** | 2011 (Java 7) | indirect calls, lambda, language runtimes | typed, JIT-friendly invocation |
@@ -64,8 +64,8 @@ Child.class.getDeclaredMethods();
 
 | Method | Унаследованные? | Private? |
 |---|---|---|
-| `getMethods()` | yes | no |
-| `getDeclaredMethods()` | no | yes |
+| `getMethods()` | да | нет |
+| `getDeclaredMethods()` | нет | да |
 
 Чтобы получить **все** методы — нужно идти по иерархии вручную: `class.getSuperclass()` и т.д. Это типичная задача для фреймворков (Jackson обходит классы рекурсивно).
 
@@ -105,17 +105,17 @@ Reflection (per-call check): 100-1000 ns
 
 ### 3.1. Когда reflection нормально
 
-- **Frameworks bootstrap** — один раз на старте Spring DI, Jackson type discovery, JPA mapping. Cost = milliseconds total → invisible.
+- **Бутстрап фреймворков** — один раз на старте Spring DI, Jackson type discovery, JPA mapping. Cost = milliseconds total → invisible.
 - **Конфигурация** — выбор класса из properties файла.
 - **Тесты** — Mockito spy через reflection.
 - **Annotation discovery** — сканирование classpath.
 
 ### 3.2. Когда reflection — проблема
 
-- **Hot path** — в каждом HTTP request серилизатор делает reflection. Cumulative latency → реальный hit. Серьёзные сериализаторы (Jackson, Gson) кэшируют reflection lookups, делают MethodHandle / generated code.
+- **Hot path** — в каждом HTTP-запросе сериализатор делает reflection. Накопленная задержка → реальный hit. Серьёзные сериализаторы (Jackson, Gson) кэшируют reflection lookups, делают MethodHandle / generated code.
 - **Tight loop** — миллиард invocations. Должно быть direct call или MethodHandle.
 
-JIT может **частично** оптимизировать reflection (если `Method` объект — стабильная константа), но обычно **considera reflection как threshold для оптимизаций**.
+JIT может **частично** оптимизировать reflection (если `Method` объект — стабильная константа), но обычно **рассматривает reflection как барьер для оптимизаций**.
 
 Альтернативы:
 - **MethodHandle** (см. §6) — для invocation;
@@ -324,13 +324,13 @@ VarHandle предоставляет 5 уровней access modes, от сла�
 
 Нет memory ordering. Эквивалентно обычному полю **не volatile**. Compiler/CPU могут reorder вокруг этого доступа. Самый быстрый.
 
-Use case: thread-local access, или поля защищённые внешним lock.
+Сценарий: thread-local access, или поля защищённые внешним lock.
 
 #### Opaque (`getOpaque`, `setOpaque`)
 
 **Coherent**: один поток видит свои собственные записи в порядке. Без cross-thread effects.
 
-Use case: progress indicators, statistics counters, где **не нужны** happens-before гарантии cross-thread.
+Сценарий: progress indicators, statistics counters, где **не нужны** happens-before гарантии cross-thread.
 
 #### Acquire / Release
 
@@ -359,7 +359,7 @@ if (VAL.getAcquire(this) == READY) {  // observe
 
 Семантика обычного volatile-поля: sequential consistency для этого field. Дороже acquire-release.
 
-Use case: ring-buffer indices, cross-thread flags requiring strict ordering.
+Сценарий: ring-buffer indices, cross-thread flags requiring strict ordering.
 
 #### Atomic ops
 
@@ -430,7 +430,7 @@ Retention:
 - `CLASS` — в bytecode, но не доступно reflection (default);
 - `RUNTIME` — в bytecode + reflection.
 
-Use cases: Spring `@Service`, JPA `@Entity`, Jackson `@JsonProperty` — все RUNTIME.
+Сценарии использования: Spring `@Service`, JPA `@Entity`, Jackson `@JsonProperty` — все RUNTIME.
 
 ### 9.2. Compile-time processing
 
@@ -468,7 +468,7 @@ public class MyProcessor extends AbstractProcessor {
 
 ## 10. Когда что использовать
 
-| Use case | Right tool |
+| Сценарий | Подходящий инструмент |
 |---|---|
 | Сериализация по private полям | Reflection (Jackson, Gson) |
 | Высокочастотный getter в фреймворке | MethodHandle (cached `findGetter`) |

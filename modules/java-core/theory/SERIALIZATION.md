@@ -8,12 +8,12 @@
 
 К 2010-м начали накапливаться проблемы:
 1. **Безопасность**: deserialization gadget chains (Apache Commons Collections в 2015) — серьёзные RCE-уязвимости.
-2. **Performance**: serialization медленнее JSON (на удивление).
-3. **Versioning**: добавил поле — старый формат не читается без extra dance.
-4. **Lock-in**: формат — Java-only, не interoperable с другими языками.
-5. **Object graph reflection** — медленно, не cache-friendly.
+2. **Производительность**: serialization медленнее JSON (на удивление).
+3. **Версионирование**: добавил поле — старый формат не читается без extra dance.
+4. **Привязка к платформе**: формат — Java-only, не interoperable с другими языками.
+5. **Рефлексия над графом объектов** — медленно, не cache-friendly.
 
-К 2015 году большинство микросервисов перешли на JSON (Jackson) или Protobuf для inter-service communication. Java Serialization осталась в legacy-системах и Hazelcast/Apache Ignite (для cache замены), но **не рекомендуется для новых проектов**.
+К 2015 году большинство микросервисов перешли на JSON (Jackson) или Protobuf для межсервисного взаимодействия. Java Serialization осталась в legacy-системах и Hazelcast/Apache Ignite (для cache замены), но **не рекомендуется для новых проектов**.
 
 Brian Goetz и команда Java называли её «**one of the worst decisions** ever made in Java» (на JVM Language Summit 2020). Идут разговоры о **deprecation for removal** в будущем, но пока без firm timeline.
 
@@ -86,8 +86,8 @@ class Foo implements Externalizable {
 Различия от `Serializable`:
 - Ты пишешь **всё** — нет defaults;
 - Public no-arg constructor **обязателен**;
-- Быстрее (без reflection), но более fragile;
-- Никакой backward compatibility automatic — ты сам управляешь.
+- Быстрее (без reflection), но более хрупко;
+- Никакой автоматической обратной совместимости — ты сам управляешь.
 
 Редко используется напрямую — обычно serialization proxy лучше (см. §5).
 
@@ -116,7 +116,7 @@ private static final long serialVersionUID = 1L;
 - Изменил тип → InvalidClassException;
 - Удалил/добавил interface → ОК.
 
-Это не полная schema evolution, но базовая backward compat работает.
+Это не полная schema evolution, но базовая обратная совместимость работает.
 
 ---
 
@@ -265,9 +265,9 @@ ChainedTransformer:
 
 Когда атакующий присылает blob через HTTP cookie / JNDI / RMI — RCE.
 
-### 7.3. Influenced systems
+### 7.3. Затронутые системы
 
-CVE-2015-4852 (Apache Commons Collections) impacted:
+CVE-2015-4852 (Apache Commons Collections) затронула:
 - **WebLogic** — accepted Java-serialized в T3 protocol;
 - **JBoss** — JMX-Console with serialized parameters;
 - **OpenNMS** — RMI server;
@@ -285,7 +285,7 @@ CVE-2015-4852 (Apache Commons Collections) impacted:
 
 ### 8.1. Не принимать Java serialization от untrusted
 
-Главная защита. Переход на JSON / Protobuf для inter-service данных. Java serialization — только для internal trusted communication (например, Hazelcast cluster nodes, где сетевой trust уже установлен).
+Главная защита. Переход на JSON / Protobuf для межсервисных данных. Java serialization — только для internal trusted communication (например, узлы Hazelcast-кластера, где сетевое доверие уже установлено).
 
 ### 8.2. Serialization filter (JEP 290, Java 9+)
 
@@ -371,7 +371,7 @@ public record User(long id, String email) implements Serializable {
 | **CBOR** | Binary JSON, IoT-friendly | Поменьше распространён | Constrained networks |
 
 Современные рекомендации:
-- **Inter-service RPC**: gRPC + Protobuf;
+- **Межсервисный RPC**: gRPC + Protobuf;
 - **REST API**: JSON через Jackson;
 - **Event streaming (Kafka)**: Avro или Protobuf с Schema Registry;
 - **Distributed cache** (Hazelcast, Ignite): Kryo (с filter!) или Protobuf;
@@ -379,7 +379,7 @@ public record User(long id, String email) implements Serializable {
 
 ---
 
-## 11. Practical advice
+## 11. Практические рекомендации
 
 1. **Never** trust untrusted serialized input → JEP 290 filter (или совсем не используй).
 2. В современном dev — Jackson / Protobuf, не Serializable.

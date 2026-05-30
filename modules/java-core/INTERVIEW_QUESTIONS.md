@@ -68,7 +68,7 @@ Default `-XX:MaxMetaspaceSize = unlimited` → может расти, пока �
 - **Dynamic bytecode generation** (CGLIB, ByteBuddy, lambda proxies) без bounded cache: каждый сгенерированный класс — отдельная Klass-структура.
 - **Reflection on synthetic types** в Spring AOP, Hibernate proxies.
 
-Лечение: всегда ставить `-XX:MaxMetaspaceSize=256m` (или сколько нужно) — лучше явный OOM, чем медленная деградация node’а.
+Лечение: всегда ставить `-XX:MaxMetaspaceSize=256m` (или сколько нужно) — лучше явный OOM, чем медленная деградация узла.
 
 ---
 
@@ -240,7 +240,7 @@ JDK сам использует:
 - **`switch` на String / sealed** → `SwitchBootstraps`;
 - **Record's equals/hashCode/toString** → `ObjectMethods.bootstrap`.
 
-JIT inline-ит resolved CallSite **как direct call** — нет overhead'а после bootstrap.
+JIT inline-ит resolved CallSite **как direct call** — нет оверхеда после bootstrap.
 
 ---
 
@@ -364,7 +364,7 @@ class StringBox extends Box<String> {
 }
 ```
 
-После эрасуры `Box.get()` имеет сигнатуру `Object get()`. `StringBox.get()` — `String get()`. Это **разные** сигнатуры, override не работает по правилам JVM.
+После стирания типов `Box.get()` имеет сигнатуру `Object get()`. `StringBox.get()` — `String get()`. Это **разные** сигнатуры, override не работает по правилам JVM.
 
 Компилятор добавляет в `StringBox` **bridge**:
 ```java

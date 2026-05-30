@@ -4,7 +4,7 @@
 
 ## 1. Откуда взялся JPMS и что он чинит
 
-К середине 2000-х Java accumulated three fundamental issues:
+К середине 2000-х Java накопила три фундаментальные проблемы:
 
 ### 1.1. JAR hell
 
@@ -16,9 +16,9 @@ classpath:
   /libs/jackson-databind-2.15.jar     # новая от dependency B
 ```
 
-Какая версия загрузится — implementation-dependent. Maven дедуплицирует через `dependencyManagement`, но это **build-time fix**. В runtime — никакой защиты. Один OS classpath order — и production падает с `NoSuchMethodError`.
+Какая версия загрузится — зависит от реализации. Maven дедуплицирует через `dependencyManagement`, но это **решение на уровне сборки**. В runtime — никакой защиты. Один OS classpath order — и production падает с `NoSuchMethodError`.
 
-### 1.2. Слабая encapsulation
+### 1.2. Слабая инкапсуляция
 
 `public` в Java 8 означало «видно всем».
 
@@ -29,13 +29,13 @@ public class Unsafe { ... }
 
 `Unsafe` был помечен как «internal» через package name (`sun.*`), но **технически** не защищён. Сотни библиотек (Netty, Cassandra, Aeron) использовали Unsafe, потому что **могли**. Это создало **дефакто** public API, который Oracle не мог переделать без breakage всей экосистемы.
 
-### 1.3. Нет explicit dependencies
+### 1.3. Нет явных зависимостей
 
 `module-info` отсутствовал. JVM понятия не имела, что `app` зависит от `lib-x`. classpath был просто bag of jars. Нельзя `jlink` минимальный runtime, нельзя static analysis на зависимости, нельзя contract-based design.
 
 ### 1.4. Project Jigsaw
 
-В **2008** году Sun начал project Jigsaw — proposal для modular Java. Шесть JEPs прошли через два failed releases (Java 7, Java 8) — каждый раз отложено из-за compatibility concerns. **Java 9 (2017)** наконец-то релизнул JPMS — но **без полного breakage**: classpath остался, и старые приложения работают как unnamed modules.
+В **2008** году Sun начал project Jigsaw — proposal для modular Java. Шесть JEPs прошли через два неудавшихся релиза (Java 7, Java 8) — каждый раз откладывалось из-за опасений относительно совместимости. **Java 9 (2017)** наконец-то релизнул JPMS — но **без полного breakage**: classpath остался, и старые приложения работают как unnamed modules.
 
 > Mark Reinhold (chief architect of JVM), [*Project Jigsaw: Module System Quick-Start Guide*](https://openjdk.org/projects/jigsaw/quick-start). [JEP 261: Module System](https://openjdk.org/jeps/261).
 
@@ -71,22 +71,22 @@ module com.example.app {
 |---|---|
 | `requires X` | Зависит от модуля X; код X виден |
 | `requires transitive X` | Кто зависит от нас, автоматически зависит от X (re-export) |
-| `requires static X` | Compile-time зависимость; в runtime optional |
+| `requires static X` | Compile-time зависимость; в runtime необязателен |
 | `exports pkg` | Public types в `pkg` доступны всем модулям |
 | `exports pkg to A, B` | Qualified export — только модулям A, B |
-| `opens pkg` | Runtime reflection allowed |
-| `opens pkg to A` | Qualified opens — reflection allowed только из A |
+| `opens pkg` | Разрешает рефлексию в runtime |
+| `opens pkg to A` | Qualified opens — рефлексия разрешена только из A |
 | `uses ServiceInterface` | `ServiceLoader` найдёт implementations |
 | `provides ServiceInterface with ImplA, ImplB` | Мы предоставляем реализацию |
 
 ### 2.2. `exports` vs `opens` — критическая разница
 
-| | Compile-time | Reflection |
+| | Compile-time | Рефлексия |
 |---|---|---|
-| `exports` | yes (public types видны) | **no** |
-| `opens` | no (нельзя `import`) | **yes** (deep, к private) |
+| `exports` | да (public types видны) | **нет** |
+| `opens` | нет (нельзя `import`) | **да** (deep, к private) |
 
-Это **разные** axes encapsulation. Можешь exports пакет, но не opens — другие модули могут использовать public API, но не reflection. Это базовая защита от Jackson/Hibernate, лезущих в private поля.
+Это **разные** оси инкапсуляции. Можешь exports пакет, но не opens — другие модули могут использовать public API, но не reflection. Это базовая защита от Jackson/Hibernate, лезущих в private поля.
 
 Если хочешь и compile-time и reflection — нужно **обе** директивы.
 
@@ -100,7 +100,7 @@ open module com.example.app {
 
 ### 2.3. `requires transitive` — re-exporting API
 
-Без `transitive`: модуль использует X внутри, но клиенты модуля **не получают X** автоматически. Пример: `com.example.web` использует `java.sql.Connection` внутри метода, но возвращает только `String` — `java.sql` is implementation detail.
+Без `transitive`: модуль использует X внутри, но клиенты модуля **не получают X** автоматически. Пример: `com.example.web` использует `java.sql.Connection` внутри метода, но возвращает только `String` — `java.sql` является деталью реализации.
 
 С `transitive`: клиенты получают X автоматически. Используется, когда **API модуля включает** типы из X.
 
@@ -114,7 +114,7 @@ module com.example.web {
 
 Compile-time-only зависимость. В runtime модуль **необязателен** — `requires static X` пройдёт без ошибки, если X отсутствует.
 
-Use case: optional integrations.
+Применение: опциональные интеграции.
 
 ```java
 module my.lib {
@@ -126,7 +126,7 @@ module my.lib {
 
 ---
 
-## 3. Strong encapsulation
+## 3. Строгая инкапсуляция
 
 В named module **только `exports`-пакеты видны снаружи**. Без `exports`:
 - **Compile error** при `import com.example.internal.X`;
@@ -134,7 +134,7 @@ module my.lib {
 
 `public class` без `exports`-пакета = всё равно недоступен извне. Это **сильнее**, чем старый `public` модификатор.
 
-### 3.1. Внутренние JDK packages
+### 3.1. Внутренние пакеты JDK
 
 Прямое следствие: `sun.*`, `com.sun.*`, `jdk.internal.*` **не exports**. Доступ к `Unsafe` теперь требует:
 
@@ -145,7 +145,7 @@ module my.lib {
 Эволюция строгости:
 - **Java 9–15**: warning при illegal reflective access, allow по умолчанию;
 - **Java 16+** ([JEP 396](https://openjdk.org/jeps/396)): warning превращается в error (default deny);
-- **Java 17+**: окончательно strong, no escape hatch кроме `--add-opens`.
+- **Java 17+**: окончательно строгая инкапсуляция, без обходных путей, кроме `--add-opens`.
 
 Что сломалось:
 - **Lombok** — модифицирует AST через internal compiler APIs;
@@ -154,24 +154,24 @@ module my.lib {
 - **CGLIB, javassist** — bytecode generation;
 - **Spring** — частично, в `ReflectionUtils.setField`.
 
-Все либо обновились с поддержкой JPMS, либо требуют `--add-opens` flags.
+Все либо обновились с поддержкой JPMS, либо требуют флаги `--add-opens`.
 
 ### 3.2. Аргумент против JPMS
 
-Эта строгость сделала миграцию **больно** для крупных enterprise apps. Многие проекты **остались на classpath** (даже на Java 21), используя JPMS только для:
+Эта строгость сделала миграцию **болезненной** для крупных корпоративных приложений. Многие проекты **остались на classpath** (даже на Java 21), используя JPMS только для:
 - внутренние библиотеки с jlink;
-- compact distributions;
+- компактные дистрибутивы;
 - native compilation (GraalVM Native Image, который требует чёткий граф).
 
 ---
 
-## 4. Named, automatic, unnamed modules
+## 4. Named-, automatic- и unnamed-модули
 
 Главная элегантность JPMS — **возможность смешивания** старого и нового кода. Три типа модулей:
 
 | Тип | Источник | Поведение |
 |---|---|---|
-| **Named module** | jar с `module-info.class` | Full JPMS semantics: encapsulation, declared deps |
+| **Named module** | jar с `module-info.class` | Полная семантика JPMS: инкапсуляция, явные зависимости |
 | **Automatic module** | обычный jar на module path; имя из `META-INF/MANIFEST.MF` `Automatic-Module-Name` или из имени файла | `requires <name>` работает; всё открыто (как unnamed для exports/opens) |
 | **Unnamed module** | обычный jar на **classpath** | Один глобальный «unnamed» module; видит **все** named, но **не наоборот** |
 
@@ -182,7 +182,7 @@ module my.lib {
 Automatic-Module-Name: org.apache.commons.lang3
 ```
 
-— это становится именем automatic module. Этот атрибут — public API библиотеки на JPMS-side. Авторы либ обычно добавляют его **раньше**, чем полноценный `module-info`, как первый шаг миграции.
+— это становится именем automatic module. Этот атрибут — публичный API библиотеки со стороны JPMS. Авторы либ обычно добавляют его **раньше**, чем полноценный `module-info`, как первый шаг миграции.
 
 Если нет атрибута — имя выводится из jar-имени по правилу: убрать `-version.jar`, заменить `-` на `.`:
 ```
@@ -197,11 +197,11 @@ java.lang.LayerInstantiationException:
   Package com.foo in both module a.b and module c.d
 ```
 
-Это раздражение при миграции: либо переименуй пакет, либо merge два jar'а в один. До JPMS classpath спокойно жил с split packages (один пакет в разных jar'ах) — теперь нельзя.
+Это раздражение при миграции: либо переименуй пакет, либо объедини два jar'а в один. До JPMS classpath спокойно жил с split packages (один пакет в разных jar'ах) — теперь нельзя.
 
 ---
 
-## 5. Module path vs classpath
+## 5. Module path и classpath
 
 ```bash
 javac --module-path libs/ -d out --module-source-path src/ --module com.example.app
@@ -211,7 +211,7 @@ java  --module-path libs/:out -m com.example.app/com.example.app.Main
 - **classpath** (`-cp`) — legacy flat list;
 - **module path** (`-p`, `--module-path`) — JPMS-aware; ищет `module-info` в каждом jar/dir.
 
-Mixed:
+Смешанный режим:
 ```bash
 java -p libs/named-modules -cp legacy-jars/ -m my.app/com.foo.Main
 ```
@@ -228,7 +228,7 @@ java -p libs/named-modules -cp legacy-jars/ -m my.app/com.foo.Main
 
 ---
 
-## 6. `jlink` — minimal runtime image
+## 6. `jlink` — минимальный runtime-образ
 
 Главное **практическое** преимущество JPMS. Создаёт **standalone JRE** с только нужными модулями:
 
@@ -244,17 +244,17 @@ jlink \
     --strip-debug
 ```
 
-Результат: `dist/myapp/bin/run` — standalone executable, `dist/myapp/lib/modules` — все нужные JDK modules.
+Результат: `dist/myapp/bin/run` — автономный исполняемый файл, `dist/myapp/lib/modules` — все нужные JDK modules.
 
 Размер:
 - Полный JDK 21: ~310 MB;
 - jlink image для backend service: 40–80 MB;
 - jlink image для CLI tool: 25–40 MB.
 
-Use cases:
-- **Docker image size** — `FROM gcr.io/distroless/java-base` + minimal jlink runtime = ~80 MB container, vs ~250 MB с full JDK;
+Применение:
+- **Размер Docker-образа** — `FROM gcr.io/distroless/java-base` + минимальный jlink runtime = ~80 MB контейнер, vs ~250 MB с full JDK;
 - **Embedded** — JVM на ARM, Raspberry Pi;
-- **Pre-GraalVM-NativeImage** альтернатива для compact distribution.
+- **Альтернатива Pre-GraalVM-NativeImage** для компактного дистрибутива.
 
 > Inside Java, [*Making Smaller Application with jlink*](https://inside.java/2023/06/06/jlink-applications/).
 
@@ -276,7 +276,7 @@ jdeps --print-module-deps my.jar            # для jlink
 
 ---
 
-## 8. ModuleLayer и dynamic module loading
+## 8. ModuleLayer и динамическая загрузка модулей
 
 `java.lang.ModuleLayer` — runtime API для динамического создания module graph. Layers формируют **DAG** (не дерево!): boot layer (JVM-loaded) + child layers (user-defined).
 
@@ -291,13 +291,13 @@ Module pluginModule = layer.findModule("plugin.a").orElseThrow();
 Class<?> pluginMain = layer.findLoader("plugin.a").loadClass("plugin.a.Main");
 ```
 
-Используется фреймворками для plugin-architecture с изоляцией:
-- **Spring 6+** в native compilation modes;
+Используется фреймворками для плагинной архитектуры с изоляцией:
+- **Spring 6+** в режимах нативной компиляции;
 - **Pf4j** (pure plugin framework);
 - **Apache NetBeans Platform**;
-- **JOSM**, **Eclipse Equinox** через interop.
+- **JOSM**, **Eclipse Equinox** через интеграцию.
 
-ModuleLayer'ы могут share классы между собой (через `requires`), но **не имеют доступа** к другим layers без explicit `addReads`. Это позволяет изолировать pluginsv с разными версиями зависимостей.
+ModuleLayer'ы могут совместно использовать классы (через `requires`), но **не имеют доступа** к другим layers без явного `addReads`. Это позволяет изолировать плагины с разными версиями зависимостей.
 
 ---
 
@@ -305,17 +305,17 @@ ModuleLayer'ы могут share классы между собой (через `
 
 Два общих подхода:
 
-### 9.1. Bottom-up (от листьев)
+### 9.1. Снизу вверх (от листьев)
 
 Добавляешь `module-info` в **leaf-библиотеки** сначала. Зависимые остаются как automatic modules. Постепенно вверх.
 
 Хорошо для: библиотек с публичным API (Apache Commons, Guava, Jackson).
 
-### 9.2. Top-down (от корня)
+### 9.2. Сверху вниз (от корня)
 
 Своему приложению добавляешь `module-info`. Обычные jars живут как automatic. Дальше — постепенный подсчёт по зависимостям.
 
-Хорошо для: enterprise applications с большим объёмом legacy.
+Хорошо для: корпоративных приложений с большим объёмом legacy.
 
 **Большинство экосистемы выбрала bottom-up.** Spring 6 поддерживает оба режима, явно публикует `Automatic-Module-Name` в manifests. Hibernate, Jackson, Apache Commons — то же самое.
 
@@ -326,17 +326,17 @@ ModuleLayer'ы могут share классы между собой (через `
 **За:**
 - настоящая модульность (можно скрыть internal без обхода через package naming);
 - быстрее старт (`java.base` всегда есть, JVM знает граф);
-- `jlink` для compact runtime — реальный win для production;
+- `jlink` для компактного runtime — реальный выигрыш для production;
 - `jpackage` для native installers (с Java 14+);
 - обязательное условие для GraalVM Native Image качества.
 
 **Против:**
-- compatibility cost для библиотек (reflection breakage в 16+);
+- цена совместимости для библиотек (поломка рефлексии в 16+);
 - большинство проектов уже использует Maven/Gradle, где модульность на уровне сборки;
 - `module-info` boilerplate с дублированием Maven-зависимостей;
 - старые либы (Apache Commons долго принимали JPMS).
 
-Реальность 2025 года: **JPMS — это infrastructure для compact distribution и native image, а не повседневный tool для большинства Java-приложений**. Многие проекты остаются на classpath, и это нормально.
+Реальность 2025 года: **JPMS — это инфраструктура для компактного дистрибутива и native image, а не повседневный инструмент для большинства Java-приложений**. Многие проекты остаются на classpath, и это нормально.
 
 ---
 
@@ -344,11 +344,11 @@ ModuleLayer'ы могут share классы между собой (через `
 
 1. **`requires` / `exports` / `opens`** — точная семантика, разница между exports и opens.
 2. **`requires transitive`** — зачем нужно (re-export для API типов).
-3. **`requires static`** — optional compile-time dependency.
-4. **Named / automatic / unnamed module** — три типа, миграционный path.
-5. **Strong encapsulation в 16+** — что сломалось (Lombok, Mockito), решения через `--add-opens`.
+3. **`requires static`** — опциональная compile-time зависимость.
+4. **Named / automatic / unnamed module** — три типа, путь миграции.
+5. **Строгая инкапсуляция в 16+** — что сломалось (Lombok, Mockito), решения через `--add-opens`.
 6. **Split package — запрещено** — типичная боль при миграции.
-7. **`jlink`** — для compact runtime images, реальный win для Docker.
+7. **`jlink`** — для компактных runtime-образов, реальный выигрыш для Docker.
 8. **`jdeps`** — анализ зависимостей при миграции.
 9. **ModuleLayer** — runtime API для plugin systems.
 10. **`Automatic-Module-Name` в MANIFEST.MF** — первый шаг библиотеки в сторону JPMS.

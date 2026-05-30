@@ -197,69 +197,16 @@ order.getItems().remove(item);   // при orphanRemoval=true → DELETE для 
 
 ## equals / hashCode для сущностей
 
-Общий Java-контракт `equals`/`hashCode` (рефлексивность, симметричность, согласованность с
-`hashCode`) описан в [`../../java-core/theory/EQUALS_HASHCODE_COMPARABLE.md`](../../java-core/theory/EQUALS_HASHCODE_COMPARABLE.md).
-Здесь — специфика, которая ломает именно JPA-сущности.
+Неверный `equals`/`hashCode` сущности тихо ломает работу с `Set` и lazy-коллекциями: сущность
+«теряется» в `HashSet` после `persist()` (сгенерированный `id` меняет `hashCode`), а реализация по
+`getClass()` падает на Hibernate-прокси. Правильная основа — неизменяемый бизнес-ключ (или
+назначаемый до `persist()` UUID) и proxy-safe-сравнение через `instanceof`.
 
-### Проблема дефолтного `Object.equals`
-
-Идентичность по ссылке (`Object.equals`) кажется безопасной, но рвётся между сессиями: одну и ту
-же строку БД, загруженную в двух разных persistence context, identity-equals считает разными
-объектами. Поэтому при сравнении detached-сущностей это даёт неверный результат.
-
-### Проблема `id`-based `equals`
-
-Сравнение по сгенерированному `id` ломается для новых сущностей: до `persist()`/`flush()` `id`
-равен `null`. Если положить такую сущность в `HashSet`, она попадёт в бакет `hashCode(null)`, а
-после присвоения `id` базой её `hashCode` изменится — и сущность «потеряется» в множестве.
-
-```java
-Set<OrderItem> items = new HashSet<>();
-OrderItem item = new OrderItem();   // id == null
-items.add(item);                    // лёг в бакет по hashCode(null)
-order.addItem(item);
-em.persist(order);                  // база присвоила id → hashCode изменился
-items.contains(item);               // часто false — элемент «потерян»
-```
-
-### Опасность с `Set` и lazy-ассоциациями
-
-При работе с `Set` `hashCode` обязан быть стабильным на всём времени жизни объекта. Если он
-вычисляется по мутабельным или поздно-инициализируемым полям (включая `id`), инварианты `HashSet`
-нарушаются. Дополнительно: `equals`/`hashCode`, обращающиеся к lazy-полям связанной сущности, могут
-триггерить дозагрузку или `LazyInitializationException` (см.
-[FETCHING_NPLUS1.md](FETCHING_NPLUS1.md)).
-
-### Рекомендуемые стратегии
-
-1. **Бизнес-ключ** — естественный неизменяемый идентификатор предметной области (ISBN, номер
-   паспорта, e-mail). `equals`/`hashCode` по нему стабильны на всём жизненном цикле. Предпочтительный
-   вариант, когда такой ключ существует.
-
-2. **Назначаемый UUID** — генерируется в коде до `persist()`. `id` известен сразу, поэтому
-   `equals`/`hashCode` по нему стабильны. Удобен, когда естественного ключа нет (см.
-   [IDENTIFIERS_INHERITANCE.md](IDENTIFIERS_INHERITANCE.md)).
-
-3. **Константный `hashCode` + `equals` по `id`** — компромисс для сгенерированных базой `id`:
-   `hashCode` фиксирован (например, по классу), `equals` сравнивает `id` с проверкой на `null`.
-   Все сущности падают в один бакет — приемлемо для небольших множеств.
-
-```java
-@Override
-public boolean equals(Object o) {
-    if (this == o) return true;
-    if (!(o instanceof Book book)) return false;
-    return isbn != null && isbn.equals(book.isbn);   // бизнес-ключ
-}
-
-@Override
-public int hashCode() {
-    return Objects.hashCode(isbn);   // стабилен на всём жизненном цикле
-}
-```
-
-> Никогда не используйте Lombok `@Data`/`@EqualsAndHashCode` без настройки на сущностях: он включает
-> в `equals`/`hashCode` все поля, в том числе lazy-ассоциации и мутабельный `id`.
+Полный разбор — идентичность сущностей, generated-id problem, proxy-safe `equals`, бизнес-ключ,
+опасность Lombok `@Data` — вынесен в отдельный канонический файл:
+[ENTITY_IDENTITY_EQUALS.md](ENTITY_IDENTITY_EQUALS.md). Общий Java-контракт `equals`/`hashCode` —
+в [`../../java-core/theory/EQUALS_HASHCODE_COMPARABLE.md`](../../java-core/theory/EQUALS_HASHCODE_COMPARABLE.md);
+`equals`/`hashCode` для классов составного ключа — в [COMPOSITE_KEYS.md](COMPOSITE_KEYS.md).
 
 ---
 

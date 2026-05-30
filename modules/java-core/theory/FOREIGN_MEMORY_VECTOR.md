@@ -67,11 +67,11 @@ try (Arena arena = Arena.ofConfined()) {
 
 ## 3. Arena types
 
-| Type | Confinement | Thread-safe close | Use case |
+| Тип | Ограничение доступа | Потокобезопасное закрытие | Сценарий использования |
 |---|---|---|---|
 | `Arena.ofConfined()` | single-thread (creator) | no | local struct, fast-path |
 | `Arena.ofShared()` | any thread | yes (synced close) | shared off-heap data |
-| `Arena.ofAuto()` | auto-close on GC | yes | сложные lifetime, fallback |
+| `Arena.ofAuto()` | auto-close on GC | yes | сложные lifetime, запасной вариант |
 | `Arena.global()` | never closes | n/a | static buffers |
 
 ### 3.1. `ofConfined` — самый быстрый и безопасный
@@ -83,7 +83,7 @@ try (Arena arena = Arena.ofConfined()) {
 }
 ```
 
-Если другой thread пытается обратиться → `WrongThreadException`. Это **enforced** check, не just convention. Используй когда возможно.
+Если другой thread пытается обратиться → `WrongThreadException`. Это **принудительная** проверка, не просто соглашение. Используй когда возможно.
 
 ### 3.2. `ofShared` — для multi-thread
 
@@ -94,7 +94,7 @@ try (Arena arena = Arena.ofShared()) {
 }
 ```
 
-Чуть медленнее (требует synchronization на close, чтобы не закрыть пока другие читают).
+Чуть медленнее (требует синхронизации при закрытии, чтобы не закрыть пока другие читают).
 
 ### 3.3. `ofAuto` — GC-managed lifetime
 
@@ -112,7 +112,7 @@ MemorySegment greeting = Arena.global().allocateUtf8String("hello");
 // никогда не освобождается, живёт всю JVM
 ```
 
-Для static lookup tables, constants. Использовать sparingly — global memory leak by definition.
+Для static lookup tables, constants. Использовать экономно — global memory leak by definition.
 
 ### 3.5. Проверка lifecycle
 
@@ -163,7 +163,7 @@ try (Arena a = Arena.ofConfined()) {
 }
 ```
 
-PathElement — way to navigate в layout: `sequenceElement(index)`, `groupElement(name)`, `dereferenceElement()`.
+PathElement — способ навигации по layout'у: `sequenceElement(index)`, `groupElement(name)`, `dereferenceElement()`.
 
 ---
 
@@ -256,11 +256,11 @@ try (FileChannel ch = FileChannel.open(path, READ);
 
 | | ByteBuffer (legacy) | MemorySegment |
 |---|---|---|
-| Max size | 2 GB (int offset) | 8 EiB (long offset) |
-| Lifetime | через Cleaner | через Arena |
-| Atomic ops | через VarHandle (Java 9+) | native через VarHandle |
-| Type safety | ByteBuffer-typed | ValueLayout strict |
-| Performance | OK | равна или лучше (no defensive checks) |
+| Максимальный размер | 2 GB (int offset) | 8 EiB (long offset) |
+| Время жизни | через Cleaner | через Arena |
+| Атомарные операции | через VarHandle (Java 9+) | native через VarHandle |
+| Типобезопасность | ByteBuffer-typed | ValueLayout strict |
+| Производительность | OK | равна или лучше (no defensive checks) |
 
 Новый код пиши на FFM. Старый — оставь на ByteBuffer для compatibility.
 
@@ -268,7 +268,7 @@ try (FileChannel ch = FileChannel.open(path, READ);
 
 ## 7. Vector API (incubator)
 
-`jdk.incubator.vector` — SIMD operations с pure Java. Использует CPU vector instructions (AVX2, AVX-512, NEON) когда доступно; fallback на scalar loop если нет.
+`jdk.incubator.vector` — SIMD operations с pure Java. Использует CPU vector instructions (AVX2, AVX-512, NEON) когда доступно; откат на скалярный цикл если нет.
 
 ### 7.1. Basic example
 
@@ -305,7 +305,7 @@ IntVector other = IntVector.fromArray(SPECIES, otherArr, i);
 vec.add(other, mask);   // add только там, где mask=true
 ```
 
-Полезно для conditional updates без branch'ей.
+Полезно для условных обновлений без ветвлений.
 
 ### 7.3. Lanes operations
 
@@ -325,7 +325,7 @@ int dotProd = v.mul(other).reduceLanes(VectorOperators.ADD);   // dot product
 - **JSON parsing fast path**: ahed для symbol search (Simdjson-style);
 - **String operations**: indexOf, substring search.
 
-Skylake-X AVX-512 даёт 4–8× speedup на правильных workloads. ARM NEON — 2–4×.
+Skylake-X AVX-512 даёт 4–8× ускорение на подходящих нагрузках. ARM NEON — 2–4×.
 
 ### 7.5. Pitfalls
 

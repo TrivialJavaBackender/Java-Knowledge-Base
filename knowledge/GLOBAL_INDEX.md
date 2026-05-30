@@ -472,13 +472,32 @@ Canonical concept → owner file map. One concept, one owner. Other modules must
 - persist / merge / remove / detach / refresh → modules/hibernate-jpa/theory/ENTITY_LIFECYCLE.md
 - dirty checking / snapshot → modules/hibernate-jpa/theory/ENTITY_LIFECYCLE.md
 - flush modes (AUTO / COMMIT / MANUAL) → modules/hibernate-jpa/theory/ENTITY_LIFECYCLE.md
+- flush internals (write-behind, action queue, flush ordering) → modules/hibernate-jpa/theory/ENTITY_LIFECYCLE.md
+- auto-flush / query flush / partial flush → modules/hibernate-jpa/theory/ENTITY_LIFECYCLE.md
 - @Entity / @Embeddable mapping → modules/hibernate-jpa/theory/MAPPINGS_ASSOCIATIONS.md
 - JPA associations (owning vs inverse side, mappedBy) → modules/hibernate-jpa/theory/MAPPINGS_ASSOCIATIONS.md
 - cascade types / orphanRemoval → modules/hibernate-jpa/theory/MAPPINGS_ASSOCIATIONS.md
-- entity equals/hashCode (business key vs id) → modules/hibernate-jpa/theory/MAPPINGS_ASSOCIATIONS.md
+- @Column / @Table / @JoinColumn (advanced) → modules/hibernate-jpa/theory/ADVANCED_MAPPINGS.md
+- @Enumerated (ORDINAL/STRING) / @Temporal / @Lob / @Transient / @Access → modules/hibernate-jpa/theory/ADVANCED_MAPPINGS.md
+- @AttributeOverride / @AssociationOverride → modules/hibernate-jpa/theory/ADVANCED_MAPPINGS.md
+- @Convert / @AttributeConverter → modules/hibernate-jpa/theory/ADVANCED_MAPPINGS.md
+- @SecondaryTable → modules/hibernate-jpa/theory/ADVANCED_MAPPINGS.md
+- @Formula / @Where / @SQLRestriction / @Filter / @FilterDef (Hibernate) → modules/hibernate-jpa/theory/ADVANCED_MAPPINGS.md
+- @CreationTimestamp / @UpdateTimestamp / @Generated / insertable-updatable → modules/hibernate-jpa/theory/ADVANCED_MAPPINGS.md
+- collection semantics (bag vs list vs set, PersistentBag/Set/List) → modules/hibernate-jpa/theory/COLLECTIONS.md
+- MultipleBagFetchException → modules/hibernate-jpa/theory/COLLECTIONS.md
+- ordered (@OrderBy) vs sorted (@SortNatural/@SortComparator) collections → modules/hibernate-jpa/theory/COLLECTIONS.md
+- @OrderColumn vs @OrderBy / collection dirty checking / extra lazy → modules/hibernate-jpa/theory/COLLECTIONS.md
+- @ElementCollection / @CollectionTable / @MapKey → modules/hibernate-jpa/theory/COLLECTIONS.md
+- entity identity / equals/hashCode (business key, proxy-safe, Lombok) → modules/hibernate-jpa/theory/ENTITY_IDENTITY_EQUALS.md
 - id generation strategies (IDENTITY/SEQUENCE/TABLE/UUID, pooled/hi-lo) → modules/hibernate-jpa/theory/IDENTIFIERS_INHERITANCE.md
+- @NaturalId / natural id cache / byNaturalId lookup → modules/hibernate-jpa/theory/IDENTIFIERS_INHERITANCE.md
 - JPA inheritance (SINGLE_TABLE / JOINED / TABLE_PER_CLASS) → modules/hibernate-jpa/theory/IDENTIFIERS_INHERITANCE.md
 - @MappedSuperclass vs @Embeddable vs entity inheritance → modules/hibernate-jpa/theory/IDENTIFIERS_INHERITANCE.md
+- composite keys (@EmbeddedId / @IdClass) → modules/hibernate-jpa/theory/COMPOSITE_KEYS.md
+- derived identifiers / @MapsId / shared primary key → modules/hibernate-jpa/theory/COMPOSITE_KEYS.md
+- @PrimaryKeyJoinColumn / composite foreign keys → modules/hibernate-jpa/theory/COMPOSITE_KEYS.md
+- surrogate vs natural/composite keys → modules/hibernate-jpa/theory/COMPOSITE_KEYS.md
 - FetchType LAZY / EAGER → modules/hibernate-jpa/theory/FETCHING_NPLUS1.md
 - Hibernate proxy / bytecode enhancement → modules/hibernate-jpa/theory/FETCHING_NPLUS1.md
 - JOIN FETCH / @EntityGraph (fetch vs load graph) → modules/hibernate-jpa/theory/FETCHING_NPLUS1.md
@@ -499,7 +518,12 @@ Canonical concept → owner file map. One concept, one owner. Other modules must
 - native query / @SqlResultSetMapping → modules/hibernate-jpa/theory/QUERYING.md
 - DTO constructor expression / Tuple projection → modules/hibernate-jpa/theory/QUERYING.md
 - keyset / seek pagination → modules/hibernate-jpa/theory/QUERYING.md
-- JDBC batching (jdbc.batch_size, order_inserts/order_updates) → modules/hibernate-jpa/theory/PERFORMANCE_PITFALLS.md
+- JPQL bulk update/delete (persistence context desync) → modules/hibernate-jpa/theory/QUERYING.md
+- JPQL subqueries / correlated / EXISTS / functions (FUNCTION()) → modules/hibernate-jpa/theory/QUERYING.md
+- implicit vs explicit JPQL joins / polymorphic queries (TYPE()) → modules/hibernate-jpa/theory/QUERYING.md
+- JDBC batching (jdbc.batch_size, order_inserts/order_updates, insert vs update batching) → modules/hibernate-jpa/theory/PERFORMANCE_PITFALLS.md
+- batch_versioned_data (batching @Version updates) → modules/hibernate-jpa/theory/PERFORMANCE_PITFALLS.md
+- batch flush/clear pattern (memory control in bulk insert) → modules/hibernate-jpa/theory/PERFORMANCE_PITFALLS.md
 - StatelessSession → modules/hibernate-jpa/theory/PERFORMANCE_PITFALLS.md
 - Open Session In View (OSIV) anti-pattern → modules/hibernate-jpa/theory/PERFORMANCE_PITFALLS.md
 - read-only queries (setReadOnly) → modules/hibernate-jpa/theory/PERFORMANCE_PITFALLS.md
@@ -635,6 +659,8 @@ Concepts that legitimately appear in multiple modules — canonical owner listed
 | optimistic / pessimistic locking | hibernate-jpa/TRANSACTIONS_LOCKING.md (JPA @Version / LockModeType) | databases/TRANSACTIONS.md (DB-level isolation, FOR UPDATE / SKIP LOCKED) |
 | Identity Map / Unit of Work | databases/DATABASE_TYPES.md (ORM patterns) | hibernate-jpa/ENTITY_LIFECYCLE.md (persistence context realization) |
 | @Transactional | spring-frameworks/SPRING_DATA_JPA.md (Spring AOP, propagation) | hibernate-jpa/TRANSACTIONS_LOCKING.md (JPA EntityTransaction model) |
+| equals/hashCode | java-core/EQUALS_HASHCODE_COMPARABLE.md (general Java contract) | hibernate-jpa/ENTITY_IDENTITY_EQUALS.md (entity identity, proxy-safe, business key) · hibernate-jpa/COMPOSITE_KEYS.md (composite id class) |
+| write-behind | caching-deep-dive/CACHE_PATTERNS.md (cache write pattern) | hibernate-jpa/ENTITY_LIFECYCLE.md (Hibernate flush strategy) |
 | OAuth2 | system-design/identity_providers.md (protocol) | spring-frameworks/SPRING_SECURITY.md (implementation) |
 | Circuit Breaker | system-design/microservice_patterns.md (pattern) | spring-frameworks/SPRING_CLOUD.md (Resilience4j impl) |
 | CDC | databases/REPLICATION.md (DB perspective + Debezium) | caching-deep-dive/CONSISTENCY.md (cache invalidation) · system-design/microservice_patterns.md (Outbox alternative) |
