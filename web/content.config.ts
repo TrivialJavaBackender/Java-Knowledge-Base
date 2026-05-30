@@ -22,4 +22,5 @@ export const MODULES: ModuleConfig[] = [
   { slug: 'infrastructure',       title: 'Infrastructure',       order: 8, qaFormat: 'qa-bold' },
   { slug: 'java-core',            title: 'Java Core (Deep)',     order: 9, qaFormat: 'qa-bold' },
   { slug: 'software-engineering', title: 'Software Engineering', order: 10, qaFormat: 'qa-bold' },
+  { slug: 'hibernate-jpa',        title: 'Hibernate & JPA',      order: 11, qaFormat: 'qa-bold' },
 ];

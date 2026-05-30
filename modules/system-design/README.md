@@ -46,7 +46,7 @@ modules/system-design/
 │   │   ├── DESIGN_12_KV_STORE.md
 │   │   ├── DESIGN_13_PAYMENT_LEDGER.md
 │   │   └── DESIGN_14_LEADERBOARD.md
-├── README.md, ROADMAP.md, PROGRESS.md, _SUMMARY.md
+├── README.md, ROADMAP.md, _SUMMARY.md
 └── INTERVIEW_QUESTIONS.md
 ```
 

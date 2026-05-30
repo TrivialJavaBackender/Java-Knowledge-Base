@@ -96,7 +96,7 @@ function escapeRegex(s: string): string {
  *   modules/<mod>/theory/FOO.md                      →  /modules/<mod>/theory/FOO
  *   src/main/{kotlin,java}/exercises/ExNN_X.{kt,java}      →  /modules/{currentSlug}/exercises/ExNN_X
  *   ../<mod>/src/main/.../ExNN_X.kt                  →  /modules/<mod>/exercises/ExNN_X
- *   PROGRESS.md / ROADMAP.md / INTERVIEW_QUESTIONS.md → /modules/{slug}
+ *   ROADMAP.md / INTERVIEW_QUESTIONS.md → /modules/{slug}
  *
  * Anchors are preserved. Absolute URLs (http://, mailto:, /…) are left alone.
  */
@@ -132,7 +132,7 @@ function rewriteInternalLinks(html: string, moduleSlug: string): string {
 
     // Cross-module root file
     const crossModRootMatch = pathPart.match(
-      /(?:^|\/)([a-z][a-z0-9-]+)\/(?:README|PROGRESS|ROADMAP|INTERVIEW_QUESTIONS)\.md$/,
+      /(?:^|\/)([a-z][a-z0-9-]+)\/(?:README|ROADMAP|INTERVIEW_QUESTIONS)\.md$/,
     );
     if (crossModRootMatch) {
       return `href="/modules/${crossModRootMatch[1]}${anchor}"`;
@@ -144,7 +144,7 @@ function rewriteInternalLinks(html: string, moduleSlug: string): string {
       pathPart.match(/^([A-Za-z0-9_-]+)\.md$/);
     if (theoryMatch) {
       const slug = theoryMatch[1];
-      if (slug === 'README' || slug === 'PROGRESS' || slug === 'ROADMAP' || slug === 'INTERVIEW_QUESTIONS') {
+      if (slug === 'README' || slug === 'ROADMAP' || slug === 'INTERVIEW_QUESTIONS') {
         return `href="/modules/${moduleSlug}${anchor}"`;
       }
       return `href="/modules/${moduleSlug}/theory/${slug}${anchor}"`;

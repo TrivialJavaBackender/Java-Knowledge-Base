@@ -13,7 +13,6 @@ modules/software-engineering/
 │                          # security (SAST/DAST), chaos, mutation, contract testing
 ├── README.md
 ├── ROADMAP.md
-├── PROGRESS.md
 ├── _SUMMARY.md
 └── INTERVIEW_QUESTIONS.md
 ```

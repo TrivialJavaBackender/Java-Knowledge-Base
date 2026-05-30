@@ -20,7 +20,7 @@ find modules/$ARGUMENTS/theory -name "*.md" -type f 2>/dev/null
 ls modules/$ARGUMENTS/INTERVIEW_QUESTIONS.md 2>/dev/null
 ```
 
-Исключи: `PROGRESS.md`, `ROADMAP.md`, `README.md`, `_SUMMARY.md`.
+Исключи: `ROADMAP.md`, `README.md`, `_SUMMARY.md`.
 
 ### 3. Распределение и запуск субагентов
 

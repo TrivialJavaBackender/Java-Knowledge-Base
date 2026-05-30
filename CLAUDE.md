@@ -16,6 +16,7 @@
 | `graphql-kotlin` | `modules/graphql-kotlin/` | GraphQL (Expedia graphql-kotlin, DataLoader, Federation) |
 | `caching-deep-dive` | `modules/caching-deep-dive/` | Кэширование (CPU→JVM→Caffeine→Redis→CDN) |
 | `java-core` | `modules/java-core/` | Java Core deep dive (GC, JIT, ClassLoaders, JPMS, bytecode, modern features) |
+| `hibernate-jpa` | `modules/hibernate-jpa/` | Hibernate/JPA deep dive (lifecycle, маппинг, fetch/N+1, кэш L1/L2, блокировки, JPQL) |
 
 ## Правило теории — NO OVERLAP
 

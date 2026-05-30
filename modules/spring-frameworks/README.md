@@ -22,7 +22,6 @@ modules/spring-frameworks/
 │       └── java/by/pavel/
 ├── pom.xml
 ├── Dockerfile
-├── PROGRESS.md
 ├── ROADMAP.md
 └── INTERVIEW_QUESTIONS.md
 ```

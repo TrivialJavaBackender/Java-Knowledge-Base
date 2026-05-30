@@ -15,7 +15,6 @@ modules/databases/
 │   └── SHARDING.md             # range/hash/directory, consistent hashing, resharding, hot-key
 ├── README.md
 ├── ROADMAP.md
-├── PROGRESS.md
 ├── _SUMMARY.md
 └── INTERVIEW_QUESTIONS.md
 ```

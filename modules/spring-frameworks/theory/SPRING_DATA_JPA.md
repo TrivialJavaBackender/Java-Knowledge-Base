@@ -330,182 +330,35 @@ public class UserService {
 
 ---
 
-## N+1 проблема
+## N+1 проблема (в Spring Data)
 
-Это, пожалуй, самая частая проблема производительности в JPA-приложениях. Если загрузить коллекцию сущностей, и у каждой есть LAZY-связь, то при обращении к этой связи Hibernate делает отдельный SELECT на каждую сущность.
+N+1 — самая частая проблема производительности в JPA-приложениях. Полная механика Hibernate (proxy, `JOIN FETCH`, `@EntityGraph`, `@BatchSize`, `@Fetch(SUBSELECT)`, способы обнаружения) разобрана в модуле hibernate-jpa: [`../../hibernate-jpa/theory/FETCHING_NPLUS1.md`](../../hibernate-jpa/theory/FETCHING_NPLUS1.md). Каноническая теория N+1 (почему ORM не решает её автоматически) — в [`../../databases/theory/DATABASE_TYPES.md`](../../databases/theory/DATABASE_TYPES.md).
 
-```java
-// 1 запрос:   SELECT * FROM users  → 100 пользователей
-// 100 запросов: SELECT * FROM departments WHERE id = ? (для каждого user.getDepartment())
-// Итого: 101 запрос вместо 1!
-
-List<User> users = repo.findAll();
-for (User user : users) {
-    System.out.println(user.getDepartment().getName()); // lazy-загрузка для каждого!
-}
-```
-
-**Решение 1: JOIN FETCH** — лучше всего когда связь одна и нет пагинации:
+В контексте именно Spring Data JPA важны два декларативных инструмента прямо на методе репозитория:
 
 ```java
-@Query("SELECT u FROM User u JOIN FETCH u.department")
-List<User> findAllWithDepartment();
-// SQL: SELECT u.*, d.* FROM users u JOIN departments d ON u.department_id = d.id
-// Один запрос — все данные
-```
-
-Проблема с JOIN FETCH + `@OneToMany` + Pageable: Hibernate не может сделать LIMIT на уровне SQL когда JOIN умножает строки. Он загружает всё в память, потом делает пагинацию в Java — `HibernateJpaDialect: HHH90003004` предупреждение.
-
-**Решение 2: @EntityGraph** — декларативный JOIN FETCH:
-
-```java
+// @EntityGraph — декларативный JOIN FETCH на методе репозитория
 @EntityGraph(attributePaths = {"department", "orders"})
 List<User> findByActiveTrue();
-// Эквивалентно JOIN FETCH department, orders — один запрос
+
+// JOIN FETCH в @Query
+@Query("SELECT u FROM User u JOIN FETCH u.department")
+List<User> findAllWithDepartment();
+
+// DTO-проекция — выбрать только нужные колонки, без оверхеда сущностей
+@Query("SELECT new by.pavel.dto.UserDto(u.id, u.email, d.name) FROM User u JOIN u.department d")
+List<UserDto> findUserDtos();
 ```
 
-**Решение 3: @BatchSize** — загружает lazy-связи пачками через IN (...):
-
-```java
-@Entity
-public class User {
-    @OneToMany(mappedBy = "user")
-    @BatchSize(size = 30) // вместо N запросов по одному → ceil(N/30) запросов
-    private List<Order> orders;
-}
-// При доступе к orders для 100 пользователей: 4 запроса вместо 100
-// SELECT * FROM orders WHERE user_id IN (1, 2, 3, ..., 30)
-// SELECT * FROM orders WHERE user_id IN (31, 32, ..., 60)
-// ...
-```
-
-**Решение 4: DTO Projection** — самый эффективный, выбирает только нужные поля:
-
-```java
-@Query("""
-    SELECT new by.pavel.dto.UserDepartmentDto(u.id, u.email, d.name)
-    FROM User u JOIN u.department d
-    WHERE u.active = true
-    """)
-List<UserDepartmentDto> findActiveUserDtos();
-// SELECT u.id, u.email, d.name FROM users u JOIN departments d ON ... WHERE u.active = true
-// Нет оверхеда entity-маппинга, нет lazy-загрузки, минимум данных
-```
+> ⚠️ `JOIN FETCH` / `@EntityGraph` коллекции (`@OneToMany`) несовместимы с `Pageable`: Hibernate загружает всё в память и пагинирует в Java (предупреждение `HHH90003004`). Корректный паттерн — два запроса (сначала id с пагинацией, затем fetch) — см. [`../../hibernate-jpa/theory/FETCHING_NPLUS1.md`](../../hibernate-jpa/theory/FETCHING_NPLUS1.md).
 
 ---
 
-## Hibernate Caching: три уровня кэша
+## Hibernate Caching
 
-### L1 Cache (First Level Cache)
+Hibernate имеет три уровня кэша — L1 (persistence context, область = сессия/транзакция), L2 (shared, на уровне `SessionFactory`) и Query Cache. Глубокий разбор — уровни кэша, провайдеры (EhCache/Caffeine/Infinispan/Redis), cache concurrency strategies (`READ_ONLY` / `NONSTRICT_READ_WRITE` / `READ_WRITE` / `TRANSACTIONAL`), инвалидация и подводные камни — вынесен в модуль hibernate-jpa: [`../../hibernate-jpa/theory/CACHING.md`](../../hibernate-jpa/theory/CACHING.md).
 
-Всегда включён, неотключаем. Область действия — одна `Session` (в Spring = одна транзакция, т.к. `@Transactional` открывает Session и закрывает вместе с транзакцией).
-
-L1 — это **identity map**: гарантирует, что внутри одной сессии один и тот же id возвращает один и тот же Java-объект. Это не просто оптимизация — это корректность: два вызова `findById(1)` должны дать тот же объект, иначе изменение одного не отражается в другом.
-
-```java
-@Transactional
-public void demonstrate() {
-    User u1 = repo.findById(1L).orElseThrow(); // SELECT users WHERE id=1
-    User u2 = repo.findById(1L).orElseThrow(); // из L1 — SQL НЕ выполняется
-
-    assertSame(u1, u2);    // true — буквально один объект в памяти
-
-    u1.setEmail("new@example.com");
-    // u2.getEmail() тоже "new@example.com" — тот же объект!
-}
-// После закрытия транзакции L1 очищается
-```
-
-L1 очищается вручную при необходимости:
-```java
-entityManager.clear();      // очистить всю сессию (все объекты становятся detached)
-entityManager.detach(user); // detach конкретный объект
-entityManager.flush();      // синхронизировать с БД (без commit)
-```
-
-### L2 Cache (Second Level Cache)
-
-Разделяется между всеми сессиями (транзакциями) одного приложения. Переживает закрытие транзакции. Это реальное кэширование данных между запросами.
-
-Зачем нужен: если одна и та же сущность читается тысячи раз в секунду (справочник валют, категории, настройки) — каждый раз ходить в БД расточительно.
-
-Почему не включён по умолчанию: нужен внешний провайдер (EHCache, Caffeine, Redis), требует правильной настройки стратегии инвалидации, иначе можно получить stale данные. Это решение с трейдоффами, не серебряная пуля.
-
-```properties
-spring.jpa.properties.hibernate.cache.use_second_level_cache=true
-spring.jpa.properties.hibernate.cache.region.factory_class=org.hibernate.cache.jcache.JCacheRegionFactory
-```
-
-```java
-@Entity
-@Cache(usage = CacheConcurrencyStrategy.READ_WRITE)
-// Без @Cache — Hibernate игнорирует сущность для L2 даже если L2 включён
-public class Currency {
-    @Id private String code;
-    private String name;
-    private BigDecimal usdRate;
-}
-```
-
-**CacheConcurrencyStrategy — выбор в зависимости от частоты записи:**
-
-- `READ_ONLY` — для данных, которые никогда не изменяются после создания (справочники, константы). Самый быстрый — нет overhead на синхронизацию.
-- `NONSTRICT_READ_WRITE` — обновляет кэш после commit, но без локировки. Между окончанием транзакции и обновлением кэша возможно краткое окно stale-данных. Для данных, где небольшая задержка актуальности допустима.
-- `READ_WRITE` — использует "soft lock": при начале update помечает кэш как locked, другие транзакции получают данные из БД. После commit — обновляет кэш. Консистентно, но медленнее.
-- `TRANSACTIONAL` — полная транзакционная гарантия, требует JTA. Используется редко.
-
-```java
-// Как Hibernate использует L2:
-// При findById():
-// 1. Проверить L1 (Session cache) → если есть, вернуть
-// 2. Проверить L2 (SessionFactory cache) → если есть, создать managed объект и вернуть
-// 3. SQL запрос → результат кладётся в L1 и L2
-```
-
-**Инвалидация L2 происходит автоматически** при операциях через EntityManager:
-```java
-repo.save(currency);    // Hibernate инвалидирует кэш для currency.id
-repo.delete(currency);  // то же
-repo.saveAll(list);     // инвалидирует все затронутые
-
-// Ручная инвалидация (например, внешнее изменение БД):
-Cache cache = entityManagerFactory.getCache();
-cache.evict(Currency.class, "USD"); // конкретная запись
-cache.evictAll();                   // весь L2
-```
-
-**Распределённый L2** — для нескольких инстансов приложения нужна распределённая реализация (Hazelcast, Infinispan, Redis через Hibernate JCache), иначе каждый инстанс имеет свой независимый кэш.
-
-### Query Cache
-
-Кэширует не сами объекты, а **список идентификаторов** результата запроса. Фактические объекты берутся из L2 по этим ID. Поэтому Query Cache без L2 бесполезен — придётся всё равно загружать сущности из БД.
-
-```java
-@Query("SELECT c FROM Currency c WHERE c.region = :region")
-@QueryHints(@QueryHint(name = "org.hibernate.cacheable", value = "true"))
-List<Currency> findByRegion(@Param("region") String region);
-
-// Первый вызов findByRegion("EU"):
-// → SQL: SELECT id FROM currency WHERE region='EU' → [1, 2, 5]
-// → Ключ в Query Cache: (запрос, параметры) → [1, 2, 5]
-// → Для каждого ID: L2 hit или SQL
-
-// Второй вызов findByRegion("EU"):
-// → Query Cache hit: [1, 2, 5]
-// → Для каждого ID: L2 hit (если включён)
-// → Ни одного SQL запроса!
-```
-
-**Критическая особенность:** Query Cache инвалидируется при **любом** DML в связанных таблицах, даже если изменённые строки не входят в результат запроса. Если таблица `currency` часто обновляется, Query Cache будет постоянно инвалидироваться и давать минимальный эффект при большом overhead.
-
-| | L1 | L2 | Query Cache |
-|---|---|---|---|
-| Включён по умолчанию | ✅ всегда | ❌ нужна настройка | ❌ нужна настройка |
-| Область | Одна транзакция | Всё приложение | Всё приложение |
-| Что хранит | Managed объекты | Состояние сущностей (не объекты JVM) | Список ID результата запроса |
-| Инвалидация | При закрытии сессии | При update/delete сущности | При любом DML в таблице |
-| Thread-safe | Нет (один поток) | Да (все транзакции) | Да |
-| Distributed | Нет | Да (с Hazelcast/Redis) | Да |
+> ⚠️ Не путать с **Spring Cache abstraction** (`@Cacheable` / `@CacheEvict` + `CacheManager`): это отдельный механизм уровня приложения, который кэширует результаты вызовов методов бинов, а не сущности Hibernate. Spring `@Cacheable` не знает про persistence context и не инвалидируется при изменении сущности через `EntityManager`.
 
 ---
 

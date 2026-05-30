@@ -22,7 +22,6 @@ modules/java-core/
 │   ├── FOREIGN_MEMORY_VECTOR.md  # FFM API (Arena, MemorySegment), Vector API, SIMD
 │   ├── SERIALIZATION.md          # Serializable, serialVersionUID, gadget chains, JEP 290/415
 │   └── JMM_REFERENCE.md          # cross-ref only — JMM owned by `concurrency`
-├── PROGRESS.md
 ├── ROADMAP.md
 ├── INTERVIEW_QUESTIONS.md
 └── _SUMMARY.md

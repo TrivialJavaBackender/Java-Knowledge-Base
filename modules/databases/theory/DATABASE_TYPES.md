@@ -278,23 +278,7 @@ List<OrderDto> findOrderSummaries();
 
 ### LazyInitializationException
 
-Связанная проблема: что если обратиться к LAZY-коллекции **после закрытия** Persistence Context'а?
-
-```java
-@Transactional
-Order loadOrder(Long id) {
-    return orderRepo.findById(id).orElseThrow();
-}
-
-// Контроллер (не @Transactional):
-Order o = service.loadOrder(1L);  // транзакция уже закрыта
-o.getItems().size();              // ❌ LazyInitializationException
-```
-
-Решения:
-- Загружать связи внутри транзакции (`JOIN FETCH`, `@EntityGraph`).
-- Возвращать DTO, не Entity.
-- Open-Session-In-View — антипаттерн, держит соединение на всю длину HTTP-запроса (см. [`spring-frameworks/SPRING_DATA_JPA.md`](../../spring-frameworks/theory/SPRING_DATA_JPA.md)).
+Связанная проблема: обращение к LAZY-коллекции **после закрытия** Persistence Context'а бросает `LazyInitializationException`. Это чисто Hibernate-специфичный механизм (proxy, область persistence context, корректные решения и почему Open-Session-In-View — плохой обходной путь) — полный разбор вынесен в модуль hibernate-jpa: [`../../hibernate-jpa/theory/FETCHING_NPLUS1.md`](../../hibernate-jpa/theory/FETCHING_NPLUS1.md).
 
 ### Identity Map: видимость concurrent UPDATE
 

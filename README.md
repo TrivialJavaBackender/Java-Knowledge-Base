@@ -6,18 +6,18 @@
 
 ## Модули
 
-| | Модуль | Прогресс | Роадмап | Вопросы |
-|---|--------|----------|---------|---------|
-| ⚙️ | [Concurrency](modules/concurrency/README.md) | [PROGRESS](modules/concurrency/PROGRESS.md) | [ROADMAP](modules/concurrency/ROADMAP.md) | [32 вопроса](modules/concurrency/INTERVIEW_QUESTIONS.md) |
-| 🏗️ | [System Design](modules/system-design/README.md) | [PROGRESS](modules/system-design/PROGRESS.md) | [ROADMAP](modules/system-design/ROADMAP.md) | [25 вопросов](modules/system-design/INTERVIEW_QUESTIONS.md) |
-| 🐳 | [Infrastructure](modules/infrastructure/README.md) | [PROGRESS](modules/infrastructure/PROGRESS.md) | [ROADMAP](modules/infrastructure/ROADMAP.md) | [36 вопросов](modules/infrastructure/INTERVIEW_QUESTIONS.md) |
-| 🍃 | [Spring Frameworks](modules/spring-frameworks/README.md) | [PROGRESS](modules/spring-frameworks/PROGRESS.md) | [ROADMAP](modules/spring-frameworks/ROADMAP.md) | [17 вопросов](modules/spring-frameworks/INTERVIEW_QUESTIONS.md) |
+| | Модуль | Роадмап | Вопросы |
+|---|--------|---------|---------|
+| ⚙️ | [Concurrency](modules/concurrency/README.md) | [ROADMAP](modules/concurrency/ROADMAP.md) | [32 вопроса](modules/concurrency/INTERVIEW_QUESTIONS.md) |
+| 🏗️ | [System Design](modules/system-design/README.md) | [ROADMAP](modules/system-design/ROADMAP.md) | [25 вопросов](modules/system-design/INTERVIEW_QUESTIONS.md) |
+| 🐳 | [Infrastructure](modules/infrastructure/README.md) | [ROADMAP](modules/infrastructure/ROADMAP.md) | [36 вопросов](modules/infrastructure/INTERVIEW_QUESTIONS.md) |
+| 🍃 | [Spring Frameworks](modules/spring-frameworks/README.md) | [ROADMAP](modules/spring-frameworks/ROADMAP.md) | [17 вопросов](modules/spring-frameworks/INTERVIEW_QUESTIONS.md) |
 
 ---
 
 ## ⚙️ Concurrency
 
-**[→ README](modules/concurrency/README.md) · [PROGRESS](modules/concurrency/PROGRESS.md) · [ROADMAP](modules/concurrency/ROADMAP.md) · [Вопросы](modules/concurrency/INTERVIEW_QUESTIONS.md)**
+**[→ README](modules/concurrency/README.md) · [ROADMAP](modules/concurrency/ROADMAP.md) · [Вопросы](modules/concurrency/INTERVIEW_QUESTIONS.md)**
 
 ### Теория
 
@@ -59,7 +59,7 @@
 
 ## 🏗️ System Design
 
-**[→ README](modules/system-design/README.md) · [PROGRESS](modules/system-design/PROGRESS.md) · [ROADMAP](modules/system-design/ROADMAP.md) · [Вопросы](modules/system-design/INTERVIEW_QUESTIONS.md)**
+**[→ README](modules/system-design/README.md) · [ROADMAP](modules/system-design/ROADMAP.md) · [Вопросы](modules/system-design/INTERVIEW_QUESTIONS.md)**
 
 ### Теория
 
@@ -92,7 +92,7 @@
 
 ## 🐳 Infrastructure
 
-**[→ README](modules/infrastructure/README.md) · [PROGRESS](modules/infrastructure/PROGRESS.md) · [ROADMAP](modules/infrastructure/ROADMAP.md) · [Вопросы](modules/infrastructure/INTERVIEW_QUESTIONS.md)**
+**[→ README](modules/infrastructure/README.md) · [ROADMAP](modules/infrastructure/ROADMAP.md) · [Вопросы](modules/infrastructure/INTERVIEW_QUESTIONS.md)**
 
 ### Теория
 
@@ -162,7 +162,7 @@
 
 ## 🍃 Spring Frameworks
 
-**[→ README](modules/spring-frameworks/README.md) · [PROGRESS](modules/spring-frameworks/PROGRESS.md) · [ROADMAP](modules/spring-frameworks/ROADMAP.md) · [Вопросы](modules/spring-frameworks/INTERVIEW_QUESTIONS.md)**
+**[→ README](modules/spring-frameworks/README.md) · [ROADMAP](modules/spring-frameworks/ROADMAP.md) · [Вопросы](modules/spring-frameworks/INTERVIEW_QUESTIONS.md)**
 
 ### Теория
 

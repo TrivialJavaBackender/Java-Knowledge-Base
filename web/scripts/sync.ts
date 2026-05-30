@@ -57,7 +57,7 @@ async function readRoadmapTheoryOrder(moduleDir: string): Promise<Map<string, nu
   if (!(await exists(file))) return out;
   const text = await readFile(file, 'utf8');
   // Match `theory/FOO.md` or just `FOO.md`. Case-insensitive,
-  // first mention wins. Skip non-theory dotmd refs (README, PROGRESS, etc).
+  // first mention wins. Skip non-theory dotmd refs (README, ROADMAP, etc).
   const re = /(?:theory\/)([A-Za-z][A-Za-z0-9_-]+)\.md/g;
   let i = 0;
   for (const m of text.matchAll(re)) {

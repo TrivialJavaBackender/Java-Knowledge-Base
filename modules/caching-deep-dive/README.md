@@ -17,7 +17,6 @@ modules/caching-deep-dive/
 │   ├── HTTP_CDN_CACHE.md
 │   └── ANTI_PATTERNS.md
 ├── src/main/kotlin/exercises/ # Ex01..Ex10
-├── PROGRESS.md
 ├── ROADMAP.md
 ├── INTERVIEW_QUESTIONS.md
 └── pom.xml

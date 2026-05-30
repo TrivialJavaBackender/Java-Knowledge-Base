@@ -252,8 +252,8 @@ Canonical concept → owner file map. One concept, one owner. Other modules must
 - columnar storage → modules/databases/theory/DATABASE_TYPES.md
 - Redis data structures (deep) → modules/caching-deep-dive/theory/REDIS.md (canonical); brief overview in modules/databases/theory/DATABASE_TYPES.md
 - ORM patterns (Active Record / Data Mapper / Identity Map / Unit of Work) → modules/databases/theory/DATABASE_TYPES.md
-- N+1 problem (JPA context) → modules/databases/theory/DATABASE_TYPES.md (theory) + modules/spring-frameworks/theory/SPRING_DATA_JPA.md (Hibernate implementation)
-- LazyInitializationException → modules/databases/theory/DATABASE_TYPES.md
+- N+1 problem (JPA context) → modules/databases/theory/DATABASE_TYPES.md (canonical theory) + modules/hibernate-jpa/theory/FETCHING_NPLUS1.md (Hibernate implementation)
+- LazyInitializationException → modules/hibernate-jpa/theory/FETCHING_NPLUS1.md
 - LSM-tree vs B-tree → modules/databases/theory/STORAGE_ENGINES.md
 - WAL (Write-Ahead Log) → modules/databases/theory/STORAGE_ENGINES.md
 - compaction strategies (LCS, STCS, TWCS) → modules/databases/theory/STORAGE_ENGINES.md
@@ -448,11 +448,8 @@ Canonical concept → owner file map. One concept, one owner. Other modules must
 - HandlerMapping / HandlerAdapter → modules/spring-frameworks/theory/SPRING_MVC_REST.md
 - HttpMessageConverter → modules/spring-frameworks/theory/SPRING_MVC_REST.md
 - @Transactional → modules/spring-frameworks/theory/SPRING_DATA_JPA.md
-- Hibernate L1 cache (session) → modules/spring-frameworks/theory/SPRING_DATA_JPA.md
-- Hibernate L2 cache (shared) → modules/spring-frameworks/theory/SPRING_DATA_JPA.md
-- Hibernate Query cache → modules/spring-frameworks/theory/SPRING_DATA_JPA.md
-- N+1 problem (JPA) → modules/spring-frameworks/theory/SPRING_DATA_JPA.md
 - Spring Data repositories → modules/spring-frameworks/theory/SPRING_DATA_JPA.md
+- Spring Cache abstraction (@Cacheable, не путать с Hibernate L2) → modules/spring-frameworks/theory/SPRING_DATA_JPA.md
 - Filter Chain (Spring Security) → modules/spring-frameworks/theory/SPRING_SECURITY.md
 - SecurityContext → modules/spring-frameworks/theory/SPRING_SECURITY.md
 - OAuth2 (Spring impl) → modules/spring-frameworks/theory/SPRING_SECURITY.md
@@ -462,6 +459,50 @@ Canonical concept → owner file map. One concept, one owner. Other modules must
 - OpenFeign → modules/spring-frameworks/theory/SPRING_CLOUD.md
 - Resilience4j Circuit Breaker (Spring) → modules/spring-frameworks/theory/SPRING_CLOUD.md
 - Spring Cloud Config → modules/spring-frameworks/theory/SPRING_CLOUD.md
+
+## Hibernate / JPA
+
+- JPA vs Hibernate (spec vs provider) → modules/hibernate-jpa/theory/JPA_VS_HIBERNATE.md
+- EntityManagerFactory / SessionFactory → modules/hibernate-jpa/theory/JPA_VS_HIBERNATE.md
+- EntityManager / Session → modules/hibernate-jpa/theory/JPA_VS_HIBERNATE.md
+- persistence unit / persistence.xml / bootstrap → modules/hibernate-jpa/theory/JPA_VS_HIBERNATE.md
+- Hibernate dialect → modules/hibernate-jpa/theory/JPA_VS_HIBERNATE.md
+- hbm2ddl.auto (DDL-auto modes) → modules/hibernate-jpa/theory/JPA_VS_HIBERNATE.md
+- persistence context (L1) / entity lifecycle states → modules/hibernate-jpa/theory/ENTITY_LIFECYCLE.md
+- persist / merge / remove / detach / refresh → modules/hibernate-jpa/theory/ENTITY_LIFECYCLE.md
+- dirty checking / snapshot → modules/hibernate-jpa/theory/ENTITY_LIFECYCLE.md
+- flush modes (AUTO / COMMIT / MANUAL) → modules/hibernate-jpa/theory/ENTITY_LIFECYCLE.md
+- @Entity / @Embeddable mapping → modules/hibernate-jpa/theory/MAPPINGS_ASSOCIATIONS.md
+- JPA associations (owning vs inverse side, mappedBy) → modules/hibernate-jpa/theory/MAPPINGS_ASSOCIATIONS.md
+- cascade types / orphanRemoval → modules/hibernate-jpa/theory/MAPPINGS_ASSOCIATIONS.md
+- entity equals/hashCode (business key vs id) → modules/hibernate-jpa/theory/MAPPINGS_ASSOCIATIONS.md
+- id generation strategies (IDENTITY/SEQUENCE/TABLE/UUID, pooled/hi-lo) → modules/hibernate-jpa/theory/IDENTIFIERS_INHERITANCE.md
+- JPA inheritance (SINGLE_TABLE / JOINED / TABLE_PER_CLASS) → modules/hibernate-jpa/theory/IDENTIFIERS_INHERITANCE.md
+- @MappedSuperclass vs @Embeddable vs entity inheritance → modules/hibernate-jpa/theory/IDENTIFIERS_INHERITANCE.md
+- FetchType LAZY / EAGER → modules/hibernate-jpa/theory/FETCHING_NPLUS1.md
+- Hibernate proxy / bytecode enhancement → modules/hibernate-jpa/theory/FETCHING_NPLUS1.md
+- JOIN FETCH / @EntityGraph (fetch vs load graph) → modules/hibernate-jpa/theory/FETCHING_NPLUS1.md
+- @BatchSize / default_batch_fetch_size / @Fetch(SUBSELECT) → modules/hibernate-jpa/theory/FETCHING_NPLUS1.md
+- N+1 problem (Hibernate implementation) → modules/hibernate-jpa/theory/FETCHING_NPLUS1.md
+- LazyInitializationException → modules/hibernate-jpa/theory/FETCHING_NPLUS1.md
+- Hibernate L1 cache (persistence context) → modules/hibernate-jpa/theory/CACHING.md
+- Hibernate L2 cache (shared, region factory) → modules/hibernate-jpa/theory/CACHING.md
+- Hibernate Query cache → modules/hibernate-jpa/theory/CACHING.md
+- cache concurrency strategies (READ_ONLY / NONSTRICT / READ_WRITE / TRANSACTIONAL) → modules/hibernate-jpa/theory/CACHING.md
+- @Cache / @Cacheable (Hibernate L2) → modules/hibernate-jpa/theory/CACHING.md
+- EntityTransaction (resource-local vs JTA) → modules/hibernate-jpa/theory/TRANSACTIONS_LOCKING.md
+- @Version / optimistic locking (JPA) → modules/hibernate-jpa/theory/TRANSACTIONS_LOCKING.md
+- LockModeType / pessimistic locking (JPA) → modules/hibernate-jpa/theory/TRANSACTIONS_LOCKING.md
+- OptimisticLockType (versionless) / lock timeout / scope → modules/hibernate-jpa/theory/TRANSACTIONS_LOCKING.md
+- JPQL / HQL → modules/hibernate-jpa/theory/QUERYING.md
+- Criteria API / JPA metamodel → modules/hibernate-jpa/theory/QUERYING.md
+- native query / @SqlResultSetMapping → modules/hibernate-jpa/theory/QUERYING.md
+- DTO constructor expression / Tuple projection → modules/hibernate-jpa/theory/QUERYING.md
+- keyset / seek pagination → modules/hibernate-jpa/theory/QUERYING.md
+- JDBC batching (jdbc.batch_size, order_inserts/order_updates) → modules/hibernate-jpa/theory/PERFORMANCE_PITFALLS.md
+- StatelessSession → modules/hibernate-jpa/theory/PERFORMANCE_PITFALLS.md
+- Open Session In View (OSIV) anti-pattern → modules/hibernate-jpa/theory/PERFORMANCE_PITFALLS.md
+- read-only queries (setReadOnly) → modules/hibernate-jpa/theory/PERFORMANCE_PITFALLS.md
 
 ## GraphQL
 
@@ -588,7 +629,12 @@ Concepts that legitimately appear in multiple modules — canonical owner listed
 
 | Concept | Canonical Owner | Secondary Reference |
 |---------|----------------|---------------------|
-| N+1 problem (canonical theory) | databases/DATABASE_TYPES.md | graphql-kotlin/DATALOADER_NPLUS1.md (GraphQL context) · spring-frameworks/SPRING_DATA_JPA.md (Hibernate impl) |
+| N+1 problem (canonical theory) | databases/DATABASE_TYPES.md | hibernate-jpa/FETCHING_NPLUS1.md (Hibernate impl) · graphql-kotlin/DATALOADER_NPLUS1.md (GraphQL context) · spring-frameworks/SPRING_DATA_JPA.md (Spring Data EntityGraph) |
+| LazyInitializationException | hibernate-jpa/FETCHING_NPLUS1.md (mechanism + fixes) | databases/DATABASE_TYPES.md (brief mention) |
+| Hibernate L1/L2/Query cache | hibernate-jpa/CACHING.md (levels, concurrency strategies, providers) | spring-frameworks/SPRING_DATA_JPA.md (Spring integration, vs Spring Cache) |
+| optimistic / pessimistic locking | hibernate-jpa/TRANSACTIONS_LOCKING.md (JPA @Version / LockModeType) | databases/TRANSACTIONS.md (DB-level isolation, FOR UPDATE / SKIP LOCKED) |
+| Identity Map / Unit of Work | databases/DATABASE_TYPES.md (ORM patterns) | hibernate-jpa/ENTITY_LIFECYCLE.md (persistence context realization) |
+| @Transactional | spring-frameworks/SPRING_DATA_JPA.md (Spring AOP, propagation) | hibernate-jpa/TRANSACTIONS_LOCKING.md (JPA EntityTransaction model) |
 | OAuth2 | system-design/identity_providers.md (protocol) | spring-frameworks/SPRING_SECURITY.md (implementation) |
 | Circuit Breaker | system-design/microservice_patterns.md (pattern) | spring-frameworks/SPRING_CLOUD.md (Resilience4j impl) |
 | CDC | databases/REPLICATION.md (DB perspective + Debezium) | caching-deep-dive/CONSISTENCY.md (cache invalidation) · system-design/microservice_patterns.md (Outbox alternative) |
