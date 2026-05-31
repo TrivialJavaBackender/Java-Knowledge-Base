@@ -13,9 +13,9 @@
   /______________\
 ```
 
-**Unit тесты** — тестируют одну единицу в изоляции (класс, метод). Моки вместо зависимостей. Быстрые, детерминированные.
+**Юнит-тесты** — тестируют одну единицу в изоляции (класс, метод). Моки вместо зависимостей. Быстрые, детерминированные.
 
-**Integration тесты** — тестируют взаимодействие нескольких компонентов (сервис + реальная БД, сервис + Kafka). Медленнее, но ловят ошибки на стыках.
+**Интеграционные тесты** — тестируют взаимодействие нескольких компонентов (сервис + реальная БД, сервис + Kafka). Медленнее, но ловят ошибки на стыках.
 
 **E2E (End-to-End)** — тестируют всю систему через API. Самые медленные и хрупкие. Минимальное количество.
 
@@ -118,7 +118,7 @@ class ReservationServiceTest {
 ReservationRepository repository = mock(ReservationRepository.class);
 ```
 
-### Stubbing (настройка поведения)
+### Настройка поведения (Stubbing)
 
 ```java
 // when().thenReturn() — базовый случай
@@ -257,7 +257,7 @@ void makeReservation_concurrent_noDoubleBooking() throws InterruptedException {
 }
 ```
 
-### Integration тест с @SpringBootTest
+### Интеграционный тест с @SpringBootTest
 
 ```java
 @SpringBootTest
@@ -309,7 +309,7 @@ static void configure(DynamicPropertyRegistry registry) {
 
 ## Виды тестирования
 
-### Functional Testing (функциональное)
+### Функциональное тестирование
 
 Проверяет **что** система делает — соответствие функциональным требованиям.
 
@@ -340,13 +340,13 @@ void createOrder_returns201() {
 
 ---
 
-### Non-Functional Testing (нефункциональное)
+### Нефункциональное тестирование
 
 Проверяет **как** система работает: производительность, безопасность, надёжность.
 
 ---
 
-### Performance Testing (нагрузочное)
+### Нагрузочное тестирование
 
 Проверяет поведение системы под нагрузкой.
 
@@ -391,15 +391,15 @@ export default function () {
 ```
 
 **Метрики нагрузочного тестирования:**
-- **Throughput (RPS/TPS)** — запросов/транзакций в секунду
-- **Latency p50/p95/p99** — медиана и хвосты распределения
-- **Error rate** — процент ошибочных ответов
-- **Saturation point** — нагрузка при которой деградация начинается
-- **Resource utilization** — CPU, memory, connections
+- **Пропускная способность (RPS/TPS)** — запросов/транзакций в секунду
+- **Задержка p50/p95/p99** — медиана и хвосты распределения
+- **Доля ошибок** — процент ошибочных ответов
+- **Точка насыщения** — нагрузка при которой деградация начинается
+- **Утилизация ресурсов** — CPU, memory, connections
 
 ---
 
-### Security / Penetration Testing
+### Тестирование безопасности / Пентестинг
 
 **SAST (Static Application Security Testing)** — анализ исходного кода без запуска.
 
@@ -460,7 +460,7 @@ void adminEndpoint_withUserRole_returns403() {
 
 ---
 
-### Reliability Testing
+### Тестирование надёжности
 
 **Chaos Engineering** — намеренное введение сбоев в production-like окружении для проверки устойчивости.
 
@@ -498,7 +498,7 @@ spec:
 
 ---
 
-### Smoke Testing
+### Дымовое тестирование
 
 Минимальный набор тестов после деплоя: "система жива?"
 
@@ -508,11 +508,11 @@ curl -f http://service/health || exit 1
 curl -f http://service/api/products?limit=1 || exit 1
 ```
 
-Обычно 5-15 минут. Если smoke провалился → rollback.
+Обычно 5-15 минут. Если smoke провалился → откат.
 
 ---
 
-### Regression Testing
+### Регрессионное тестирование
 
 Проверяет, что новые изменения не сломали существующую функциональность.
 
@@ -520,7 +520,7 @@ curl -f http://service/api/products?limit=1 || exit 1
 
 ---
 
-### Acceptance Testing / UAT (User Acceptance Testing)
+### Приёмочное тестирование / UAT
 
 Бизнес верифицирует, что система делает то, что требовалось. Обычно перед production release.
 
@@ -539,7 +539,7 @@ Feature: Place Order
 
 ---
 
-### Mutation Testing
+### Мутационное тестирование
 
 Вводит намеренные ошибки в код (мутанты), проверяет что тесты их ловят. Мера качества тестов.
 
@@ -566,7 +566,7 @@ if (balance > amount)  { ... }  // мутант выжил → тест не п�
 
 ## Стратегия тестирования в команде
 
-### Testing Quadrants (Agile Testing)
+### Квадранты тестирования (Agile Testing)
 
 ```
          Critique Product       Support Team
@@ -581,7 +581,7 @@ Automated│  Performance    │  Unit             │
            Business-Facing   Technology-Facing
 ```
 
-### CI/CD Pipeline
+### CI/CD пайплайн
 
 ```
 PR →  [Unit tests: 2min]
@@ -595,9 +595,9 @@ PR →  [Unit tests: 2min]
    →  [Smoke tests: 3min]
 ```
 
-### Test Coverage
+### Покрытие тестами
 
-**Code Coverage** — процент строк/ветвей покрытых тестами. Инструмент: JaCoCo.
+**Покрытие кода** — процент строк/ветвей покрытых тестами. Инструмент: JaCoCo.
 
 ```
 Типичные цели:
