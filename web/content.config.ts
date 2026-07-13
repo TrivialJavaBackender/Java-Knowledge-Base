@@ -23,4 +23,5 @@ export const MODULES: ModuleConfig[] = [
   { slug: 'java-core',            title: 'Java Core (Deep)',     order: 9, qaFormat: 'qa-bold' },
   { slug: 'software-engineering', title: 'Software Engineering', order: 10, qaFormat: 'qa-bold' },
   { slug: 'hibernate-jpa',        title: 'Hibernate & JPA',      order: 11, qaFormat: 'qa-bold' },
+  { slug: 'go',        title: 'Golang',      order: 12, qaFormat: 'qa-bold' },
 ];

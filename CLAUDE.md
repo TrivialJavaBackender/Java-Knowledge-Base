@@ -17,6 +17,7 @@
 | `caching-deep-dive` | `modules/caching-deep-dive/` | Кэширование (CPU→JVM→Caffeine→Redis→CDN) |
 | `java-core` | `modules/java-core/` | Java Core deep dive (GC, JIT, ClassLoaders, JPMS, bytecode, modern features) |
 | `hibernate-jpa` | `modules/hibernate-jpa/` | Hibernate/JPA deep dive (lifecycle, маппинг, fetch/N+1, кэш L1/L2, блокировки, JPQL) |
+| `go` | `modules/go/` | Go с нуля (синтаксис, интерфейсы, горутины/каналы, GMP-шедулер, GC, дженерики, stdlib, net/http, тестирование) + Go-упражнения |
 
 ## Правило теории — NO OVERLAP
 

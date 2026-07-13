@@ -645,6 +645,118 @@ Canonical concept → owner file map. One concept, one owner. Other modules must
 - K8s Secrets (encryption at rest, ESO, Sealed Secrets) → modules/infrastructure/theory/SECRETS.md
 - Terraform state encryption → modules/infrastructure/theory/SECRETS.md
 
+## Go
+
+### Tooling & Language Core
+- go toolchain (build/run/install/test/vet/fmt) → modules/go/theory/TOOLING_MODULES.md
+- go env / cross-compilation (GOOS/GOARCH) → modules/go/theory/TOOLING_MODULES.md
+- Go modules (go.mod / go.sum) → modules/go/theory/TOOLING_MODULES.md
+- semantic import versioning (/v2) → modules/go/theory/TOOLING_MODULES.md
+- MVS (Minimal Version Selection) → modules/go/theory/TOOLING_MODULES.md
+- go.work (multi-module workspace) → modules/go/theory/TOOLING_MODULES.md
+- project layout (package=dir, internal/, cmd/) → modules/go/theory/TOOLING_MODULES.md
+- GOPATH → modules evolution → modules/go/theory/TOOLING_MODULES.md
+- var / := / zero values → modules/go/theory/BASICS.md
+- const / iota → modules/go/theory/BASICS.md
+- byte / rune / no implicit conversions → modules/go/theory/BASICS.md
+- for (only loop) / range → modules/go/theory/BASICS.md
+- switch (no auto-break, fallthrough) → modules/go/theory/BASICS.md
+- functions (multiple return, named returns, variadic) → modules/go/theory/BASICS.md
+- exported vs unexported (capitalization) → modules/go/theory/BASICS.md
+
+### Types, Interfaces, Errors
+- struct / empty struct{} → modules/go/theory/TYPES_STRUCTS_METHODS.md
+- value vs pointer receiver → modules/go/theory/TYPES_STRUCTS_METHODS.md
+- embedding (method promotion, composition over inheritance) → modules/go/theory/TYPES_STRUCTS_METHODS.md
+- struct comparability / struct tags → modules/go/theory/TYPES_STRUCTS_METHODS.md
+- type definition vs type alias → modules/go/theory/TYPES_STRUCTS_METHODS.md
+- constructor functions (NewX idiom) → modules/go/theory/TYPES_STRUCTS_METHODS.md
+- implicit interface implementation (structural typing) → modules/go/theory/INTERFACES.md
+- empty interface / any → modules/go/theory/INTERFACES.md
+- type assertion (comma-ok) / type switch → modules/go/theory/INTERFACES.md
+- interface value internals (itab + data pointer) → modules/go/theory/INTERFACES.md
+- nil-interface trap (typed nil) → modules/go/theory/INTERFACES.md
+- method set (T vs *T) → modules/go/theory/INTERFACES.md
+- accept interfaces, return structs → modules/go/theory/INTERFACES.md
+- error interface (errors as values) → modules/go/theory/ERRORS_PANIC.md
+- sentinel errors / custom error types → modules/go/theory/ERRORS_PANIC.md
+- error wrapping (%w / errors.Is / errors.As / errors.Join) → modules/go/theory/ERRORS_PANIC.md
+- panic / recover → modules/go/theory/ERRORS_PANIC.md
+- defer (LIFO, arg evaluation, named return) → modules/go/theory/ERRORS_PANIC.md
+
+### Data Structures
+- arrays vs slices (slice header, append growth, aliasing, three-index) → modules/go/theory/SLICES_MAPS_STRINGS.md
+- nil vs empty slice → modules/go/theory/SLICES_MAPS_STRINGS.md
+- maps (comma-ok, randomized iteration, nil-map) → modules/go/theory/SLICES_MAPS_STRINGS.md
+- strings (UTF-8, len=bytes, byte vs rune, strings.Builder) → modules/go/theory/SLICES_MAPS_STRINGS.md
+
+### Concurrency
+- goroutine (go f()) → modules/go/theory/GOROUTINES_CHANNELS.md
+- channel (buffered/unbuffered, send/receive/close/range) → modules/go/theory/GOROUTINES_CHANNELS.md
+- select (default, nil-channel) → modules/go/theory/GOROUTINES_CHANNELS.md
+- runtime deadlock detection → modules/go/theory/GOROUTINES_CHANNELS.md
+- CSP model → modules/go/theory/GOROUTINES_CHANNELS.md
+- worker pool / fan-out / fan-in / pipeline → modules/go/theory/CONCURRENCY_PATTERNS.md
+- bounded parallelism (semaphore channel) → modules/go/theory/CONCURRENCY_PATTERNS.md
+- context.Context (cancellation/deadline/values) → modules/go/theory/CONCURRENCY_PATTERNS.md
+- sync (WaitGroup/Mutex/RWMutex/Once/Cond/Map/Pool) → modules/go/theory/CONCURRENCY_PATTERNS.md
+- sync/atomic → modules/go/theory/CONCURRENCY_PATTERNS.md
+- errgroup (golang.org/x/sync) → modules/go/theory/CONCURRENCY_PATTERNS.md
+- rate limiting (token bucket, time.Ticker) → modules/go/theory/CONCURRENCY_PATTERNS.md
+- goroutine leak → modules/go/theory/CONCURRENCY_PATTERNS.md
+
+### Runtime (Scheduler, Memory, GC)
+- GMP scheduler (Goroutine/Machine/Processor) → modules/go/theory/SCHEDULER.md
+- work-stealing (Go runtime) → modules/go/theory/SCHEDULER.md
+- goroutine preemption (cooperative/async) → modules/go/theory/SCHEDULER.md
+- netpoller / sysmon / hand-off P → modules/go/theory/SCHEDULER.md
+- GOMAXPROCS → modules/go/theory/SCHEDULER.md
+- Go memory model (happens-before в Go) → modules/go/theory/MEMORY_GC.md
+- data race detector (-race / TSan) → modules/go/theory/MEMORY_GC.md
+- escape analysis (Go) → modules/go/theory/MEMORY_GC.md
+- goroutine stack growth → modules/go/theory/MEMORY_GC.md
+- Go GC (concurrent tri-color, non-moving) → modules/go/theory/MEMORY_GC.md
+- GOGC / GOMEMLIMIT / pacer → modules/go/theory/MEMORY_GC.md
+
+### Generics
+- type parameters / generics (Go 1.18) → modules/go/theory/GENERICS.md
+- constraints (any / comparable / type sets / ~T / unions) → modules/go/theory/GENERICS.md
+- cmp.Ordered / x/exp/constraints → modules/go/theory/GENERICS.md
+- no parameterized methods (Go) → modules/go/theory/GENERICS.md
+- GC shape stenciling + dictionaries → modules/go/theory/GENERICS.md
+- type inference (Go generics) → modules/go/theory/GENERICS.md
+
+### Stdlib, HTTP, Testing
+- io.Reader/Writer/Closer (composition, TeeReader, MultiWriter) → modules/go/theory/STDLIB_CORE.md
+- bufio / os / fmt verbs / strconv / strings.Builder / bytes.Buffer → modules/go/theory/STDLIB_CORE.md
+- time (Duration, layout 2006, Timer/Ticker, monotonic) → modules/go/theory/STDLIB_CORE.md
+- sort / slices / maps → modules/go/theory/STDLIB_CORE.md
+- encoding/json (struct tags, omitempty, Encoder/Decoder, custom Marshal) → modules/go/theory/STDLIB_CORE.md
+- net/http server (Handler, HandlerFunc, ServeMux, timeouts) → modules/go/theory/NET_HTTP.md
+- net/http routing 1.22 (method+pattern, wildcards, PathValue) → modules/go/theory/NET_HTTP.md
+- net/http middleware (func(Handler) Handler chain) → modules/go/theory/NET_HTTP.md
+- net/http client (Client/Transport, resp.Body close, timeouts) → modules/go/theory/NET_HTTP.md
+- graceful shutdown (signal.NotifyContext, Server.Shutdown) → modules/go/theory/NET_HTTP.md
+- table-driven tests / t.Run subtests / t.Parallel → modules/go/theory/TESTING_GO.md
+- Go benchmarks (b.N, benchstat, sink) → modules/go/theory/TESTING_GO.md
+- Go fuzzing (f.Fuzz) / testable examples (// Output:) → modules/go/theory/TESTING_GO.md
+- net/http/httptest → modules/go/theory/TESTING_GO.md
+
+### Idioms & Performance
+- naming conventions (MixedCaps, -er, getters без Get) → modules/go/theory/IDIOMS_PATTERNS.md
+- Go Proverbs → modules/go/theory/IDIOMS_PATTERNS.md
+- functional options pattern → modules/go/theory/IDIOMS_PATTERNS.md
+- make the zero value useful → modules/go/theory/IDIOMS_PATTERNS.md
+- package design (internal/, doc.go, API minimalism) → modules/go/theory/IDIOMS_PATTERNS.md
+- iota enums + Stringer / go generate → modules/go/theory/IDIOMS_PATTERNS.md
+- pprof (CPU/heap/goroutine/block/mutex) → modules/go/theory/PERFORMANCE_PROFILING.md
+- benchmarking / benchstat / sink → modules/go/theory/PERFORMANCE_PROFILING.md
+- escape analysis (-gcflags=-m practical) → modules/go/theory/PERFORMANCE_PROFILING.md
+- sync.Pool / allocation reduction → modules/go/theory/PERFORMANCE_PROFILING.md
+- go tool trace (execution tracer) → modules/go/theory/PERFORMANCE_PROFILING.md
+- GODEBUG / runtime/metrics → modules/go/theory/PERFORMANCE_PROFILING.md
+- goroutine/memory leak diagnostics → modules/go/theory/PERFORMANCE_PROFILING.md
+
 ---
 
 ## Disambiguated Concepts
@@ -674,3 +786,10 @@ Concepts that legitimately appear in multiple modules — canonical owner listed
 | write barrier | java-core/GARBAGE_COLLECTION.md (GC card table / SATB) | (CPU memory barrier — отдельная тема, в concurrency не покрыта) |
 | ByteBuffer (direct) / off-heap | java-core/JVM_MEMORY_AREAS.md (allocation model) | java-core/FOREIGN_MEMORY_VECTOR.md (modern replacement) |
 | Reflection (perf cost) | java-core/REFLECTION_HANDLES.md | spring-frameworks/SPRING_CORE_DI.md (DI internals использование) |
+| goroutines / M:N scheduler | go/SCHEDULER.md (GMP, netpoller, work-stealing) | concurrency/VIRTUAL_THREADS.md (JVM virtual threads, M:N model) |
+| happens-before / memory model | concurrency/THREADS_BASICS.md (JMM, general) | go/MEMORY_GC.md (Go memory model: channels/mutex/Once guarantees) |
+| tri-color GC / write barrier | java-core/GARBAGE_COLLECTION.md (general invariant) | go/MEMORY_GC.md (Go concurrent non-moving impl, GOGC/GOMEMLIMIT) |
+| generics implementation | java-core/GENERICS_ERASURE.md (Java type erasure) | go/GENERICS.md (GC-shape stenciling + dictionaries) |
+| testing tooling | software-engineering/TESTING.md (pyramid, general philosophy) | go/TESTING_GO.md (testing pkg, table-driven, benchmarks, fuzzing) |
+| HTTP (protocol vs stdlib) | system-design/http_networking.md (HTTP protocol) | go/NET_HTTP.md (Go net/http server/client/middleware) |
+| data race / deadlock (Go tooling) | concurrency/PROBLEMS.md (general definitions) | go/MEMORY_GC.md (-race) · go/GOROUTINES_CHANNELS.md (runtime deadlock detection) |

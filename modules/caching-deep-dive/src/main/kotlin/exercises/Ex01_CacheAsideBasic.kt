@@ -27,6 +27,11 @@ package exercises
 
 import java.util.concurrent.*
 import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.locks.ReadWriteLock
+import java.util.concurrent.locks.ReentrantLock
+import java.util.concurrent.locks.ReentrantReadWriteLock
+import kotlin.concurrent.read
+import kotlin.concurrent.write
 
 class SlowDb {
     val readCount = AtomicInteger(0)
@@ -46,16 +51,17 @@ class SlowDb {
 }
 
 class CacheAsideRepository(private val db: SlowDb) {
-    // TODO: подбери структуру для thread-safe кэша
+    private val cache = ConcurrentHashMap<Int, CompletableFuture<String>>()
 
     fun get(key: Int): String? {
-        // TODO
-        throw NotImplementedError()
+        return cache.computeIfAbsent(key) {
+            CompletableFuture.supplyAsync { db.read(key) }
+        }.get()
     }
 
     fun update(key: Int, value: String) {
-        // TODO: запиши в БД и обнови кэш корректно
-        throw NotImplementedError()
+        db.write(key, value)
+            .also { cache[key] = CompletableFuture.completedFuture(value) }
     }
 }
 

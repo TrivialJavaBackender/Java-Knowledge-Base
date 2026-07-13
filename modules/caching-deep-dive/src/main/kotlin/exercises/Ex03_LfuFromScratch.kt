@@ -29,15 +29,56 @@ package exercises
  */
 
 class LfuCache<K, V>(private val capacity: Int) {
+
+    class Node<K, V> (
+        var next: Node<K, V>?,
+        var prev: Node<K, V>?,
+        var value: V?,
+        val key: K?,
+        var freq: Int
+    )
+
+    class NodeList<K, V> (
+        private val head: Node<K, V>,
+        private val tail: Node<K, V>,
+        private var size: Int = 0
+    ) {
+        fun add(node: Node<K, V>) {
+            head.prev?.next = node
+            node.prev = head.prev
+            node.next = head
+            head.prev = node
+            size++
+        }
+
+        fun remove(node: Node<K, V>) {
+            if (size == 0) error("List is empty")
+            node.prev?.next = node.next
+            node.next?.prev = node.prev
+            size--
+        }
+
+        fun removeFirst(): Node<K, V> {
+            if (size == 0) error("List is empty")
+            tail.next?.next?.prev = tail
+            val temp = tail.next!!
+            tail.next = tail.next?.next
+            size--
+            return temp
+        }
+    }
+
     init {
         require(capacity > 0)
     }
+
 
     // TODO: структура
 
     fun get(key: K): V? {
         // TODO
         throw NotImplementedError()
+        String().isBlank()
     }
 
     fun put(key: K, value: V) {

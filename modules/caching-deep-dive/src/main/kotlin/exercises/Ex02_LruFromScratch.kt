@@ -29,30 +29,77 @@ class LruCache<K, V>(
     private val capacity: Int,
     private val onEvict: (K, V) -> Unit = { _, _ -> }
 ) {
+
+    private val map = HashMap<K, Node<K, V>>()
+    private val head = Node<K, V>(null, null, null, null)
+    private val tail = Node<K, V>(head, null, null, null)
+
     init {
         require(capacity > 0)
+        head.prev = tail
     }
+
+    class Node<K, V> (
+        var next: Node<K, V>?,
+        var prev: Node<K, V>?,
+        var value: V?,
+        val key: K?
+    )
 
     // TODO: HashMap<K, Node<K, V>> + sentinel head/tail двусвязного списка
 
     fun get(key: K): V? {
-        // TODO
-        throw NotImplementedError()
+        return map[key]?.also {
+            val temp = head.prev
+            if (temp != it && temp != null) {
+                it.prev?.next = it.next
+                it.next?.prev = it.prev
+
+                head.prev = it
+                temp.next = it
+
+                it.prev = temp
+                it.next = head
+            }
+        }?.value
     }
 
     fun put(key: K, value: V) {
-        // TODO
-        throw NotImplementedError()
+        if (map[key] != null) {
+            get(key)
+            map[key]?.value = value
+            return
+        }
+        if (map.size == capacity) {
+            val temp = tail.next
+            tail.next = tail.next?.next
+            temp?.next?.prev = tail
+            map.remove(temp?.key)
+            onEvict(temp?.key!!, temp.value!!)
+        }
+        val newNode = Node(head, head.prev, value, key)
+        head.prev?.next = newNode
+        head.prev = newNode
+        map[key] = newNode
     }
 
     fun size(): Int {
-        // TODO
-        throw NotImplementedError()
+        return map.size
     }
 
     fun keysInOrder(): List<K> {
-        // TODO: head → tail = MRU → LRU
-        throw NotImplementedError()
+        return object : Iterator<K> {
+            var current = head.prev!!
+            override fun hasNext(): Boolean {
+                return current != tail
+            }
+
+            override fun next(): K {
+                val key = current.key!!
+                current = current.prev!!
+                return key
+            }
+        }.asSequence().toList()
     }
 }
 
