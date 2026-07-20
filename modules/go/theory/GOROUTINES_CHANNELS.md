@@ -245,7 +245,7 @@ case <-time.After(2 * time.Second):
 }
 ```
 
-> Замечание: каждый вызов `time.After` создаёт таймер, который не освобождается до срабатывания. В горячем цикле это утечка; там используют `time.NewTimer` с явным `Stop()` либо `context.WithTimeout` (см. [CONCURRENCY_PATTERNS](./CONCURRENCY_PATTERNS.md)).
+> Замечание: каждый вызов `time.After` создаёт таймер. До Go 1.23 он не освобождался до срабатывания — в горячем цикле это давало накопление таймеров; с Go 1.23 неиспользуемый таймер собирается GC сразу. Ради экономии аллокаций и немедленной отмены в горячем цикле всё равно предпочитают `time.NewTimer` с явным `Stop()` либо `context.WithTimeout` (см. [CONCURRENCY_PATTERNS](./CONCURRENCY_PATTERNS.md)).
 
 ---
 

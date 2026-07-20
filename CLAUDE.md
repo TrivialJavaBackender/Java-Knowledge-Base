@@ -18,6 +18,8 @@
 | `java-core` | `modules/java-core/` | Java Core deep dive (GC, JIT, ClassLoaders, JPMS, bytecode, modern features) |
 | `hibernate-jpa` | `modules/hibernate-jpa/` | Hibernate/JPA deep dive (lifecycle, маппинг, fetch/N+1, кэш L1/L2, блокировки, JPQL) |
 | `go` | `modules/go/` | Go с нуля (синтаксис, интерфейсы, горутины/каналы, GMP-шедулер, GC, дженерики, stdlib, net/http, тестирование) + Go-упражнения |
+| `design-patterns` | `modules/design-patterns/` | Паттерны GoF (порождающие/структурные/поведенческие), UML, GRASP, сравнения, антипаттерны + java-упражнения |
+| `ddd` | `modules/ddd/` | Domain-Driven Design (стратегия: Bounded Context/Context Map; тактика: VO/Entity/агрегат/Repository/Specification; архитектура Hexagonal/Onion/Clean; интеграция; Event Storming; функциональный DDD; антипаттерны) |
 
 ## Правило теории — NO OVERLAP
 

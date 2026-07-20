@@ -757,6 +757,136 @@ Canonical concept → owner file map. One concept, one owner. Other modules must
 - GODEBUG / runtime/metrics → modules/go/theory/PERFORMANCE_PROFILING.md
 - goroutine/memory leak diagnostics → modules/go/theory/PERFORMANCE_PROFILING.md
 
+## Design Patterns (GoF)
+
+- GoF pattern taxonomy (creational/structural/behavioral) → modules/design-patterns/theory/INTRO.md
+- UML for patterns (class + sequence, association/aggregation/composition/inheritance/realization) → modules/design-patterns/theory/INTRO.md
+- GoF principles (program to interface, favor composition over inheritance, encapsulate what varies) → modules/design-patterns/theory/INTRO.md
+- GRASP responsibilities (Information Expert, Creator, Controller, Low Coupling, High Cohesion, Polymorphism, Pure Fabrication, Indirection, Protected Variations) → modules/design-patterns/theory/INTRO.md
+- when a pattern is warranted / over-engineering criterion → modules/design-patterns/theory/INTRO.md
+- Factory Method → modules/design-patterns/theory/CREATIONAL.md
+- Abstract Factory → modules/design-patterns/theory/CREATIONAL.md
+- Builder (fluent, validation in build(), vs static factory) → modules/design-patterns/theory/CREATIONAL.md
+- Prototype (clone vs copy constructor) → modules/design-patterns/theory/CREATIONAL.md
+- Singleton (pattern; eager/holder/DCL+volatile/enum, serialization safety) → modules/design-patterns/theory/CREATIONAL.md
+- Adapter (object vs class adapter) → modules/design-patterns/theory/STRUCTURAL.md
+- Bridge (Abstraction/Implementor, two axes) → modules/design-patterns/theory/STRUCTURAL.md
+- Composite (part-whole, transparent vs safe) → modules/design-patterns/theory/STRUCTURAL.md
+- Decorator (dynamic responsibilities, java.io) → modules/design-patterns/theory/STRUCTURAL.md
+- Facade → modules/design-patterns/theory/STRUCTURAL.md
+- Flyweight (intrinsic/extrinsic state) → modules/design-patterns/theory/STRUCTURAL.md
+- Proxy (virtual/protection/remote/smart) → modules/design-patterns/theory/STRUCTURAL.md
+- Strategy → modules/design-patterns/theory/BEHAVIORAL_1.md
+- State (state machine) → modules/design-patterns/theory/BEHAVIORAL_1.md
+- Template Method (hook methods, Hollywood principle) → modules/design-patterns/theory/BEHAVIORAL_1.md
+- Chain of Responsibility → modules/design-patterns/theory/BEHAVIORAL_1.md
+- Command (undo/redo, task queues) → modules/design-patterns/theory/BEHAVIORAL_2.md
+- Observer (GoF subject/observer, push/pull) → modules/design-patterns/theory/BEHAVIORAL_2.md
+- Mediator → modules/design-patterns/theory/BEHAVIORAL_2.md
+- Memento → modules/design-patterns/theory/BEHAVIORAL_2.md
+- Iterator (GoF pattern, external vs internal iteration) → modules/design-patterns/theory/BEHAVIORAL_3.md
+- Visitor (double dispatch, expression problem) → modules/design-patterns/theory/BEHAVIORAL_3.md
+- Interpreter (grammar/AST) → modules/design-patterns/theory/BEHAVIORAL_3.md
+- pattern selection / pairwise comparisons (Strategy vs State, Adapter vs Bridge vs Proxy vs Decorator, Factory vs Builder) → modules/design-patterns/theory/COMPARISONS.md
+- OOP/design anti-patterns (God Object, anemic domain model, poltergeist, golden hammer, over-engineering/patternitis) → modules/design-patterns/theory/ANTIPATTERNS.md
+- code smells (Fowler: long method, feature envy, primitive obsession, shotgun surgery, divergent change) → modules/design-patterns/theory/ANTIPATTERNS.md
+- Singleton as global mutable state (anti-pattern) → modules/design-patterns/theory/ANTIPATTERNS.md
+
+## Domain-Driven Design (DDD)
+
+### Введение
+- DDD (essential vs accidental complexity) → modules/ddd/theory/INTRO.md
+- strategic vs tactical DDD → modules/ddd/theory/INTRO.md
+- when DDD is worth it / over-engineering criterion → modules/ddd/theory/INTRO.md
+- DDD-lite (minimal viable DDD) → modules/ddd/theory/INTRO.md
+
+### Стратегическое проектирование
+- subdomains (Core / Supporting / Generic) → modules/ddd/theory/STRATEGIC_DESIGN.md
+- Ubiquitous Language → modules/ddd/theory/STRATEGIC_DESIGN.md
+- Bounded Context → modules/ddd/theory/STRATEGIC_DESIGN.md
+- Context Map (9 relationship patterns) → modules/ddd/theory/STRATEGIC_DESIGN.md
+- Shared Kernel → modules/ddd/theory/STRATEGIC_DESIGN.md
+- Open Host Service (OHS) → modules/ddd/theory/STRATEGIC_DESIGN.md
+- Published Language → modules/ddd/theory/STRATEGIC_DESIGN.md
+- Anticorruption Layer (ACL) → modules/ddd/theory/STRATEGIC_DESIGN.md
+- Partnership / Customer–Supplier / Conformist / Separate Ways / Big Ball of Mud → modules/ddd/theory/STRATEGIC_DESIGN.md
+
+### Discovery
+- Event Storming (Big Picture / Process / Design level) → modules/ddd/theory/EVENT_STORMING.md
+- Event Storming color grammar → modules/ddd/theory/EVENT_STORMING.md
+- pivotal events / swimlanes → modules/ddd/theory/EVENT_STORMING.md
+- Domain Storytelling → modules/ddd/theory/EVENT_STORMING.md
+- Example Mapping → modules/ddd/theory/EVENT_STORMING.md
+- Bounded Context Canvas → modules/ddd/theory/EVENT_STORMING.md
+
+### Тактические паттерны
+- Value Object (DDD) → modules/ddd/theory/TACTICAL_PATTERNS.md
+- Entity (DDD) → modules/ddd/theory/TACTICAL_PATTERNS.md
+- Domain Event → modules/ddd/theory/TACTICAL_PATTERNS.md
+- Repository (DDD, aggregate collection) → modules/ddd/theory/TACTICAL_PATTERNS.md
+- Factory (DDD, aggregate assembly) → modules/ddd/theory/TACTICAL_PATTERNS.md
+- Domain Service → modules/ddd/theory/TACTICAL_PATTERNS.md
+- Application Service (use case) → modules/ddd/theory/TACTICAL_PATTERNS.md
+- Command (DDD) → modules/ddd/theory/TACTICAL_PATTERNS.md
+- Specification pattern → modules/ddd/theory/TACTICAL_PATTERNS.md
+- Policy (domain Strategy) → modules/ddd/theory/TACTICAL_PATTERNS.md
+- Module (package-by-feature) → modules/ddd/theory/TACTICAL_PATTERNS.md
+
+### Проектирование агрегатов
+- Aggregate / Aggregate Root → modules/ddd/theory/AGGREGATE_DESIGN.md
+- Vernon's four aggregate rules → modules/ddd/theory/AGGREGATE_DESIGN.md
+- consistency boundary (transactional vs eventual) → modules/ddd/theory/AGGREGATE_DESIGN.md
+- one-aggregate-per-transaction rule → modules/ddd/theory/AGGREGATE_DESIGN.md
+- reference by identity → modules/ddd/theory/AGGREGATE_DESIGN.md
+- set-based validation (cross-aggregate uniqueness) → modules/ddd/theory/AGGREGATE_DESIGN.md
+- aggregate size / choosing the root → modules/ddd/theory/AGGREGATE_DESIGN.md
+- optimistic concurrency by aggregate version → modules/ddd/theory/AGGREGATE_DESIGN.md
+
+### Архитектура
+- Hexagonal Architecture (Ports & Adapters) → modules/ddd/theory/ARCHITECTURE.md
+- Onion Architecture → modules/ddd/theory/ARCHITECTURE.md
+- Clean Architecture → modules/ddd/theory/ARCHITECTURE.md
+- driving vs driven adapters → modules/ddd/theory/ARCHITECTURE.md
+- Composition Root → modules/ddd/theory/ARCHITECTURE.md
+- dependency inversion (architectural) → modules/ddd/theory/ARCHITECTURE.md
+- DDD & microservices (BC ↔ service, database-per-service, modular monolith) → modules/ddd/theory/ARCHITECTURE.md
+
+### Интеграция контекстов
+- Domain Event vs Integration Event → modules/ddd/theory/INTEGRATION_PATTERNS.md
+- event translator (domain → contract) → modules/ddd/theory/INTEGRATION_PATTERNS.md
+- eventual consistency between contexts (DDD framing) → modules/ddd/theory/INTEGRATION_PATTERNS.md
+- (Outbox / Saga / CQRS / Event Sourcing — mechanics owned by system-design/microservice_patterns.md; DDD framing here)
+
+### Функциональный DDD
+- make illegal states unrepresentable → modules/ddd/theory/FUNCTIONAL_DDD.md
+- algebraic data types (domain modeling: product/sum) → modules/ddd/theory/FUNCTIONAL_DDD.md
+- functional core / imperative shell → modules/ddd/theory/FUNCTIONAL_DDD.md
+- decide / evolve → modules/ddd/theory/FUNCTIONAL_DDD.md
+- parse don't validate / smart constructor → modules/ddd/theory/FUNCTIONAL_DDD.md
+- Result / Either for domain errors → modules/ddd/theory/FUNCTIONAL_DDD.md
+- railway-oriented programming → modules/ddd/theory/FUNCTIONAL_DDD.md
+
+### Supple Design
+- supple design → modules/ddd/theory/SUPPLE_DESIGN.md
+- intention-revealing interfaces → modules/ddd/theory/SUPPLE_DESIGN.md
+- side-effect-free functions / assertions → modules/ddd/theory/SUPPLE_DESIGN.md
+- closure of operations → modules/ddd/theory/SUPPLE_DESIGN.md
+- conceptual contours / standalone classes → modules/ddd/theory/SUPPLE_DESIGN.md
+- knowledge crunching → modules/ddd/theory/SUPPLE_DESIGN.md
+- model exploration whirlpool → modules/ddd/theory/SUPPLE_DESIGN.md
+- refactoring toward deeper insight / breakthrough → modules/ddd/theory/SUPPLE_DESIGN.md
+- distillation / Segregated Core → modules/ddd/theory/SUPPLE_DESIGN.md
+
+### Антипаттерны (DDD-specific)
+- anemic domain model (DDD deep treatment) → modules/ddd/theory/ANTIPATTERNS.md
+- God Aggregate → modules/ddd/theory/ANTIPATTERNS.md
+- bypassing the aggregate root → modules/ddd/theory/ANTIPATTERNS.md
+- Repository-per-table (DAO thinking) → modules/ddd/theory/ANTIPATTERNS.md
+- domain model leakage (outward) → modules/ddd/theory/ANTIPATTERNS.md
+- infrastructure leakage (inward) → modules/ddd/theory/ANTIPATTERNS.md
+- bloated Shared Kernel → modules/ddd/theory/ANTIPATTERNS.md
+- DDD-for-DDD's-sake / over-modeling → modules/ddd/theory/ANTIPATTERNS.md
+
 ---
 
 ## Disambiguated Concepts
@@ -793,3 +923,16 @@ Concepts that legitimately appear in multiple modules — canonical owner listed
 | testing tooling | software-engineering/TESTING.md (pyramid, general philosophy) | go/TESTING_GO.md (testing pkg, table-driven, benchmarks, fuzzing) |
 | HTTP (protocol vs stdlib) | system-design/http_networking.md (HTTP protocol) | go/NET_HTTP.md (Go net/http server/client/middleware) |
 | data race / deadlock (Go tooling) | concurrency/PROBLEMS.md (general definitions) | go/MEMORY_GC.md (-race) · go/GOROUTINES_CHANNELS.md (runtime deadlock detection) |
+| GoF Adapter pattern | design-patterns/STRUCTURAL.md (object vs class adapter, full pattern) | software-engineering/SOLID_OOP.md (ISP/Jackson illustration) |
+| Singleton | design-patterns/CREATIONAL.md (pattern intent + thread-safe variants) | concurrency/THREADS_BASICS.md (DCL/volatile, publication) · java-core/SERIALIZATION.md (readResolve/enum) · design-patterns/ANTIPATTERNS.md (global mutable state) |
+| Proxy (GoF vs framework) | design-patterns/STRUCTURAL.md (pattern: virtual/protection/remote) | spring-frameworks/SPRING_CORE_DI.md (AOP dynamic proxy) · hibernate-jpa/FETCHING_NPLUS1.md (lazy proxy) |
+| Observer vs Reactive Streams | design-patterns/BEHAVIORAL_2.md (GoF Subject/Observer) | kotlin-coroutines/FLOW.md (Flow) · system-design/COMMUNICATION_PATTERNS.md (Reactive Streams, backpressure) |
+| Flyweight vs String pool | design-patterns/STRUCTURAL.md (pattern: intrinsic/extrinsic) | java-core/STRING_INTERNALS.md (String pool, Integer cache impl) |
+| anemic domain model | design-patterns/ANTIPATTERNS.md (OOP smell listing) | ddd/ANTIPATTERNS.md (DDD deep: rich model, invariants in aggregate, when acceptable) |
+| Factory (GoF vs DDD) | design-patterns/CREATIONAL.md (Factory Method / Abstract Factory) | ddd/TACTICAL_PATTERNS.md (DDD factory: encapsulate aggregate assembly) |
+| Repository | ddd/TACTICAL_PATTERNS.md (collection abstraction over aggregates) | databases/DATABASE_TYPES.md (Data Mapper / Identity Map / Unit of Work) · hibernate-jpa/JPA_VS_HIBERNATE.md (impl) |
+| Primitive Obsession | design-patterns/ANTIPATTERNS.md (Fowler code smell) | ddd/TACTICAL_PATTERNS.md (typed IDs / Value Object as the fix) |
+| Strategy vs domain Policy | design-patterns/BEHAVIORAL_1.md (GoF Strategy) | ddd/TACTICAL_PATTERNS.md (domain Policy framing) |
+| Outbox / Saga / CQRS / Event Sourcing | system-design/microservice_patterns.md (distributed-systems mechanics) | ddd/INTEGRATION_PATTERNS.md (DDD modeling framing: aggregate boundary → events) |
+| Hexagonal / Ports & Adapters | ddd/ARCHITECTURE.md (ports/adapters, Composition Root) | (Onion / Clean — same idea, same file) |
+| functional core / FP basics | software-engineering/STREAM_API_FP.md (pure functions, immutability, HOF) | ddd/FUNCTIONAL_DDD.md (illegal-states-unrepresentable, ADT domain modeling, decide/evolve) |

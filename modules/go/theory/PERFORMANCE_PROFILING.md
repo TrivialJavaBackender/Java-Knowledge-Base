@@ -302,7 +302,7 @@ go build -gcflags="-m -m" ./...   # подробнее, с причинами ц
 `append` не перевыделял и не копировал по мере роста:
 
 ```go
-out := []int{}                     // плохо: рост перевыделениями (N аллокаций + копирований)
+out := []int{}                     // плохо: рост перевыделениями (≈log₂N аллокаций, ~2N копий элементов)
 out := make([]int, 0, len(in))     // хорошо: len=0, cap=len(in) — одна аллокация
 m   := make(map[string]int, len(in))   // подсказка ёмкости работает и для map
 for _, x := range in {
@@ -599,7 +599,7 @@ ctx, cancel := context.WithTimeout(parent, 5*time.Second)
 defer cancel()                            // даже если уложились в таймаут
 ```
 
-`time.After` в цикле `select` — та же ловушка: таймер живёт до срабатывания. `go vet` ловит часть
+`time.After` в цикле `select` — до Go 1.23 та же ловушка (таймер жил до срабатывания); с Go 1.23 неиспользуемый таймер собирается GC, остаётся лишь аллокация на каждой итерации. `go vet` ловит часть
 таких случаев («the cancel function is not used»). Подробности по `context` и `time.Ticker` —
 у владельца [CONCURRENCY_PATTERNS](./CONCURRENCY_PATTERNS.md).
 

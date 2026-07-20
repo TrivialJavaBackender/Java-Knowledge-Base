@@ -29,7 +29,7 @@ type Handler interface {
 аргумента:
 
 - **`w http.ResponseWriter`** — то, во что вы пишете ответ. Это интерфейс: вы устанавливаете заголовки,
-  пишете код статуса и тело. Аналог `HttpServletResponse`, но это **интерфейс**, а не класс.
+  пишете код статуса и тело. Аналог `HttpServletResponse` — и, как он, это **интерфейс** (конкретную реализацию даёт рантайм/контейнер).
 - **`r *http.Request`** — входящий запрос: метод, URL, заголовки, тело, контекст. Указатель, потому что
   структура большая и местами изменяемая. Аналог `HttpServletRequest`.
 
@@ -342,10 +342,10 @@ func WithLogging(next http.Handler) http.Handler {
 
 ```go
 var handler http.Handler = mux
-handler = WithRecover(handler)   // самый внешний — ловит панику всех нижних
 handler = WithLogging(handler)
 handler = WithRequestID(handler)
-// порядок входа: RequestID → Logging → Recover → mux
+handler = WithRecover(handler)   // применён последним → самый внешний: ловит панику всех middleware и mux
+// порядок входа: Recover → RequestID → Logging → mux
 ```
 
 ### Типовые middleware
