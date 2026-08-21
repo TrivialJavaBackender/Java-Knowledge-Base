@@ -171,7 +171,7 @@ val state: StateFlow<UiState> = repository.dataFlow
 
 ### `SharingStarted` стратегии
 
-| Стратегия | Когда запускать upstream |
+| Стратегия | Когда запускать апстрим |
 |-----------|--------------------------|
 | `Eagerly` | сразу при `shareIn`/`stateIn`, никогда не останавливать |
 | `Lazily` | при появлении первого подписчика, никогда не останавливать |
@@ -225,7 +225,7 @@ sensorFlow.sample(1000).collect { upload(it) }
 
 `WhileSubscribed(stopTimeoutMillis, replayExpirationMillis)`:
 
-- **stopTimeoutMillis** — задержка после ухода последнего подписчика, прежде чем остановить upstream. Если за это время появится новый — продолжит без перезапуска.
+- **stopTimeoutMillis** — задержка после ухода последнего подписчика, прежде чем остановить апстрим. Если за это время появится новый — продолжит без перезапуска.
 - **replayExpirationMillis** — после остановки сколько ждать перед сбросом replay-буфера. `Long.MAX_VALUE` (default) — никогда не сбрасывать.
 
 Канонические комбинации:
