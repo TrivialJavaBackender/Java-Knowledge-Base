@@ -1,12 +1,23 @@
-# Suspend Internals — как работает CPS-трансформация
+# Suspend Internals — что генерирует компилятор и кто возобновляет корутину
 
-> Понимание того, как `suspend` функции компилируются в state-machine, помогает рассуждать о производительности, правильно мостить callback API и не паниковать при просмотре stack trace.
+> **Какую проблему решает.** Убирает магию: показывает, что `suspend` — это обычный JVM-метод с
+> дополнительным параметром, а «приостановка» — обычный `return`.
+> **Кому это надо.** Тому, кто мостит callback-API, отлаживает зависшие корутины, объясняет на
+> собеседовании «почему поток не блокируется», или ловит утечку памяти через продолжение.
+> **Когда НЕ надо.** Чтобы просто писать `launch`/`async`/`Flow`, эта глава не нужна —
+> хватит [`BASICS.md`](BASICS.md).
+
+Предыстория — [`WHY_COROUTINES.md`](WHY_COROUTINES.md): корутина не «лёгкий поток», а колбек,
+который написал компилятор. Здесь — доказательство и подробности.
+
+Все листинги ниже проверяются на коде этого модуля: команды `javap` можно выполнить у себя.
 
 ---
 
-## 1. Continuation — главная абстракция
+## 1. `Continuation` — «что делать дальше»
 
-Из `kotlin.coroutines`:
+Весь механизм держится на одном интерфейсе из стандартной библиотеки
+(`kotlin.coroutines.Continuation`):
 
 ```kotlin
 public interface Continuation<in T> {
@@ -15,254 +26,437 @@ public interface Continuation<in T> {
 }
 ```
 
-`Continuation<T>` — это **колбэк**: "когда suspend-операция завершится, вызови меня с результатом".
+Читается так: «у меня есть контекст, и когда у тебя появится значение типа `T` — позови меня».
+Это ровно тот колбек, который в мире колбеков ([`WHY_COROUTINES.md`](WHY_COROUTINES.md) §2) писали
+руками.
 
-`Result<T>` — это `success(value)` или `failure(throwable)`. Поэтому в одном и том же `Continuation` рантайм возобновляет корутину как при успехе, так и при ошибке.
+**Почему один метод, а не пара `resume` / `resumeWithException`.** Успех и ошибка идут одним каналом
+через `Result<T>` — это делает возобновление единообразным: возобновляющей стороне не нужно знать,
+чем закончилась операция, она просто передаёт `Result`. Привычные `resume(value)` и
+`resumeWithException(e)` — это `@InlineOnly`-обёртки в той же stdlib:
+
+```kotlin
+public inline fun <T> Continuation<T>.resume(value: T): Unit = resumeWith(Result.success(value))
+public inline fun <T> Continuation<T>.resumeWithException(e: Throwable): Unit = resumeWith(Result.failure(e))
+```
 
 ---
 
-## 2. CPS-трансформация (Continuation-Passing Style)
+## 2. Что компилятор делает с сигнатурой
 
-Компилятор Kotlin превращает `suspend fun` так:
+Возьмём функцию из упражнения [Ex01](../src/main/kotlin/exercises/Ex01_Basics.kt):
 
 ```kotlin
-// Источник
-suspend fun foo(): Int {
-    val a = bar()
-    val b = baz()
-    return a + b
-}
+suspend fun fetchProfile(id: Long): Profile
+```
 
-// После компиляции (упрощённо, JVM bytecode):
-fun foo(cont: Continuation<Int>): Any? {
-    // ...state machine
+Скомпилируем модуль и посмотрим на реальную JVM-сигнатуру:
+
+```bash
+mvn -q compile
+javap -p target/classes/exercises/Ex01_BasicsKt.class
+```
+
+```
+public final class exercises.Ex01_BasicsKt {
+  public static final java.lang.Object fetchProfile(long, kotlin.coroutines.Continuation<? super exercises.Profile>);
+  public static final java.lang.Object fetchPosts(long, kotlin.coroutines.Continuation<? super java.util.List<exercises.Post>>);
+  ...
 }
 ```
 
-Возвращаемый тип становится `Any?`:
-- При successful завершении возвращает `Int` (boxed).
-- При suspension возвращает специальный маркер `COROUTINE_SUSPENDED`.
-- Передаётся скрытый параметр `Continuation<Int>` в качестве "куда вернуть результат".
+Изменений ровно два:
+
+1. **Добавлен скрытый параметр** `Continuation<? super Profile>` — тот самый колбек.
+2. **Возвращаемый тип стал `Object`** (в Kotlin-терминах `Any?`), хотя в исходнике был `Profile`.
+
+### Почему `Object`, а не `Profile`
+
+Потому что функция возвращает **одно из двух**:
+
+- готовое значение `Profile` — если результат уже есть;
+- специальный маркер `COROUTINE_SUSPENDED` (объект-синглтон
+  `kotlin.coroutines.intrinsics.CoroutineSingletons.COROUTINE_SUSPENDED`) — если результата пока нет.
+
+Общий тип для «`Profile` или маркер» — `Any?`. Отсюда важнейшее следствие:
+
+> **Fast path.** Приостановка — не обязательное, а *возможное* поведение. Если значение уже готово
+> (лежит в кэше, канал не пуст, `delay(0)`), suspend-функция возвращает его как обычная функция:
+> ни переключения потока, ни постановки в очередь, ни лишних аллокаций.
+
+Именно поэтому нельзя говорить «suspend-функция всегда приостанавливается» или «suspend-функция
+уходит в фон». Она *может* приостановиться. И решает это не ключевое слово, а конкретная реализация.
 
 ---
 
-## 3. State machine — пример
+## 3. Машина состояний
+
+Тело функции с точками приостановки компилятор превращает в конечный автомат. Исходник:
 
 ```kotlin
-suspend fun load(): String {
-    delay(100)              // suspension point 1
-    val a = fetchA()        // suspension point 2
-    val b = fetchB()        // suspension point 3
-    return "$a $b"
+suspend fun handle(id: Long): Report {
+    val user = loadUser(id)        // точка приостановки #1
+    val orders = loadOrders(user)  // точка приостановки #2
+    return Report(user, orders)
 }
 ```
 
-Псевдокод после компиляции:
+Псевдо-Java того, что генерируется (упрощённо, но по сути так):
+
+```java
+Object handle(long id, Continuation<?> $cont) {
+    StateMachine sm = ($cont instanceof StateMachine) ? (StateMachine) $cont : new StateMachine($cont);
+    Object result = sm.result;
+
+    switch (sm.label) {
+        case 0:
+            sm.label = 1;
+            result = loadUser(id, sm);                 // передаём САМ автомат как продолжение
+            if (result == COROUTINE_SUSPENDED) return COROUTINE_SUSPENDED;
+            // иначе проваливаемся дальше: значение уже готово (fast path)
+        case 1:
+            User user = (User) result;
+            sm.user = user;                            // локальная переменная → поле объекта
+            sm.label = 2;
+            result = loadOrders(user, sm);
+            if (result == COROUTINE_SUSPENDED) return COROUTINE_SUSPENDED;
+        case 2:
+            return new Report(sm.user, (List<Order>) result);
+    }
+}
+```
+
+Что здесь важно:
+
+- **Локальные переменные, живущие через приостановку, становятся полями** объекта состояния
+  (в байткоде это `L$0`, `L$1`, …). Поэтому корутина «весит» столько, сколько её живые локальные
+  переменные, а не мегабайт стека.
+- **Одна и та же функция вызывается повторно** с тем же объектом-продолжением — столько раз, сколько
+  в ней точек приостановки. Реального стека вызовов между приостановками не существует.
+- **Автомат сам является продолжением**: он передаётся вниз как `Continuation`, и его же позовут при
+  возобновлении.
+
+Это не гипотеза — посмотрите на любую лямбду билдера в скомпилированном модуле:
+
+```bash
+javap -p 'target/classes/exercises/Ex06_FlowKt$main$1.class'
+```
+
+```
+final class exercises.Ex06_FlowKt$main$1 extends kotlin.coroutines.jvm.internal.SuspendLambda
+        implements kotlin.jvm.functions.Function2<...> {
+  int label;
+  public final java.lang.Object invokeSuspend(java.lang.Object);
+  public final kotlin.coroutines.Continuation<kotlin.Unit> create(java.lang.Object, kotlin.coroutines.Continuation<?>);
+}
+```
+
+`int label` — номер шага автомата. `invokeSuspend` — один шаг. `SuspendLambda` — базовый класс из
+stdlib, наследник `BaseContinuationImpl` (см. §4, шаг 5).
+
+---
+
+## 4. Кто и как возобновляет корутину
+
+Самый частый вопрос — и самый непроговорённый. Разберём по шагам на `delay(1000)`.
+
+### Шаг 1. `delay` никого не усыпляет
+
+`delay` — не `Thread.sleep`. Вот его тело (`kotlinx-coroutines-core`, `Delay.kt`):
 
 ```kotlin
-class LoadStateMachine(completion: Continuation<String>) : ContinuationImpl(completion) {
-    var label: Int = 0
-    var a: String? = null
+public suspend fun delay(timeMillis: Long) {
+    if (timeMillis <= 0) return                      // fast path: приостановки не будет вовсе
+    return suspendCancellableCoroutine { cont ->
+        cont.context.delay.scheduleResumeAfterDelay(timeMillis, cont)
+    }
+}
+```
 
-    override fun invokeSuspend(result: Result<Any?>): Any? {
-        when (label) {
-            0 -> {
-                label = 1
-                val r = delay(100, this)
-                if (r === COROUTINE_SUSPENDED) return COROUTINE_SUSPENDED
-                // fallthrough если delay вернулся синхронно
+То есть `delay` делает ровно одно: **отдаёт своё продолжение таймеру** и возвращает
+`COROUTINE_SUSPENDED`. Никто нигде не спит.
+
+### Шаг 2. Поток уходит
+
+Метод вернул управление — кадр стека снят, поток возвращается в пул и берёт следующую задачу из
+очереди. Приостановленную корутину теперь держит **только** ссылка на объект-продолжение, которая
+лежит у таймера. Это обычный объект в куче; ничего «не замораживается», потому что замораживать
+нечего — состояние уже сохранено в полях.
+
+### Шаг 3. Таймер зовёт `resume`
+
+Через 1000 мс поток планировщика задержек (в kotlinx это `DefaultExecutor` / event loop диспетчера)
+вызывает `cont.resume(Unit)`.
+
+Возобновляющая сторона может быть какой угодно — это и есть ответ на «кто возобновляет»:
+
+| Что приостановило | Кто возобновит |
+|---|---|
+| `delay`, `withTimeout` | поток планировщика задержек |
+| `Channel.receive` | корутина, которая позвала `send` |
+| `Mutex.lock`, `Semaphore.acquire` | корутина, которая освободила разрешение |
+| `Job.join`, `Deferred.await` | корутина, которая завершилась |
+| `suspendCancellableCoroutine` вокруг HTTP-клиента | поток пула этого клиента, из колбека |
+| `CompletableFuture.await()` | поток, который завершил future |
+
+Никакого «планировщика корутин», который ходит и проверяет, не пора ли кого-то разбудить, **не
+существует**. Возобновление всегда инициирует тот, у кого появился результат.
+
+### Шаг 4. Диспетчер решает, *где* продолжить
+
+`cont` — это не голое продолжение из §3, а обёртка `DispatchedContinuation`, которую надел диспетчер
+(см. §6). Её `resumeWith` (`kotlinx-coroutines-core`, `internal/DispatchedContinuation.kt`):
+
+```kotlin
+override fun resumeWith(result: Result<T>) {
+    val state = result.toState()
+    if (dispatcher.safeIsDispatchNeeded(context)) {
+        _state = state
+        dispatcher.safeDispatch(context, this)   // положить себя задачей в очередь диспетчера
+    } else {
+        executeUnconfined(state, MODE_ATOMIC) { … }  // продолжить прямо здесь и сейчас
+    }
+}
+```
+
+Две ветки — это буквально весь выбор:
+
+- **`isDispatchNeeded == true`** (`Dispatchers.Default`, `IO`, `Main`): продолжение упаковывается в
+  задачу и кладётся в очередь. Дальше её подхватит воркер пула — поток с именем вида
+  `DefaultDispatcher-worker-3`. Поток таймера при этом свободен через микросекунды.
+- **`isDispatchNeeded == false`** (`Dispatchers.Unconfined`): продолжение выполняется **прямо на
+  потоке того, кто позвал `resume`** — то есть на потоке таймера. Отсюда «странный» порядок вывода в
+  примерах с `Unconfined` и правило «в проде почти никогда».
+
+### Шаг 5. Трамплин: возврат по «стеку корутины» — это цикл
+
+Воркер достал задачу и в конце концов вызвал `resumeWith` у самого автомата. Он унаследован от
+`BaseContinuationImpl` (`kotlin-stdlib`, `kotlin/coroutines/jvm/internal/ContinuationImpl.kt`), и вот
+что там:
+
+```kotlin
+public final override fun resumeWith(result: Result<Any?>) {
+    var current = this
+    var param = result
+    while (true) {                                        // ← цикл, а не рекурсия
+        with(current) {
+            val completion = completion!!
+            val outcome: Result<Any?> = try {
+                val outcome = invokeSuspend(param)        // один шаг автомата
+                if (outcome === COROUTINE_SUSPENDED) return   // ← снова приостановились: поток свободен
+                Result.success(outcome)
+            } catch (exception: Throwable) {
+                Result.failure(exception)
             }
-            1 -> {
-                label = 2
-                val r = fetchA(this)
-                if (r === COROUTINE_SUSPENDED) return COROUTINE_SUSPENDED
-                a = r as String
-            }
-            2 -> {
-                label = 3
-                val r = fetchB(this)
-                if (r === COROUTINE_SUSPENDED) return COROUTINE_SUSPENDED
-                val b = r as String
-                return "$a $b"   // комплит, передаст в parent.resumeWith
+            if (completion is BaseContinuationImpl) {
+                current = completion                      // «вернулись» вызывающей корутине
+                param = outcome
+            } else {
+                completion.resumeWith(outcome)            // дошли до корня
+                return
             }
         }
     }
 }
 ```
 
-Каждая suspension-точка — это `case` в switch. Локальные переменные, живые между точками, становятся **полями** state-machine объекта.
+В комментарии самой stdlib это названо прямо: *«This loop unrolls recursion in
+`current.resumeWith(param)` to make saner and shorter stack traces on resume»*.
 
-### Что важно
+Два практических следствия:
 
-1. Один `suspend fun` = один объект state-machine (на каждый вызов).
-2. Стэк JVM **не сохраняется** — корутина "парсит" свой call-stack в поля объекта.
-3. Это объясняет, почему suspend-функции **дёшевы**: нет переключения OS-потока, нет copy of stack — только аллокация state-machine объекта на куче.
+1. **Цепочка suspend-вызовов любой глубины не даёт `StackOverflowError` при возврате** — возврат
+   реализован циклом, а не вложенными вызовами.
+2. **Стектрейсы «рваные»**: JVM-стек в момент ошибки содержит один шаг автомата плюс кадры
+   диспетчера, а не всю логическую цепочку вызовов. Лечится восстановлением трейса — §8.
 
 ---
 
-## 4. `suspendCoroutine` — мост из callback API
+## 5. Почему поток не блокируется
 
-Раз есть `Continuation`, можно предоставить его callback'у и завершить корутину явно:
+Собрав §2–§4 вместе, получаем ответ в одном предложении:
+
+> В момент приостановки suspend-функция делает `return COROUTINE_SUSPENDED` — обычный возврат из
+> обычного JVM-метода. Кадр стека снимается, поток идёт за следующей задачей. Состояние корутины
+> уже лежит в объекте на куче, поэтому ничего сохранять и «замораживать» не нужно.
+
+Сравните с блокировкой: `Thread.sleep(1000)` или `socket.read()` **не возвращают управление**. Поток
+остаётся в состоянии `TIMED_WAITING`/`RUNNABLE`-в-ядре, его стек живёт, и планировщик ОС не может
+отдать этот поток кому-то другому.
+
+### Граница честности
+
+Всё вышесказанное работает **только** для операций, которые умеют отдать своё продолжение: `delay`,
+каналы, `Mutex`, `await`, неблокирующие клиенты, обёрнутые колбеки. Вот это по-прежнему блокирует
+поток целиком, несмотря на `suspend` в сигнатуре:
 
 ```kotlin
-suspend fun awaitCallback(): String = suspendCoroutine { cont ->
-    legacyApi.fetchAsync(object : Callback {
-        override fun onSuccess(value: String) = cont.resume(value)
+suspend fun bad(): ByteArray {
+    Thread.sleep(1000)                  // поток занят: возврата не было
+    return File("/tmp/x").readBytes()   // поток занят
+}
+```
+
+Компилятор такое не ловит. Поэтому существуют:
+
+- `Dispatchers.IO` — пул потоков, которые не жалко заблокировать (см. [`DISPATCHERS.md`](DISPATCHERS.md));
+- `runInterruptible` — чтобы отмена корутины дошла до блокирующего вызова через `Thread.interrupt`
+  (см. [`INTEROP.md`](INTEROP.md)).
+
+---
+
+## 6. Диспетчер — это перехватчик продолжений
+
+`CoroutineDispatcher` наследует `ContinuationInterceptor` — элемент контекста
+(см. [`SCOPE_CONTEXT.md`](SCOPE_CONTEXT.md)). Его работа — один метод:
+
+```kotlin
+public fun <T> interceptContinuation(continuation: Continuation<T>): Continuation<T>
+```
+
+Когда корутина стартует, библиотека спрашивает у контекста перехватчик и даёт ему обернуть
+продолжение. Диспетчер возвращает `DispatchedContinuation` из §4 — обёртку, которая при возобновлении
+кладёт работу в нужную очередь.
+
+Отсюда два вывода:
+
+- **Смена диспетчера дёшева**: `withContext(Dispatchers.IO)` не создаёт потоков, а меняет элемент
+  контекста, то есть обёртку над продолжением.
+- **«На каком потоке я выполняюсь» определяется контекстом, а не словом `suspend`.** Без диспетчера
+  suspend-код выполняется там же, где его позвали.
+
+---
+
+## 7. Мост из мира колбеков
+
+Раз возобновление — это вызов `resumeWith`, любой callback-API превращается в suspend-функцию
+выдачей продолжения наружу:
+
+```kotlin
+suspend fun fetch(id: Long): Data = suspendCancellableCoroutine { cont ->
+    val call = client.fetchAsync(id, object : Callback {
+        override fun onSuccess(d: Data) = cont.resume(d)
         override fun onError(e: Throwable) = cont.resumeWithException(e)
     })
+    cont.invokeOnCancellation { call.cancel() }   // без этого отмена не доедет до библиотеки
 }
 ```
 
-`suspendCoroutine { cont -> ... }` приостанавливает текущую корутину и даёт тебе `Continuation`. Когда вызовешь `cont.resume(...)` — корутина возобновится.
+| API | Отмена | Когда использовать |
+|---|---|---|
+| `suspendCoroutine` | нет | почти никогда: ожидание становится неотменяемым |
+| `suspendCancellableCoroutine` | да, через `invokeOnCancellation` | любые колбеки, futures, слушатели |
+| `suspendCoroutineUninterceptedOrReturn` | — | intrinsics: вернуть значение синхронно, если оно готово; территория библиотек |
 
-**Правила:**
-- `cont.resume` или `cont.resumeWithException` нужно вызвать **ровно один раз**.
-- Если вызвать дважды — `IllegalStateException`.
-- Если не вызвать — корутина зависнет.
-
----
-
-## 5. `suspendCancellableCoroutine` — мост с поддержкой отмены
-
-```kotlin
-suspend fun awaitWithCancel(): String = suspendCancellableCoroutine { cont ->
-    val task = legacyApi.fetchAsync(object : Callback {
-        override fun onSuccess(v: String) = cont.resume(v)
-        override fun onError(e: Throwable) = cont.resumeWithException(e)
-    })
-    cont.invokeOnCancellation { task.cancel() }
-}
-```
-
-Главное отличие — `cont.invokeOnCancellation { ... }` позволяет отменить **внешнюю работу** при отмене корутины. Без этого `cancel()` корутины оставит callback "висеть".
-
-**Используй `suspendCancellableCoroutine` всегда**, когда мостишь:
-- Java callback API (Future, ListenableFuture)
-- HTTP клиенты (OkHttp Call.cancel)
-- Listener-based API
-
-`suspendCoroutine` — только для гарантированно быстрых, не-отменяемых операций.
+Разбор всех мостов (колбеки, `CompletableFuture`, блокирующий Java-API, обратное направление) —
+в [`INTEROP.md`](INTEROP.md). Практика — упражнение
+[Ex09](../src/main/kotlin/exercises/Ex09_SuspendInternals.kt).
 
 ---
 
-## 6. Почему `suspend` "free" — анализ производительности
+## 8. Стектрейсы и диагностика
 
-### Стоимость
-- **Аллокация**: один объект `ContinuationImpl` на каждый вызов suspend-функции с >0 suspension points.
-- **JIT может elide**: если функция компилируется и continuation не убегает — escape analysis может выкинуть аллокацию (теоретически; на практике зависит от JIT).
-- **Tail-call оптимизации нет** — каждая suspension добавляет state-machine.
-
-### Сравнение с потоком
-- Поток ОС: ~1 МБ стека + syscall на создание + контекст-switching через kernel.
-- Continuation: ~десятки байт + аллокация + planning через user-space scheduler.
-
-Корутины выгодны когда **число задач >> число потоков**. Для долгих CPU-задач преимущества в "лёгкости" исчезают.
-
----
-
-## 7. `intrinsics` — продвинутые мосты
-
-```kotlin
-import kotlin.coroutines.intrinsics.*
-
-suspend fun fastPath(): Int = suspendCoroutineUninterceptedOrReturn { cont ->
-    if (cached != null) cached!!     // synchronously return — БЕЗ suspension
-    else {
-        startAsync(cont)
-        COROUTINE_SUSPENDED
-    }
-}
-```
-
-`suspendCoroutineUninterceptedOrReturn` позволяет **не приостанавливаться**, если значение готово синхронно. Используется в performance-critical библиотеках (`kotlinx-coroutines` сама внутри).
-
-В обычном коде — используй `suspendCancellableCoroutine`. Intrinsics — `@DangerousCoroutineApi`-территория.
-
----
-
-## 8. Stack trace в корутинах
-
-Поскольку JVM-стек не отражает иерархию suspend-вызовов, классический stack trace может быть неинформативен:
+Так как непрерывного стека между приостановками нет, «сырой» трейс выглядит так:
 
 ```
 at com.example.MyClass$loadData$1.invokeSuspend(MyClass.kt:42)
-at kotlin.coroutines.jvm.internal.BaseContinuationImpl.resumeWith(...)
-at kotlinx.coroutines.DispatchedTask.run(...)
+at kotlin.coroutines.jvm.internal.BaseContinuationImpl.resumeWith(ContinuationImpl.kt:33)
+at kotlinx.coroutines.DispatchedTask.run(DispatchedTask.kt:104)
 ```
 
-### `-Dkotlinx.coroutines.debug=on`
+Что с этим делать:
 
-Включает имя корутины в имя потока:
+- **Stacktrace recovery** (включено по умолчанию): при пересечении границы приостановки исключение
+  копируется, и в трейс добавляется кадр `(Coroutine boundary)` с информацией о том, откуда пришли.
+  Отключается флагом `-Dkotlinx.coroutines.stacktrace.recovery=false`.
+- **Debug-режим**: `-ea` или `-Dkotlinx.coroutines.debug` — имя корутины попадает в имя потока:
+  `DefaultDispatcher-worker-1 @loader#42`. Отсюда польза от `CoroutineName("...")` в контексте.
+- **Живая диагностика зависаний**: артефакт `kotlinx-coroutines-debug` и
+  `DebugProbes.dumpCoroutines()` печатают дерево живых корутин с их состоянием и точкой
+  приостановки. Это прямой ответ на «как понять, где висит прод»: видно не потоки (они свободны!),
+  а именно приостановленные корутины.
+
+```kotlin
+DebugProbes.install()
+// ... воспроизвели зависание
+DebugProbes.dumpCoroutines()   // кто где приостановлен и как долго
 ```
-DefaultDispatcher-worker-1 @loader#42
-```
-
-И "stitching" — stack trace включает информацию о родителях.
-
-### `-Dkotlinx.coroutines.stacktrace.recovery=true` (default since 1.3)
-
-Восстанавливает stack trace через caller frames при пробросе исключения.
-
-В тестах используй `runTest` — там stack trace обогащён.
 
 ---
 
-## 9. Continuation Interceptor
+## 9. Сколько стоит корутина
 
-`CoroutineDispatcher` extends `ContinuationInterceptor`. Метод `interceptContinuation(cont)` оборачивает каждое возобновление в логику диспатчера.
+| | Поток платформы JVM | Корутина |
+|---|---|---|
+| Память | ~1 МБ зарезервированного стека + объект ядра | объект-продолжение: заголовок + поля живых локальных переменных, сотни байт |
+| Создание | системный вызов, десятки–сотни микросекунд | аллокация объекта |
+| Переключение | контекст ядра | вызов метода + возможная постановка задачи в очередь |
+| Порядок величин | тысячи | миллионы |
 
-Это объясняет, почему смена диспатчера так дёшева — это просто **обёртывание** `Continuation`, не создание потоков.
+Уточнения, которые стоит держать в голове:
+
+- Аллокация автомата происходит **на вызов suspend-функции, у которой есть хотя бы одна точка
+  приостановки**. Функция без точек приостановки компилируется почти как обычная.
+- Fast path (§2) не аллоцирует ничего сверх уже созданного автомата.
+- Для **CPU-bound** работы преимущество «лёгкости» исчезает: там узкое место — ядра, а не потоки.
+- **Утечка памяти через продолжение** — реальный сценарий: если большой объект лежит в локальной
+  переменной, живущей через приостановку, он становится полем автомата и удерживается всё время
+  ожидания. Лечится сужением области видимости переменной.
 
 ---
 
-## 10. Реальная польза знания внутренностей
+## 10. Зачем это знать на практике
 
-Знать CPS-трансформацию полезно для:
-
-1. **Мостить callback API** — `suspendCancellableCoroutine` + `invokeOnCancellation`.
-2. **Понимать утечки памяти** — state-machine может удерживать ссылки на крупные объекты, если они в локальных переменных вокруг suspension.
-3. **Не паниковать при "странных" stack trace** — много `BaseContinuationImpl`, `invokeSuspend`, dispatch frames.
-4. **Объяснить, почему `suspend fun` дешёвая** — аллокация state-machine vs. поток.
-5. **Правильно реализовать кастомный диспатчер** — переопределить `dispatch(context, block)`.
+1. **Мостить callback-API корректно** — `suspendCancellableCoroutine` + `invokeOnCancellation`.
+2. **Отлаживать зависания** — потоки пустые, а корутины висят; смотреть `DebugProbes`, а не дамп потоков.
+3. **Понимать `Dispatchers.Unconfined`** и почему порядок вывода с ним «неправильный» (§4, шаг 4).
+4. **Не бояться странных стектрейсов** и знать, каким флагом их починить.
+5. **Объяснять на собеседовании**, почему поток не блокируется, — не словом «магия», а через
+   `return COROUTINE_SUSPENDED`.
+6. **Видеть утечку через локальную переменную** вокруг долгой приостановки.
 
 ---
 
 ## Шпаргалка
 
 ```kotlin
-// Мост Java callback → suspend
+// Сигнатура: suspend fun f(x: Int): R  →  Object f(int x, Continuation<? super R> $cont)
+// Возврат: либо R, либо COROUTINE_SUSPENDED
+
+// Мост из колбека
 suspend fun fetch(id: Long): Data = suspendCancellableCoroutine { cont ->
-    val call = client.fetchAsync(id, object : Callback {
-        override fun onSuccess(d: Data) = cont.resume(d)
-        override fun onError(e: Throwable) = cont.resumeWithException(e)
-    })
+    val call = client.fetchAsync(id, { cont.resume(it) }, { cont.resumeWithException(it) })
     cont.invokeOnCancellation { call.cancel() }
 }
-
-// CompletableFuture → Deferred (готовый mosti, KX:
-import kotlinx.coroutines.future.await
-val data = future.await()
 ```
+
+- `Continuation` = `context` + `resumeWith(Result<T>)`. Это колбек, сгенерированный компилятором.
+- Приостановка = `return COROUTINE_SUSPENDED`; поток свободен, состояние — в полях автомата.
+- Возобновляет тот, у кого появился результат: таймер, другая корутина, поток HTTP-клиента.
+- Диспетчер решает не «кто», а **где**: `dispatch` в очередь либо продолжение на месте (`Unconfined`).
+- `BaseContinuationImpl.resumeWith` — цикл-трамплин: нет `StackOverflowError`, но и нет цельного стека.
+- `suspend` не делает блокирующий вызов неблокирующим — для этого `Dispatchers.IO` + `runInterruptible`.
 
 ---
 
 ## Источники
 
+**Исходники (всё в этом файле сверено по ним):**
+- `kotlin-stdlib` → `kotlin/coroutines/Continuation.kt`, `kotlin/coroutines/jvm/internal/ContinuationImpl.kt` (`BaseContinuationImpl.resumeWith`).
+- `kotlinx-coroutines-core` → `Delay.kt` (`delay`, `scheduleResumeAfterDelay`), `internal/DispatchedContinuation.kt` (`resumeWith`).
+- Локально распаковываются из `~/.m2/repository/.../kotlin-stdlib-<v>-sources.jar` и `kotlinx-coroutines-core-jvm-<v>-sources.jar`.
+
 **Спецификация:**
-- [KEEP-176: Coroutines proposal](https://github.com/Kotlin/KEEP/blob/master/proposals/coroutines.md) — особенно раздел «Implementation details», где описана CPS-трансформация и state machine.
-- [`Continuation` (stdlib)](https://kotlinlang.org/api/latest/jvm/stdlib/kotlin.coroutines/-continuation/) — runtime-представление приостановленной корутины.
-- [`suspendCoroutine` / `suspendCancellableCoroutine`](https://kotlinlang.org/api/kotlinx.coroutines/kotlinx-coroutines-core/kotlinx.coroutines/suspend-cancellable-coroutine.html) — основные точки моста с callback API.
+- [KEEP-176: Coroutines proposal](https://github.com/Kotlin/KEEP/blob/master/proposals/coroutines.md) — раздел «Implementation details»: CPS-трансформация и state machine.
+- [`Continuation` (stdlib API)](https://kotlinlang.org/api/latest/jvm/stdlib/kotlin.coroutines/-continuation/)
+- [`suspendCancellableCoroutine`](https://kotlinlang.org/api/kotlinx.coroutines/kotlinx-coroutines-core/kotlinx.coroutines/suspend-cancellable-coroutine.html)
 
-**Talks (canonical для internals):**
-- [Roman Elizarov — «Deep Dive into Coroutines on JVM» (KotlinConf 2017)](https://www.youtube.com/watch?v=YrrUCSi72E8) — пошаговый разбор того, во что компилятор превращает `suspend fun`.
-- [Roman Elizarov — «Coroutines: First things first» (KotlinConf 2017)](https://www.youtube.com/watch?v=_hfBv0a09Jc) — высокоуровневая мотивация.
-- [Pavlo Liesnikov — «Kotlin Coroutines under the hood» (KotlinConf)](https://www.youtube.com/watch?v=Xo94e3WTw78)
-
-**Theory background:**
-- [Wadler — «Monads and Composable Continuations» (LFP)](https://homepages.inf.ed.ac.uk/wadler/papers/marktoberdorf/baastad.pdf) — один из источников, почему CPS — естественная форма для async-кода.
+**Talks:**
+- [Roman Elizarov — «Deep Dive into Coroutines on JVM» (KotlinConf 2017)](https://www.youtube.com/watch?v=YrrUCSi72E8) — пошаговый разбор генерации автомата.
+- [Pavlo Liesnikov — «Kotlin Coroutines under the hood»](https://www.youtube.com/watch?v=Xo94e3WTw78)
 
 **Книги:**
-- [*Kotlin Coroutines: Deep Dive* (Moskała)](https://kt.academy/book/coroutines) — отдельная глава «How does suspension work».
+- [*Kotlin Coroutines: Deep Dive* (Marcin Moskała)](https://kt.academy/book/coroutines) — главы «How does suspension work» и «Coroutines under the hood».
 
-**Compiler:**
-- [`CoroutineCodegen` в kotlin-compiler (OpenSource)](https://github.com/JetBrains/kotlin/tree/master/compiler/backend/src/org/jetbrains/kotlin/codegen/coroutines) — собственно реализация трансформации в JVM-байткод.
+**Компилятор:**
+- [`codegen/coroutines` в JetBrains/kotlin](https://github.com/JetBrains/kotlin/tree/master/compiler/backend/src/org/jetbrains/kotlin/codegen/coroutines) — сама трансформация в байткод.

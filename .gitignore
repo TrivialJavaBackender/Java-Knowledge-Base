@@ -46,3 +46,4 @@ web/prisma/dev.db
 web/prisma/dev-1.db
 web/prisma/dev.db-journal
 web/next-env.d.ts
+.idea

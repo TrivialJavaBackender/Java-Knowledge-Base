@@ -80,6 +80,30 @@ Canonical concept → owner file map. One concept, one owner. Other modules must
 - suspendCancellableCoroutine → modules/kotlin-coroutines/theory/SUSPEND_INTERNALS.md
 - runTest → modules/kotlin-coroutines/theory/TESTING_INTEROP.md
 - TestDispatcher / virtual time → modules/kotlin-coroutines/theory/TESTING_INTEROP.md
+- backgroundScope (тесты) → modules/kotlin-coroutines/theory/TESTING_INTEROP.md
+- мотивация корутин / callback hell → modules/kotlin-coroutines/theory/WHY_COROUTINES.md
+- когда корутины не нужны → modules/kotlin-coroutines/theory/WHY_COROUTINES.md
+- COROUTINE_SUSPENDED / fast path → modules/kotlin-coroutines/theory/SUSPEND_INTERNALS.md
+- Continuation.resumeWith → modules/kotlin-coroutines/theory/SUSPEND_INTERNALS.md
+- механика возобновления (DispatchedContinuation, трамплин) → modules/kotlin-coroutines/theory/SUSPEND_INTERNALS.md
+- DebugProbes.dumpCoroutines → modules/kotlin-coroutines/theory/SUSPEND_INTERNALS.md
+- CoroutineContext как indexed set (CombinedContext) → modules/kotlin-coroutines/theory/SCOPE_CONTEXT.md
+- ThreadContextElement / asContextElement → modules/kotlin-coroutines/theory/SCOPE_CONTEXT.md
+- Mutex (kotlinx.coroutines.sync) → modules/kotlin-coroutines/theory/SHARED_STATE.md
+- Semaphore (kotlinx.coroutines.sync) → modules/kotlin-coroutines/theory/SHARED_STATE.md
+- thread confinement (limitedParallelism(1)) → modules/kotlin-coroutines/theory/SHARED_STATE.md
+- актор на Channel → modules/kotlin-coroutines/theory/SHARED_STATE.md
+- Flow fusion (ChannelFlow) → modules/kotlin-coroutines/theory/FLOW_INTERNALS.md
+- SafeCollector / Flow invariant → modules/kotlin-coroutines/theory/FLOW_INTERNALS.md
+- AbortFlowException / exception transparency → modules/kotlin-coroutines/theory/FLOW_INTERNALS.md
+- callback → suspend bridge (suspendCancellableCoroutine) → modules/kotlin-coroutines/theory/INTEROP.md
+- CompletableFuture interop (await / future / asDeferred) → modules/kotlin-coroutines/theory/INTEROP.md
+- runInterruptible → modules/kotlin-coroutines/theory/INTEROP.md
+- callbackFlow / awaitClose → modules/kotlin-coroutines/theory/INTEROP.md
+- single-flight (дедупликация загрузок) → modules/kotlin-coroutines/theory/BACKEND_PATTERNS.md
+- coroutine rate limiter → modules/kotlin-coroutines/theory/BACKEND_PATTERNS.md
+- graceful shutdown (coroutine scope) → modules/kotlin-coroutines/theory/BACKEND_PATTERNS.md
+- MDCContext / requestId в логах корутин → modules/kotlin-coroutines/theory/BACKEND_PATTERNS.md
 
 ## Caching
 
@@ -909,6 +933,13 @@ Concepts that legitimately appear in multiple modules — canonical owner listed
 | consistent hashing | caching-deep-dive/DISTRIBUTED_CACHING.md (cache distribution) | databases/SHARDING.md (DB sharding context) |
 | Redis (deep) | caching-deep-dive/REDIS.md | databases/DATABASE_TYPES.md (high-level KV overview) |
 | CoroutineScope vs coroutineScope | kotlin-coroutines/SCOPE_CONTEXT.md (interface type) | kotlin-coroutines/STRUCTURED_CONCURRENCY.md (builder function) |
+| Semaphore | concurrency/SYNCHRONIZERS.md (j.u.c., блокирующий) | kotlin-coroutines/SHARED_STATE.md (kotlinx.coroutines.sync, suspend) |
+| взаимное исключение | concurrency/LOCKS.md (монитор, ReentrantLock) | kotlin-coroutines/SHARED_STATE.md (Mutex: почему не synchronized, нереентерабельность) |
+| CompletableFuture | concurrency/EXECUTORS_FUTURES.md (API, цепочки, пулы) | kotlin-coroutines/INTEROP.md (мост await/future/asDeferred) |
+| exponential backoff + jitter | system-design/RELIABILITY_PATTERNS.md (рецепт, retry budget) | kotlin-coroutines/BACKEND_PATTERNS.md (корутинная реализация) |
+| cache stampede / single-flight | caching-deep-dive/ANTI_PATTERNS.md (явление) | kotlin-coroutines/BACKEND_PATTERNS.md (single-flight на Mutex + CompletableDeferred) |
+| Circuit Breaker | system-design/microservice_patterns.md (паттерн) | spring-frameworks/SPRING_CLOUD.md (Resilience4j) · kotlin-coroutines/BACKEND_PATTERNS.md (набросок + отличие от retry) |
+| virtual threads | concurrency/VIRTUAL_THREADS.md (устройство, pinning, StructuredTaskScope) | kotlin-coroutines/DISPATCHERS.md (VT как диспетчер через asCoroutineDispatcher) |
 | JMM | concurrency/THREADS_BASICS.md (happens-before, volatile, synchronized) | java-core/JMM_REFERENCE.md (cross-ref only) |
 | VarHandle | java-core/REFLECTION_HANDLES.md (API + access modes) | concurrency/ATOMIC_CAS.md (atomic operations использование) |
 | ClassLoader leak | java-core/CLASS_LOADERS.md (mechanism + diagnostic) | spring-frameworks/SPRING_BOOT.md (DevTools hot-reload contexts) |

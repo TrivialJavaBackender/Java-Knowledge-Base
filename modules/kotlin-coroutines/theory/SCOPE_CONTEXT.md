@@ -1,54 +1,170 @@
 # CoroutineScope и CoroutineContext
 
-> **Scope** — кто отвечает за жизнь корутины.
-> **Context** — какой набор атрибутов (Job, Dispatcher, Name, Handler) она наследует.
+> **Какую проблему решают.** Контекст отвечает на вопрос «с какими настройками выполняется эта
+> корутина» (где возобновлять, как называется, кто родитель); scope — на вопрос «кто отвечает за её
+> жизнь и кто её отменит».
+> **Кому это надо.** Тому, кто заводит фоновые задачи в сервисе, ловит утечки корутин, теряет MDC
+> после первой приостановки или не понимает, почему `withContext(Dispatchers.IO)` вообще работает.
+> **Когда НЕ надо.** Если весь код — это `suspend fun`, вызываемые из контроллера, контекст можно
+> не трогать: фреймворк создаст его сам.
 
 ---
 
-## 1. `CoroutineContext` — что это
+## 1. Контекст — это `Map`?
 
-`CoroutineContext` — это **immutable** мап-подобная коллекция элементов, индексированных по типу.
-Каждый элемент реализует `CoroutineContext.Element` и имеет уникальный `Key`.
+Почти. Вот что говорит KDoc самого интерфейса в `kotlin-stdlib`:
 
-Главные элементы:
+> *Persistent context for the coroutine. It is an **indexed set** of `Element` instances.
+> An indexed set is **a mix between a set and a map**. Every element in this set has a unique `Key`.*
 
-| Элемент | Тип | Зачем |
-|---------|-----|-------|
-| `Job` | `Job` | Handle для отмены, родитель/дети |
-| `ContinuationInterceptor` | обычно `CoroutineDispatcher` | На каком потоке запускать |
-| `CoroutineName` | имя для отладки/логов | Видно в `Thread.currentThread().name` (если включено) |
-| `CoroutineExceptionHandler` | `(ctx, throwable) -> Unit` | Обработка непойманных исключений (только для root корутин) |
+Разберём, чем он похож на map и чем нет.
 
-### Композиция через `+`
+### Похоже на map
+
+Весь интерфейс — четыре метода, и все они «мапные»:
 
 ```kotlin
-val ctx = Dispatchers.IO + CoroutineName("loader") + Job()
+public interface CoroutineContext {
+    public operator fun <E : Element> get(key: Key<E>): E?
+    public fun <R> fold(initial: R, operation: (R, Element) -> R): R
+    public operator fun plus(context: CoroutineContext): CoroutineContext
+    public fun minusKey(key: Key<*>): CoroutineContext
+}
 ```
 
-`+` объединяет элементы; повторяющийся ключ перезаписывается (правый побеждает).
-Получить элемент: `ctx[Job]`, `ctx[CoroutineName]`.
-Удалить: `ctx.minusKey(Job.Key)`.
+```kotlin
+val ctx = Dispatchers.IO + CoroutineName("import") + SupervisorJob()
 
-### Что наследуется при запуске дочерней корутины
+ctx[CoroutineName]              // CoroutineName(import)
+ctx[Job]                        // JobImpl
+ctx.minusKey(CoroutineName)     // контекст без имени
+ctx.fold(0) { acc, _ -> acc + 1 }   // сколько элементов
+```
 
-Когда внутри корутины делаешь `launch { ... }`, дочерний контекст =
-**родительский контекст** + **аргументы билдера** + **новый дочерний `Job`** (родитель — `Job` родительской корутины).
+Он **иммутабельный** («persistent»): `plus` и `minusKey` не меняют исходный контекст, а возвращают
+новый. Поэтому контекст можно безопасно шарить между корутинами.
+
+Оператор `+` — **не объединение, а перезапись по ключу**: правый операнд побеждает.
+
+### Но это не `Map`
+
+Три отличия, которые и делают конструкцию удобной:
+
+**1. Ключ типизирован.** `Key<E : Element>` параметризован типом своего элемента, поэтому `get`
+возвращает точный тип, а не `Any?`:
+
+```kotlin
+val job: Job? = ctx[Job]                    // Job?, без приведения типов
+val name: CoroutineName? = ctx[CoroutineName]
+```
+
+В `Map<Any, Any>` пришлось бы писать `ctx[JobKey] as Job?`.
+
+**2. Каждый элемент сам является контекстом.**
+
+```kotlin
+public interface Element : CoroutineContext {
+    public val key: Key<*>
+}
+```
+
+`Dispatchers.IO` — это одновременно и диспетчер, и полноценный контекст из одного элемента. Поэтому
+`Dispatchers.IO + CoroutineName("x")` — это сложение **двух контекстов**, а не «положить два значения
+в мапу». Отсюда же берётся `EmptyCoroutineContext` — нейтральный элемент: `ctx + EmptyCoroutineContext`
+возвращает тот же самый `ctx` (в `plus` для этого есть явный fast path). Контекст ведёт себя как
+моноид, и именно поэтому наследование контекста — это просто сложение.
+
+**3. Реализация — односвязный список, а не хеш-таблица.** Когда элементов больше одного, `plus`
+строит цепочку:
+
+```kotlin
+internal class CombinedContext(
+    private val left: CoroutineContext,
+    private val element: Element,
+) : CoroutineContext { … }
+```
+
+`get` идёт по цепочке циклом, сравнивая ключи. Почему не `HashMap`: в реальном контексте 2–5
+элементов, и для таких размеров список дешевле и по памяти, и по времени — нет хеширования и нет
+таблицы.
+
+### Трюк, который многое объясняет
+
+Внутри `plus` в stdlib есть специальная обработка одного ключа:
+
+```kotlin
+// make sure interceptor is always last in the context (and thus is fast to get when present)
+val interceptor = removed[ContinuationInterceptor]
+```
+
+Перехватчик продолжений (то есть диспетчер) при сложении всегда переставляется **в конец цепочки**,
+потому что его достают чаще всего: при **каждом** возобновлении корутины. Это прямая связь с
+механикой из [`SUSPEND_INTERNALS.md`](SUSPEND_INTERNALS.md) §4: диспетчер — не абстрактная
+«настройка», а тот элемент, к которому библиотека обращается на горячем пути.
+
+---
+
+## 2. Из чего состоит контекст
+
+| Элемент | Ключ | За что отвечает |
+|---------|------|-----------------|
+| `Job` | `Job` | жизненный цикл, отмена, связь родитель–ребёнок |
+| `CoroutineDispatcher` | `ContinuationInterceptor` | **где** возобновлять продолжения |
+| `CoroutineName` | `CoroutineName` | имя в логах и стектрейсах при `-Dkotlinx.coroutines.debug` |
+| `CoroutineExceptionHandler` | `CoroutineExceptionHandler` | последний рубеж для необработанных ошибок корневых корутин |
+| свой `ThreadContextElement` | свой | MDC, `ThreadLocal`, трассировка (§6) |
+
+Ключом обычно служит companion-объект самого типа — поэтому и получается лаконичное `ctx[Job]`.
+
+---
+
+## 3. Как контекст попадает в корутину
+
+Контекст новой корутины собирается по формуле:
+
+```
+контекст ребёнка = контекст родителя + аргументы билдера + новый Job (дочерний к родительскому)
+```
 
 ```kotlin
 withContext(Dispatchers.Default + CoroutineName("parent")) {
     launch(CoroutineName("child")) {
-        // ctx[CoroutineName] = "child"
-        // ctx[ContinuationInterceptor] = Dispatchers.Default (унаследован)
-        // ctx[Job].parent == внешний Job
+        // ContinuationInterceptor = Dispatchers.Default  ← унаследован
+        // CoroutineName            = "child"             ← перезаписан аргументом
+        // Job                      = новый, его parent — Job внешней корутины
     }
 }
 ```
 
+### Почему наследуется всё, кроме `Job`
+
+Это не произвольное правило, его можно вывести. Представим, что `Job` наследовался бы как обычный
+элемент — то есть ребёнок получал бы **тот же самый** `Job`, что и родитель. Тогда:
+
+- отмена ребёнка отменяла бы родителя (это один и тот же объект);
+- родитель не мог бы «дождаться детей» — детей как отдельных сущностей просто не существовало бы;
+- дерева корутин не было бы, а значит, не было бы и структурной конкурентности.
+
+Поэтому `Job` — единственный элемент, который при запуске **создаётся заново** и связывается с
+родительским. Всё остальное (диспетчер, имя, MDC) наследуется «даром», потому что это настройки, а
+не идентичность.
+
+Доступ к контексту изнутри:
+
+```kotlin
+suspend fun whoAmI() {
+    val name = coroutineContext[CoroutineName]?.name ?: "anon"   // stdlib property
+    val active = coroutineContext[Job]?.isActive ?: false
+}
+```
+
+Это не магия: `kotlin.coroutines.coroutineContext` берёт контекст из скрытого параметра
+`Continuation` (см. [`SUSPEND_INTERNALS.md`](SUSPEND_INTERNALS.md) §1). Внутри `flow { }` и других
+мест, где `this` — не корутина, есть `currentCoroutineContext()`.
+
 ---
 
-## 2. `CoroutineScope` — что это
-
-`CoroutineScope` — это просто обёртка над `CoroutineContext`:
+## 4. `CoroutineScope` — держатель контекста
 
 ```kotlin
 public interface CoroutineScope {
@@ -56,26 +172,29 @@ public interface CoroutineScope {
 }
 ```
 
-Билдеры `launch`/`async` определены как **extension** на `CoroutineScope`. Это нужно, чтобы у каждой корутины был **родитель** — нельзя случайно запустить unscoped корутину.
-
-### Когда создавать свой scope
-
-Каждый "владелец lifecycle" в приложении должен иметь свой scope:
-- ViewModel → `viewModelScope` (Android)
-- Service / use-case → собственный `CoroutineScope` с `Job()`
-- HTTP handler → `coroutineScope { }` внутри обработчика
-- Корневая main-логика → `runBlocking` или `coroutineScope`
+Буквально одно свойство. Вся его значимость — в том, что билдеры `launch`/`async` объявлены как
+extension-функции на `CoroutineScope`. Следствие: **нельзя случайно запустить корутину без
+родителя** — её всегда кто-то держит и кто-то отменит.
 
 Готовые scope:
-- `GlobalScope` — `@DelicateCoroutinesApi`. Не имеет родителя, не отменяется. Использовать **очень осторожно**.
-- `MainScope()` — `Dispatchers.Main + SupervisorJob()`. Для UI.
-- `viewModelScope`, `lifecycleScope` — Android KTX.
+
+| Scope | Что внутри | Когда |
+|---|---|---|
+| свой `CoroutineScope(...)` | что задали | компонент со своим жизненным циклом (§5) |
+| `coroutineScope { }` | дочерний scope текущей корутины | локальная группа задач внутри suspend-функции |
+| `MainScope()` | `Dispatchers.Main + SupervisorJob()` | UI-приложения |
+| `viewModelScope`, `lifecycleScope` | Android KTX | Android |
+| `GlobalScope` | ничего, без родителя | `@DelicateCoroutinesApi`; на бэкенде — почти всегда баг |
+
+Разница между `CoroutineScope(...)` (конструктор долгоживущего scope) и `coroutineScope { }`
+(suspend-функция, ждущая детей) разобрана в
+[`STRUCTURED_CONCURRENCY.md`](STRUCTURED_CONCURRENCY.md).
 
 ---
 
-## 3. Создание собственного scope для класса-владельца
+## 5. Свой scope для класса-владельца
 
-Канонический паттерн: scope живёт столько, сколько живёт его владелец, и **отменяется** в `close()`.
+Канонический паттерн: scope живёт столько же, сколько его владелец, и отменяется в `close()`.
 
 ```kotlin
 class ReportService(
@@ -88,146 +207,188 @@ class ReportService(
     )
 
     fun submit(report: Report) {
-        scope.launch {
-            persist(report)
-        }
+        scope.launch { persist(report) }
     }
 
     override fun close() {
-        scope.cancel()  // отменит ВСЕ дочерние корутины
+        scope.cancel()   // отменит все дочерние корутины
     }
 }
 ```
 
-Ключевые решения:
-1. **`SupervisorJob`** vs `Job` — `SupervisorJob` не отменяет родителя/братьев при ошибке одной корутины. Для "независимых" задач сервиса это правильно (см. `STRUCTURED_CONCURRENCY.md`).
-2. **`Job(parent)`** — если хочешь, чтобы scope сервиса был дочерним к более внешнему scope (например, к scope приложения).
-3. **Явный диспатчер** — упрощает тестирование (можно передать `TestDispatcher`).
-4. **`CoroutineName`** — попадает в имя потока при `-Dkotlinx.coroutines.debug` или в логи через `Thread.currentThread().name`.
+Каждое решение здесь осмысленно:
+
+1. **`SupervisorJob`, а не `Job`** — падение одной фоновой задачи не должно убивать сервис вместе с
+   остальными задачами (см. [`STRUCTURED_CONCURRENCY.md`](STRUCTURED_CONCURRENCY.md)).
+2. **`SupervisorJob(parent)`** — если scope сервиса должен быть частью более крупного scope
+   приложения и умирать вместе с ним.
+3. **Диспетчер параметром** — иначе тест не сможет подставить `TestDispatcher` и превратится в тест
+   с реальными задержками (см. [`TESTING_INTEROP.md`](TESTING_INTEROP.md)).
+4. **`CoroutineName`** — бесплатная навигация в логах и дампах корутин.
+
+Если нужно не просто «отменить», а дать текущим задачам доработать — это плавное завершение (graceful shutdown), разбор
+в [`BACKEND_PATTERNS.md`](BACKEND_PATTERNS.md), практика — упражнение
+[Ex16](../src/main/kotlin/exercises/Ex16_GracefulShutdown.kt).
 
 ---
 
-## 4. `coroutineContext` внутри корутины
+## 6. `ThreadLocal` в корутинах и `asContextElement`
 
-Внутри `suspend fun` доступно top-level свойство `coroutineContext`:
+Прямое следствие §1 и механики возобновления: корутина между приостановками может сменить поток, а
+`ThreadLocal` привязан к потоку. Значит, обычный `ThreadLocal` (и построенный на нём MDC) **теряется
+после первой приостановки**:
 
 ```kotlin
-suspend fun logCurrent() {
-    val name = coroutineContext[CoroutineName]?.name ?: "anon"
-    val isActive = coroutineContext[Job]?.isActive ?: false
-    println("name=$name active=$isActive")
+requestId.set("req-42")
+delay(10)
+requestId.get()   // может быть null: продолжились на другом потоке
+```
+
+Решение — сделать значение элементом контекста. Для этого есть `ThreadContextElement`: библиотека
+выставляет значение в поток **при каждом возобновлении** и снимает при приостановке.
+
+```kotlin
+val requestId = ThreadLocal<String>()
+
+withContext(requestId.asContextElement("req-42")) {
+    delay(10)
+    log.info("…")      // requestId на месте, на каком бы потоке ни продолжились
 }
 ```
 
-Это **не** магия — это extension property `kotlin.coroutines.coroutineContext`. Компилятор передаёт контекст через скрытый параметр `Continuation`.
+Для SLF4J MDC есть готовый элемент `MDCContext()` из артефакта `kotlinx-coroutines-slf4j`
+(в `pom.xml` этого модуля он не подключён). Зачем это нужно на практике и что теряется без этого —
+в [`BACKEND_PATTERNS.md`](BACKEND_PATTERNS.md).
+
+Самый дешёвый минимум, если тащить MDC не хочется: `CoroutineName("request-42")` — имя видно в
+дампах корутин и в именах потоков в debug-режиме.
 
 ---
 
-## 5. Scope и lifecycle — частые ошибки
+## 7. Частые ошибки
 
-### 5.1 Scope как поле singleton'а без отмены
+### 7.1 Scope как поле синглтона без отмены
 
 ```kotlin
 object Foo {
-    val scope = CoroutineScope(Dispatchers.Default + Job())
+    val scope = CoroutineScope(Dispatchers.Default + Job())   // ❌ никто не позовёт cancel()
 }
 ```
 
-Никто никогда не вызовет `scope.cancel()` → утечки при горячей перезагрузке (например, в Spring Boot DevTools, OSGi). Всегда привязывай scope к видимому жизненному циклу.
+Утечка проявится при горячей перезагрузке контекста (Spring DevTools) или при остановке компонента:
+задачи переживут владельца. Правило: **у scope должен быть видимый жизненный цикл**.
 
-### 5.2 `runBlocking` внутри scope
+### 7.2 `runBlocking` внутри корутины
 
 ```kotlin
 scope.launch {
-    runBlocking { someSuspendFn() }  // ❌ блокирует поток диспатчера
+    runBlocking { someSuspendFn() }   // ❌ блокирует поток диспетчера
 }
 ```
 
-Просто вызови `someSuspendFn()` без `runBlocking`. Внутри `launch` уже корутинный контекст.
+Внутри `launch` уже корутинный контекст — вызывайте `someSuspendFn()` напрямую.
 
-### 5.3 Создание `Job()` без передачи в scope
+### 7.3 `Job()`, который никуда не передали
 
 ```kotlin
 val job = Job()
-launch { ... }      // ❌ этот launch никак не связан с job
+launch { … }        // ❌ этот launch никак не связан с job
 ```
 
-Нужно: `CoroutineScope(job).launch { ... }` или `launch(job) { ... }` (но тогда `job` становится **родителем** новой корутины, и его дети не отменятся, пока он не отменён — нюанс).
+Надо `CoroutineScope(job).launch { … }` либо `launch(job) { … }`. У второго варианта есть нюанс:
+переданный `Job` становится **родителем** новой корутины, и такой `Job` не завершится сам — его
+придётся отменять или завершать явно.
 
-### 5.4 Cancel scope ≠ cancel job, переданный в scope
+### 7.4 Что именно отменяет `scope.cancel()`
 
 ```kotlin
 val rootJob = Job()
 val scope = CoroutineScope(rootJob)
-scope.cancel()  // отменит scope; rootJob останется НЕ отменённым? зависит от того, как cancel реализован
+scope.cancel()
+rootJob.isCancelled    // true
 ```
 
-`scope.cancel()` под капотом делает `coroutineContext[Job]?.cancel()` — то есть отменяет тот `Job`, который в контексте. Так что да, `rootJob` тоже будет отменён. Но если ты передал `Job()` неявно, важно понимать — отмена происходит на том `Job`, который сейчас **в контексте**.
+`scope.cancel()` — это `coroutineContext[Job]!!.cancel()`, то есть отменяется тот `Job`, который
+лежит **в контексте scope**. Здесь это `rootJob`, поэтому он тоже отменён, и повторно использовать
+его для нового scope нельзя: отменённый `Job` не «переоткрывается», и все корутины в новом scope
+завершатся мгновенно. Если scope нужно пересоздавать, каждый раз создавайте новый `Job`.
+
+### 7.5 `GlobalScope`
+
+```kotlin
+GlobalScope.launch { sendMetrics() }   // ❌
+```
+
+Нет родителя → никто не ждёт и никто не отменит; контекст не наследуется (ни диспетчер, ни имя, ни
+MDC); исключения уходят в глобальный обработчик, а не туда, где вызвали. Замена — scope компонента
+или `coroutineScope { }` внутри suspend-функции.
 
 ---
 
-## 6. Структурная зависимость родитель-ребёнок
-
-Главное правило structured concurrency: **дочерний `Job` зависит от родительского**.
+## 8. Родитель и ребёнок
 
 ```kotlin
 val parent = Job()
 val child = Job(parent)
 
 parent.cancel()
-println(child.isCancelled)  // true
+child.isCancelled     // true
 ```
 
-Поэтому при запуске `launch { ... }` внутри другой корутины:
-- Родительский `Job` ждёт завершения дочернего перед своим завершением.
-- Отмена родителя → отмена всех детей.
-- **Исключение в ребёнке (не `CancellationException`) → отмена родителя и братьев** — кроме случая `SupervisorJob` (см. `STRUCTURED_CONCURRENCY.md`).
+Из этой связи следуют три правила, которые целиком разбираются в
+[`STRUCTURED_CONCURRENCY.md`](STRUCTURED_CONCURRENCY.md):
 
----
+- родительский `Job` не завершится, пока не завершатся все дети;
+- отмена родителя рекурсивно отменяет детей;
+- необработанное исключение ребёнка (кроме `CancellationException`) отменяет родителя и его
+  остальных детей — если только родитель не `SupervisorJob`.
 
-## 7. `EmptyCoroutineContext` и `+ EmptyCoroutineContext`
-
-`EmptyCoroutineContext` — нейтральный элемент. `ctx + EmptyCoroutineContext == ctx`. Используется как default-значение.
+Практика — упражнение [Ex02](../src/main/kotlin/exercises/Ex02_ScopeContext.kt).
 
 ---
 
 ## Шпаргалка
 
 ```kotlin
-// Контекст = набор элементов
-val ctx = Dispatchers.IO + CoroutineName("worker") + Job()
-
-// Получить элемент
-ctx[Job]
-ctx[CoroutineDispatcher]
+// Контекст = иммутабельный indexed set; «+» перезаписывает по ключу
+val ctx = Dispatchers.IO + CoroutineName("worker") + SupervisorJob()
+ctx[Job]                    // типизированный get, вернёт Job?
+ctx.minusKey(CoroutineName)
 
 // Scope для класса-владельца
 class Service : AutoCloseable {
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default + CoroutineName("svc"))
     override fun close() = scope.cancel()
 }
 
-// Доступ изнутри корутины
-suspend fun whoAmI() {
-    val name = coroutineContext[CoroutineName]?.name
-}
+// ThreadLocal, переживающий приостановку
+withContext(requestId.asContextElement("req-42")) { … }
 ```
+
+- Контекст — не `Map`, а иммутабельный indexed set: типизированный ключ, элемент сам является
+  контекстом, внутри односвязный список.
+- Диспетчер (`ContinuationInterceptor`) всегда переставляется в конец цепочки — его читают чаще всех.
+- Наследуется всё, кроме `Job`: иначе не было бы дерева и структурной конкурентности.
+- `CoroutineScope` — это одно свойство; ценность в том, что билдеры — extension на него.
+- У scope обязан быть видимый жизненный цикл и явный `cancel()`/`shutdown()`.
+- `ThreadLocal` без `asContextElement` теряется после первой приостановки.
 
 ---
 
 ## Источники
 
+**Исходники (по ним сверены §1 и §3):**
+- `kotlin-stdlib` → `kotlin/coroutines/CoroutineContext.kt` (интерфейс, `plus`, KDoc про indexed set) и `kotlin/coroutines/CoroutineContextImpl.kt` (`CombinedContext`, `EmptyCoroutineContext`).
+
 **Официальная документация:**
-- [Coroutine Context and Dispatchers](https://kotlinlang.org/docs/coroutine-context-and-dispatchers.html) — context elements, scope, child relationships.
-- [`CoroutineScope` Javadoc](https://kotlinlang.org/api/kotlinx.coroutines/kotlinx-coroutines-core/kotlinx.coroutines/-coroutine-scope/)
-- [`CoroutineContext` (stdlib)](https://kotlinlang.org/api/latest/jvm/stdlib/kotlin.coroutines/-coroutine-context/) — алгебра элементов.
+- [Coroutine Context and Dispatchers](https://kotlinlang.org/docs/coroutine-context-and-dispatchers.html)
+- [`CoroutineContext` (stdlib API)](https://kotlinlang.org/api/latest/jvm/stdlib/kotlin.coroutines/-coroutine-context/)
+- [`CoroutineScope` API](https://kotlinlang.org/api/kotlinx.coroutines/kotlinx-coroutines-core/kotlinx.coroutines/-coroutine-scope/)
+- [`ThreadContextElement`](https://kotlinlang.org/api/kotlinx.coroutines/kotlinx-coroutines-core/kotlinx.coroutines/-thread-context-element/)
 
-**KEEP:**
-- [KEEP-176: Coroutines](https://github.com/Kotlin/KEEP/blob/master/proposals/coroutines.md) — раздел про `CoroutineScope` и `CoroutineContext`.
-
-**Posts (canonical):**
-- [Roman Elizarov — «Coroutine context and scope»](https://elizarov.medium.com/coroutine-context-and-scope-c8b255d59055) — must-read, объясняет ровно эту тему.
-- [Roman Elizarov — «Structured Concurrency, Lifecycle and Coroutine Parent-Child Hierarchy»](https://elizarov.medium.com/structured-concurrency-722d765aa952)
+**Posts:**
+- [Roman Elizarov — «Coroutine context and scope»](https://elizarov.medium.com/coroutine-context-and-scope-c8b255d59055) — канонический разбор ровно этой темы.
+- [Roman Elizarov — «Structured Concurrency»](https://elizarov.medium.com/structured-concurrency-722d765aa952)
 
 **Книги:**
-- [*Kotlin Coroutines: Deep Dive* (Moskała)](https://kt.academy/book/coroutines) — главы по context и scope.
+- [*Kotlin Coroutines: Deep Dive* (Marcin Moskała)](https://kt.academy/book/coroutines) — главы «Coroutine context» и «Coroutine scope functions».

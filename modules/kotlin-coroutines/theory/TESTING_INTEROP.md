@@ -1,7 +1,17 @@
-# Testing & Interop
+# Тестирование корутин
 
-> Тестирование корутин с **виртуальным временем** и интероп с Java `CompletableFuture`, RxJava, callback API.
-> Артефакт: `kotlinx-coroutines-test` (test scope), `kotlinx-coroutines-jdk8` для CompletableFuture-bridge.
+> **Какую проблему решает.** Тест с `delay(5.seconds)` не должен идти пять секунд, а тест
+> конкурентного кода не должен быть флаки. Всё это даёт виртуальное время `runTest`.
+> **Кому это надо.** Всем, кто пишет корутинный код: без инжекта диспетчера код нетестируем, и это
+> выясняется поздно.
+> **Когда НЕ надо.** Для чисто последовательной suspend-функции без задержек хватит обычного
+> `runTest { }` без управления временем.
+>
+> Артефакт: `kotlinx-coroutines-test` (test scope).
+> Интероп с `CompletableFuture`, Rx и колбеками вынесен в отдельный файл — [`INTEROP.md`](INTEROP.md).
+
+**Главный тезис файла:** виртуальное время работает только для корутин на **тестовом** диспетчере.
+Жёстко зашитый в код `Dispatchers.IO` превращает быстрый тест в `Thread.sleep`-тест — см. §5.
 
 ---
 
@@ -93,18 +103,57 @@ class MyTest {
 
 ---
 
-## 4. Тестирование `StateFlow` / `SharedFlow`
+## 4. `backgroundScope` и почему тест зависает
+
+Типичная картина: тест собирает горячий поток и **не завершается**.
+
+```kotlin
+@Test
+fun bad() = runTest {
+    launch { hotFlow.collect { … } }   // ❌ никогда не закончится
+    assertEquals(1, service.value)
+}                                       // runTest ждёт всех детей → зависание
+```
+
+Причина: `runTest` реализует структурную конкурентность — он ждёт завершения всех корутин,
+запущенных в его scope. Бесконечный сбор не завершится никогда, и тест повиснет (а если корутина
+останется активной после теста — `runTest` упадёт на утечке).
+
+Для этого есть `backgroundScope`: корутины в нём живут, пока идёт тест, и **автоматически
+отменяются**, когда тело теста дошло до конца.
+
+```kotlin
+@Test
+fun good() = runTest {
+    val seen = mutableListOf<Int>()
+    backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+        service.state.collect { seen += it }
+    }
+
+    service.inc()
+    runCurrent()
+
+    assertEquals(listOf(0, 1), seen)
+}                                       // сбор отменён автоматически
+```
+
+Правило: **всё, что должно работать «фоном» в течение теста, запускается в `backgroundScope`** —
+подписки на горячие потоки, сервисы-демоны, мосты наружу (`future { }`, `mono { }`).
+
+---
+
+## 5. Тестирование `StateFlow` / `SharedFlow`
 
 Hot flows никогда не завершаются — `toList()` зависнет. Решения:
 
-### Вариант 1: launch + runCurrent
+### Вариант 1: launch в backgroundScope + runCurrent
 
 ```kotlin
 @Test
 fun stateFlowTest() = runTest {
     val vm = CounterViewModel()
     val emitted = mutableListOf<Int>()
-    val job = launch(UnconfinedTestDispatcher(testScheduler)) {
+    backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
         vm.state.toList(emitted)
     }
 
@@ -112,8 +161,7 @@ fun stateFlowTest() = runTest {
     vm.inc()
 
     assertEquals(listOf(0, 1, 2), emitted)
-    job.cancel()
-}
+}   // сбор отменится сам вместе с backgroundScope
 ```
 
 ### Вариант 2: Turbine (внешняя библиотека, идиоматично)
@@ -137,77 +185,99 @@ Turbine хорошо подходит когда нужно проверять �
 
 ---
 
-## 5. Интероп с `CompletableFuture`
+## 6. Интероп с существующим кодом — карта
 
-Артефакт: `kotlinx-coroutines-jdk8`.
+Подробный разбор каждого моста — в [`INTEROP.md`](INTEROP.md). Здесь только карта, чтобы знать,
+что искать:
 
-```kotlin
-import kotlinx.coroutines.future.await
-import kotlinx.coroutines.future.future
+| Что есть | Что нужно | Инструмент |
+|---|---|---|
+| колбек-API | `suspend fun` | `suspendCancellableCoroutine` + `invokeOnCancellation` |
+| `CompletableFuture` | `suspend fun` / `Deferred` | `.await()` / `.asDeferred()` |
+| `suspend fun` | `CompletableFuture` для Java | `scope.future { … }` |
+| блокирующий метод | `suspend fun` | `withContext(io) { runInterruptible { … } }` |
+| слушатель событий | `Flow` | `callbackFlow` + `awaitClose` |
+| Reactor / RxJava | оба направления | `mono { }`, `rxSingle { }`, `asFlow()`, `asFlux()` |
 
-// Java's CompletableFuture → suspend
-suspend fun loadFromJava(): Data {
-    val cf: CompletableFuture<Data> = javaApi.fetchAsync()
-    return cf.await()           // suspend, не блокирует поток
-}
+Два факта, важных именно для тестов:
 
-// suspend → CompletableFuture (для вызова из Java)
-fun loadForJava(): CompletableFuture<Data> = scope.future {
-    loadAsync()                  // suspend-функция
-}
-```
-
-`future { }` — корутинный builder, возвращающий `CompletableFuture`. Используй его в **Java-facing API** (например, REST-контроллер на Spring WebFlux до миграции на co).
-
-`await()` поддерживает отмену: при cancel корутины делает `cf.cancel(true)`.
+- `await()` и `future { }` живут в `kotlinx-coroutines-core` (пакет `kotlinx.coroutines.future`) —
+  отдельный артефакт `kotlinx-coroutines-jdk8` не нужен.
+- Мост наружу (`future { }`, `mono { }`) требует scope. В тесте передавайте `backgroundScope`
+  (§4) — иначе `runTest` либо зависнет в ожидании, либо упадёт на утечке корутин.
 
 ---
 
-## 6. Интероп с RxJava
+## 7. Проверка параллельности и конкурентности
 
-Артефакт: `kotlinx-coroutines-rx2` или `-rx3`.
+Два вопроса, которые обычно и надо проверить в тесте конкурентного кода.
 
-```kotlin
-// Single → suspend
-val data = single.await()
-
-// Observable → Flow
-val flow: Flow<T> = observable.asFlow()
-
-// Flow → Observable
-val obs: Observable<T> = flow.asObservable()
-
-// suspend → Single (для вызова из Rx-кода)
-val s: Single<Data> = rxSingle { loadAsync() }
-```
-
-Семантика отмены сохраняется: dispose'ишь Disposable → отменяется корутина.
-
----
-
-## 7. Интероп с blocking Java API
-
-Когда нет асинхронного аналога, заверни в `withContext(Dispatchers.IO)`:
+**«Действительно ли вызовы шли параллельно?»** — смотрим на виртуальные часы, а не на настенные:
 
 ```kotlin
-suspend fun read(file: Path): String = withContext(Dispatchers.IO) {
-    Files.readString(file)            // блокирующий
+@Test
+fun `три вызова по 300 мс идут параллельно`() = runTest {
+    val page = buildPage(userId = 1)          // внутри три async по delay(300)
+
+    assertEquals(300, currentTime)            // было бы 900 при последовательном коде
 }
 ```
 
-Если код делает блокирующие операции, которые поддерживают `interrupt`:
+`currentTime` — виртуальное время `TestScope`. Реальный тест при этом отрабатывает мгновенно.
+
+**«Не превышен ли лимит конкурентности?»** — считаем сами, а не угадываем по таймингам:
 
 ```kotlin
-suspend fun longBlocking(): Result = runInterruptible(Dispatchers.IO) {
-    legacyBlockingMethod()             // при cancel получит Thread.interrupt()
+@Test
+fun `одновременно не больше четырёх`() = runTest {
+    val active = AtomicInteger()
+    val peak = AtomicInteger()
+
+    (1..50).map { id ->
+        async {
+            val now = active.incrementAndGet()
+            peak.updateAndGet { maxOf(it, now) }
+            try { delay(100) } finally { active.decrementAndGet() }
+        }
+    }.awaitAll()
+
+    assertTrue(peak.get() <= 4, "пиковая конкурентность ${peak.get()}, ожидали ≤ 4")
 }
 ```
 
-`runInterruptible` — обёртка, которая на `cancel` корутины вызывает `Thread.interrupt()` на потоке-исполнителе. Так блокирующая операция выйдет с `InterruptedException`.
+Это же приём используют тесты упражнений
+[Ex13](../src/main/kotlin/exercises/Ex13_BoundedParallelism.kt) и
+[Ex15](../src/main/kotlin/exercises/Ex15_RateLimiter.kt).
 
 ---
 
-## 8. Тестирование с виртуальным временем — типичный кейс
+## 8. Тестирование отмены и очистки
+
+```kotlin
+@Test
+fun `ресурс закрывается при отмене`() = runTest {
+    val resource = FakeResource()
+
+    val job = launch { useResource(resource) }
+    runCurrent()                       // дали корутине стартовать
+    job.cancelAndJoin()                // отмена + ожидание finally
+
+    assertTrue(resource.closed)
+}
+```
+
+Что важно:
+
+- `cancelAndJoin()`, а не `cancel()`: `cancel()` только помечает `Job`, и проверка сработает
+  раньше, чем отработает `finally`.
+- `runCurrent()` перед отменой — иначе корутина, запущенная на `StandardTestDispatcher`, ещё не
+  начинала выполняться и отменять будет нечего.
+- Если очистка внутри `finally` — suspend, она должна быть в `withContext(NonCancellable)`, иначе
+  упадёт на первой же приостановке (см. [`CANCELLATION_EXCEPTIONS.md`](CANCELLATION_EXCEPTIONS.md)).
+
+---
+
+## 9. Тестирование с виртуальным временем — типичный кейс
 
 ```kotlin
 class Debouncer(scope: CoroutineScope, private val timeout: Long) {
@@ -236,7 +306,7 @@ fun debouncesUnder300ms() = runTest {
 
 ---
 
-## 9. Тестирование исключений
+## 10. Тестирование исключений
 
 ```kotlin
 @Test
@@ -265,9 +335,9 @@ fun timeoutThrows() = runTest {
 
 ---
 
-## 10. Анти-паттерны
+## 11. Анти-паттерны
 
-### 10.1 `Thread.sleep` в тесте
+### 11.1 `Thread.sleep` в тесте
 
 ```kotlin
 @Test
@@ -280,17 +350,20 @@ fun bad() = runTest {
 
 `Thread.sleep` блокирует тред реально. Замени на `advanceTimeBy(1500)` или `advanceUntilIdle()`.
 
-### 10.2 Использование `runBlocking` в тестах
+### 11.2 Использование `runBlocking` в тестах
 
 `runBlocking { }` работает с реальным временем — `delay` будет ждать на самом деле. Тесты медленные и flaky. Используй `runTest`.
 
-### 10.3 Не подменять `Dispatchers.Main`
+### 11.3 Не подменять `Dispatchers.Main`
 
 Тест UI-кода с реальным `Dispatchers.Main` упадёт в JVM-юнит-тесте. Подменяй через `Dispatchers.setMain(testDispatcher)`.
 
-### 10.4 Утечка корутин из `runTest`
+### 11.4 Утечка корутин из `runTest`
 
-Если `runTest` обнаружил, что после завершения теста есть активные дочерние корутины — упадёт. Канселить вручную или использовать `coroutineContext.cancelChildren()`.
+Если после завершения теста остались активные дочерние корутины, `runTest` упадёт по таймауту
+ожидания. Правильное лечение — запускать фоновую работу в `backgroundScope` (§4), а не отменять
+вручную. `coroutineContext.cancelChildren()` — крайняя мера, которая обычно означает, что тест
+запустил что-то не в том scope.
 
 ---
 
@@ -314,9 +387,11 @@ runTest {
 @BeforeTest fun setup() = Dispatchers.setMain(UnconfinedTestDispatcher())
 @AfterTest fun teardown() = Dispatchers.resetMain()
 
-// Java interop
-val cf: CompletableFuture<Data> = scope.future { loadAsync() }
-val data = cf.await()
+// Фоновая работа на время теста
+backgroundScope.launch { service.state.collect { … } }
+
+// Параллельность видно по виртуальным часам
+assertEquals(300, currentTime)
 ```
 
 ---

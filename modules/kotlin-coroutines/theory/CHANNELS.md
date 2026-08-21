@@ -154,7 +154,7 @@ fun main() = runBlocking {
 }
 ```
 
-### 6.2 Fan-out (несколько consumer'ов)
+### 6.2 Веерное распределение — fan-out (несколько потребителей)
 
 ```kotlin
 val tasks = produce { repeat(100) { send(it) } }
@@ -165,7 +165,7 @@ repeat(4) { workerId ->
 
 Все воркеры читают **из одного** channel — каждое сообщение получит **один** воркер (mutex-семантика).
 
-### 6.3 Fan-in (несколько producer'ов)
+### 6.3 Веерное сведение — fan-in (несколько продюсеров)
 
 ```kotlin
 val merged = Channel<String>()
@@ -193,7 +193,7 @@ object Stop : Msg()
 | | `Channel<T>` | `Flow<T>` |
 |---|---|---|
 | Hot/Cold | hot | cold (по умолчанию) |
-| Backpressure | через capacity и suspend | через suspend |
+| Обратное давление | через capacity и suspend | через suspend |
 | Multi-producer | да | нет |
 | Multi-consumer | каждое значение **одному** | каждый получает **все** (cold) |
 | Завершение | `close()` | tail элемент |
@@ -232,7 +232,7 @@ launch {
 
 ### 9.1 `Channel.UNLIMITED` без оснований
 
-Может маскировать неконтролируемый рост памяти. Используй bounded + `SUSPEND` для естественного backpressure.
+Может маскировать неконтролируемый рост памяти. Используй bounded + `SUSPEND` для естественного обратного давления.
 
 ### 9.2 Сложный actor вместо StateFlow
 
