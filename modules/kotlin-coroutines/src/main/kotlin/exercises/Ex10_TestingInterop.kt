@@ -53,7 +53,7 @@ fun loadAsCompletableFuture(scope: CoroutineScope, query: String): CompletableFu
 }
 
 suspend fun awaitCompletableFuture(cf: CompletableFuture<String>): String {
-    TODO("cf.await() из kotlinx-coroutines-jdk8 (или suspendCancellableCoroutine)")
+    TODO("cf.await() из kotlinx.coroutines.future — он входит в core (или suspendCancellableCoroutine)")
 }
 
 fun main() = runBlocking {
