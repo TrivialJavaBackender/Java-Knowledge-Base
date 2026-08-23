@@ -126,7 +126,7 @@ String greeting = "Hello, Bob";
 Singleton часто вырождается в замаскированную глобальную переменную. Это **не** про
 потокобезопасность и корректную инициализацию (holder idiom / `enum` / double-checked locking
 с `volatile`) — эта тема принадлежит [CREATIONAL.md](CREATIONAL.md) и, на уровне модели памяти,
-[../../concurrency/theory/THREADS_BASICS.md](../../concurrency/theory/THREADS_BASICS.md).
+[../../concurrency/theory/MEMORY_MODEL.md](../../concurrency/theory/MEMORY_MODEL.md).
 Здесь — только про антипаттерн «глобальное изменяемое состояние».
 
 - **Симптом.** `SomeService.getInstance()` разбросан по коду; глобальный изменяемый реестр,

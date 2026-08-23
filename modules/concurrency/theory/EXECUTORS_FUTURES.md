@@ -1,605 +1,539 @@
-# Executors, Future, CompletableFuture — Полная теория
+# Пулы потоков: `ThreadPoolExecutor`, планировщик, `ForkJoinPool`
+
+> **Какую проблему решает.** Поток стоит дорого, а задач много. Пул отвязывает «задачу» от «потока»:
+> задачи ставятся в очередь, ограниченное число потоков их разбирает. Этот файл — про то, как
+> выбрать это число, что делать с переполнением и какие три ловушки съедают ошибки молча.
+> **Кому это надо.** Всем, кто настраивает `ThreadPoolExecutor` в продакшене или объясняет на
+> собеседовании, почему `Executors.newFixedThreadPool` — плохая идея.
+> **Когда НЕ надо.** На JDK 21 для блокирующего ввода-вывода пул часто вообще не нужен —
+> см. §11 и [`VIRTUAL_THREADS.md`](VIRTUAL_THREADS.md).
+
+Композиция асинхронных результатов (`CompletableFuture`) вынесена в
+[`ASYNC_COMPOSITION.md`](ASYNC_COMPOSITION.md) — здесь только исполнение.
+Все примеры прогнаны на Temurin 21.0.9.
 
 ---
 
-## 0. Виды thread pools — сравнение
+## 1. Зачем пул
 
-| Фабричный метод | core | max | Queue | keepAlive | Когда использовать |
-|---|---|---|---|---|---|
-| `newFixedThreadPool(n)` | n | n | LinkedBlockingQueue (∞) | — | Предсказуемая нагрузка, CPU-bound |
-| `newCachedThreadPool()` | 0 | MAX_INT | SynchronousQueue | 60s | Короткие burst-задачи, I/O-bound |
-| `newSingleThreadExecutor()` | 1 | 1 | LinkedBlockingQueue (∞) | — | Гарантированный порядок |
-| `newScheduledThreadPool(n)` | n | MAX_INT | DelayedWorkQueue | — | Периодические/отложенные задачи |
-| `newWorkStealingPool()` | — | — | work-stealing deque | — | Параллельные CPU-задачи, рекурсия |
-| `newVirtualThreadPerTaskExecutor()` | — | — | — | — | Java 21+, много I/O-bound задач |
+Из [`WHY_CONCURRENCY.md`](WHY_CONCURRENCY.md): поток стоит ~2 МБ стека и ~22 мкс на создание.
+Пул решает сразу три задачи:
 
-### Опасности
+1. **Переиспользование.** Поток создаётся один раз и обслуживает тысячи задач.
+2. **Ограничение.** Число потоков — это ваш предел нагрузки на процессор, на БД, на внешний сервис.
+   Без ограничения всплеск трафика превращается в отказ.
+3. **Очередь как буфер.** Кратковременный всплеск не роняет систему, а ждёт в очереди.
 
-**newFixedThreadPool** — очередь **неограничена** (`LinkedBlockingQueue`).
-При медленных consumer'ах очередь растёт → OOM.
-✅ Исправление: `ThreadPoolExecutor` с `ArrayBlockingQueue`.
-
-**newCachedThreadPool** — создаёт поток на каждую задачу.
-При 10 000 concurrent задач → 10 000 потоков → OOM / thrashing.
-✅ Исправление: ограничить через `Semaphore` или заменить на FixedThreadPool.
-
-**newSingleThreadExecutor** — тоже с unbounded queue.
-Если задача бросит `Error`, поток пересоздаётся, но задача теряется.
-
-**newWorkStealingPool** — каждый поток выполняет свои задачи LIFO, но крадёт у других FIFO. Нет гарантии порядка. Блокирующие задачи голодят пул (carrier threads заняты).
-
-### Алгоритм принятия задачи (ThreadPoolExecutor)
-
-```
-submit(task)
-  ├─ workers < corePoolSize?    → создать core-поток, выполнить
-  ├─ queue.offer(task)?         → положить в очередь
-  ├─ workers < maxPoolSize?     → создать non-core поток, выполнить
-  └─ RejectionHandler!
-```
-
-### Шпаргалка выбора пула
-
-```
-CPU-bound, фиксированный параллелизм → newFixedThreadPool(nCPU)
-Короткие burst I/O задачи           → newCachedThreadPool() + Semaphore
-Периодические задачи (cron-like)    → newScheduledThreadPool(n)
-Рекурсивное разбиение / D&C         → ForkJoinPool / newWorkStealingPool
-I/O-bound, Java 21+                 → newVirtualThreadPerTaskExecutor()
-Гарантия порядка                    → newSingleThreadExecutor()
-Нужен back-pressure                 → ThreadPoolExecutor + ArrayBlockingQueue + CallerRunsPolicy
-```
+Третий пункт содержит и главную опасность: **очередь — это отложенная задержка**. Неограниченная
+очередь не защищает ни от чего, она лишь превращает «отказ сразу» в «ответ через две минуты, когда
+он уже не нужен».
 
 ---
 
-## 1. Executor Framework — архитектура
+## 2. `ThreadPoolExecutor`: откуда берутся его правила
 
-```
-                    ┌──────────┐
-                    │ Executor │ — void execute(Runnable)
-                    └────┬─────┘
-                         │
-               ┌─────────┴──────────┐
-               │  ExecutorService    │ — submit(), shutdown(), invokeAll()
-               └─────────┬──────────┘
-                    ┌─────┴──────┐
-                    │            │
-  ┌─────────────────┴──┐   ┌────┴──────────────────┐
-  │ ThreadPoolExecutor  │   │ScheduledThreadPool    │
-  │                     │   │Executor               │
-  └─────────────────────┘   └───────────────────────┘
-                    │
-            ┌───────┴────────┐
-            │  ForkJoinPool  │ — work-stealing
-            └────────────────┘
+### Одно слово состояния
+
+Внутри пула всё состояние — это **один** `AtomicInteger`:
+
+```java
+// ThreadPoolExecutor.java:387
+private final AtomicInteger ctl = new AtomicInteger(ctlOf(RUNNING, 0));
+private static final int COUNT_BITS = Integer.SIZE - 3;      // 29
+private static final int COUNT_MASK = (1 << COUNT_BITS) - 1;
+
+private static final int RUNNING    = -1 << COUNT_BITS;      // старшие 3 бита
+private static final int SHUTDOWN   =  0 << COUNT_BITS;
+private static final int STOP       =  1 << COUNT_BITS;
+private static final int TIDYING    =  2 << COUNT_BITS;
+private static final int TERMINATED =  3 << COUNT_BITS;
 ```
 
----
+Старшие 3 бита — состояние пула, младшие 29 — число живых потоков. Зачем такая упаковка: чтобы
+**одним атомарным чтением** получить и то и другое согласованно. Иначе между «пул ещё работает?» и
+«сколько потоков?» вклинился бы `shutdown()`.
 
-## 2. ThreadPoolExecutor — 7 параметров
+Отсюда сразу следует формальный предел: `maximumPoolSize` не может превышать 2²⁹−1 ≈ 536 миллионов.
+Практического значения это не имеет, но вопрос «почему именно столько» на собеседовании встречается.
+
+### Алгоритм приёма задачи — и почему он именно такой
+
+```java
+// ThreadPoolExecutor.java:1339, упрощённо
+int c = ctl.get();
+if (workerCountOf(c) < corePoolSize) { if (addWorker(command, true)) return; }   // ① core
+if (isRunning(c) && workQueue.offer(command)) { … }                              // ② очередь
+else if (!addWorker(command, false)) reject(command);                            // ③ max, иначе отказ
+```
+
+Порядок: **core → очередь → max → отказ**. Это самый частый вопрос по пулам, и он же самый
+контринтуитивный: если очередь неограниченная, потоки сверх `corePoolSize` **не создаются никогда**.
+
+Почему так, а не «сначала расширить пул»: создание потока дороже, чем постановка в очередь, а сама
+очередь и задумана как буфер. Новые потоки — крайняя мера, когда буфер уже переполнен.
+
+**Практическое следствие.** `corePoolSize=10, maximumPoolSize=100` с `LinkedBlockingQueue` без
+ограничения — это пул на 10 потоков. Остальные 90 не появятся, потому что очередь никогда не
+откажется принять задачу.
+
+### Семь параметров
 
 ```java
 new ThreadPoolExecutor(
-    int corePoolSize,       // минимум потоков (всегда живы)
-    int maximumPoolSize,    // максимум потоков
-    long keepAliveTime,     // время жизни потоков > corePoolSize
-    TimeUnit unit,          // единица keepAliveTime
-    BlockingQueue<Runnable> workQueue,  // очередь задач
-    ThreadFactory threadFactory,        // как создавать потоки
-    RejectedExecutionHandler handler    // что делать при переполнении
-)
+    int corePoolSize,                    // сколько потоков держим всегда
+    int maximumPoolSize,                 // потолок при переполненной очереди
+    long keepAliveTime, TimeUnit unit,   // сколько живёт поток сверх core без работы
+    BlockingQueue<Runnable> workQueue,   // буфер; его ёмкость определяет всё поведение
+    ThreadFactory threadFactory,         // имена потоков, демон, обработчик ошибок
+    RejectedExecutionHandler handler     // что делать, когда всё занято
+);
 ```
 
-### Алгоритм принятия задачи
+`ThreadFactory` часто игнорируют — зря. Осмысленные имена потоков экономят часы при разборе дампа:
 
-```
-Новая задача submit()
-      │
-      ▼
-  workers < corePoolSize?
-      ├─ Да → Создай новый поток, выполни задачу
-      │
-      ▼ Нет
-  Очередь не полна?
-      ├─ Да → Положи задачу в очередь
-      │
-      ▼ Нет
-  workers < maximumPoolSize?
-      ├─ Да → Создай новый поток, выполни задачу
-      │
-      ▼ Нет
-  Rejection Policy!
+```java
+ThreadFactory named = r -> {
+    Thread t = new Thread(r, "payment-worker-" + counter.incrementAndGet());
+    t.setUncaughtExceptionHandler((th, e) -> log.error("необработанная ошибка в {}", th.getName(), e));
+    return t;
+};
 ```
 
-**Критически важно для собеседования:** порядок — core → queue → max → reject.
+---
 
-### Rejection Policies
+## 3. Как выбрать размер пула
 
-| Policy | Поведение | Когда использовать |
+### Задачи, которые считают
+
+Потолок — число ядер: больше потоков не дадут больше вычислений, только переключения.
+
+```
+N = число ядер            (иногда +1, чтобы закрыть редкие промахи по памяти)
+```
+
+### Задачи, которые ждут
+
+Формула из *Java Concurrency in Practice* (§8.2):
+
+```
+N = Nядер × Uцелевая × (1 + W/C)
+
+Uцелевая — желаемая загрузка процессора (0..1)
+W        — время ожидания на задачу
+C        — время вычислений на задачу
+```
+
+Для сквозного примера модуля (300 мс ожидания, ~1 мс вычислений, 10 ядер, загрузка 1.0):
+
+```
+N = 10 × 1 × (1 + 300/1) = 3010
+```
+
+Три тысячи потоков — это уже нереалистично, и это честный сигнал: для такой нагрузки модель «поток на
+задачу» не подходит. Именно из этой арифметики выросли и асинхронный стиль
+([`ASYNC_COMPOSITION.md`](ASYNC_COMPOSITION.md)), и виртуальные потоки.
+
+Второй способ — закон Литтла (`L = λ × W`), см. [`WHY_CONCURRENCY.md §2`](WHY_CONCURRENCY.md).
+Он даёт то же число, но исходя из измеренной нагрузки, а не из отношения W/C.
+
+### Что на самом деле определяет размер
+
+Обе формулы дают верхнюю границу «по производительности». В реальном сервисе размер пула чаще
+диктуется **внешним ограничением**:
+
+- пул соединений к БД — нет смысла в 50 потоках при 10 соединениях, лишние будут стоять в очереди
+  за соединением, а вы не увидите этого в метриках пула;
+- лимит запросов внешнего API — если разрешено 20 в секунду, пул на 200 потоков просто создаст 180
+  ошибок;
+- память: каждый занятый поток держит свои буферы и объекты запроса.
+
+**Правило.** Считайте формулу, потом сравните с ограничениями снизу и возьмите минимум. И заведите
+**отдельные пулы под разные зависимости** (bulkhead): медленный отчётный сервис не должен съедать
+потоки, нужные платежам.
+
+---
+
+## 4. Очередь и политика отказа
+
+| Очередь | Поведение | Когда |
 |---|---|---|
-| `AbortPolicy` | Бросает `RejectedExecutionException` | Default. Fail-fast. |
-| `CallerRunsPolicy` | Задача выполняется в вызывающем потоке | Back-pressure. Замедляет producer. |
-| `DiscardPolicy` | Молча отбрасывает | Можно потерять задачу — редко подходит |
-| `DiscardOldestPolicy` | Удаляет самую старую из очереди, ставит новую | Для "свежие данные важнее" |
+| `ArrayBlockingQueue(n)` | ограниченная, ёмкость фиксирована | **основной выбор для продакшена** |
+| `LinkedBlockingQueue(n)` | ограниченная, два лока — выше пропускная способность | много мелких задач |
+| `LinkedBlockingQueue()` | **неограниченная** (`Integer.MAX_VALUE`) | почти никогда: скрывает перегрузку до OOM |
+| `SynchronousQueue` | ёмкости нет, передача из рук в руки | вместе с большим `maximumPoolSize` |
+| `PriorityBlockingQueue` | по приоритету, неограниченная | задачи разной важности |
 
-### Что Executors создаёт внутри
+Подробно про сами очереди — [`CONCURRENT_COLLECTIONS.md`](CONCURRENT_COLLECTIONS.md).
+
+### Четыре политики отказа
+
+| Политика | Что делает | Когда уместна |
+|---|---|---|
+| `AbortPolicy` (по умолчанию) | бросает `RejectedExecutionException` | быстрый явный отказ; вызывающий решает, что делать |
+| `CallerRunsPolicy` | выполняет задачу **в вызывающем потоке** | обратное давление (backpressure): поставщик тормозится сам |
+| `DiscardPolicy` | молча выбрасывает | почти никогда — потеря без следа |
+| `DiscardOldestPolicy` | выбрасывает самую старую из очереди | когда свежие данные важнее старых (телеметрия) |
+
+`CallerRunsPolicy` заслуживает пояснения: она не «спасает задачу», а **замедляет источник**. Пока
+поток, принимающий HTTP-запросы, сам выполняет задачу, он не принимает новые — нагрузка естественным
+образом снижается. Это самый простой рабочий механизм обратного давления в JDK.
+
+Своя политика пишется в три строки — например, «подождать место в очереди, но не дольше секунды»:
 
 ```java
-// ❌ newFixedThreadPool — unbounded queue → OOM
-new ThreadPoolExecutor(n, n, 0, MILLISECONDS, new LinkedBlockingQueue<>())
-//                                              ^^^^^^^^^^^^^^^^^^^^^^^^
-//                                              capacity = Integer.MAX_VALUE!
+(task, executor) -> {
+    try {
+        if (!executor.getQueue().offer(task, 1, TimeUnit.SECONDS))
+            throw new RejectedExecutionException("очередь переполнена");
+    } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
+        throw new RejectedExecutionException(e);
+    }
+}
+```
 
-// ❌ newCachedThreadPool — unbounded threads → тысячи потоков
-new ThreadPoolExecutor(0, Integer.MAX_VALUE, 60s, new SynchronousQueue<>())
-//                        ^^^^^^^^^^^^^^^^^
-//                        Может создать миллион потоков!
+---
 
-// ❌ newSingleThreadExecutor — тоже unbounded queue
-new ThreadPoolExecutor(1, 1, 0, MILLISECONDS, new LinkedBlockingQueue<>())
+## 5. Фабрики `Executors`: что они прячут
 
-// ✅ Правильно — всё bounded
+| Фабрика | Что создаёт на самом деле | Мина |
+|---|---|---|
+| `newFixedThreadPool(n)` | `ThreadPoolExecutor(n, n, 0, MS, new LinkedBlockingQueue<>())` | **очередь неограниченная** → рост до OOM |
+| `newSingleThreadExecutor()` | то же с `n = 1` | та же неограниченная очередь |
+| `newCachedThreadPool()` | `ThreadPoolExecutor(0, Integer.MAX_VALUE, 60, SEC, new SynchronousQueue<>())` | **потоков неограниченно** → тысячи потоков под всплеском |
+| `newScheduledThreadPool(n)` | `ScheduledThreadPoolExecutor` с `DelayedWorkQueue` | очередь неограниченная; см. §8 |
+| `newWorkStealingPool()` | `new ForkJoinPool(nCPU, …, asyncMode = true)` | порядок не гарантирован; блокировки голодят пул |
+| `newVirtualThreadPerTaskExecutor()` | не пул: поток на задачу | ограничения нет вовсе — ограничивайте семафором |
+
+Проверяется по исходнику (`Executors.java:93, 114, 216`).
+
+```java
+// ✅ Что писать вместо фабрик
 new ThreadPoolExecutor(
-    10, 20, 60, SECONDS,
-    new ArrayBlockingQueue<>(100),          // bounded!
-    new ThreadPoolExecutor.CallerRunsPolicy() // back-pressure
-)
+    10, 20, 60, TimeUnit.SECONDS,
+    new ArrayBlockingQueue<>(200),                  // ограничена
+    namedFactory("payments"),                       // имена в дампе
+    new ThreadPoolExecutor.CallerRunsPolicy());     // обратное давление
 ```
 
-### Жизненный цикл
+**Формулировка для собеседования.** «`newFixedThreadPool` опасен не числом потоков, а неограниченной
+очередью: перегрузка не отвергается, а копится в куче, пока не кончится память. И `maximumPoolSize`
+при такой очереди не работает вовсе».
+
+---
+
+## 6. Жизненный цикл и корректная остановка
 
 ```
-  RUNNING → SHUTDOWN → TIDYING → TERMINATED
-     │          │
-     └──────────┴─→ STOP → TIDYING → TERMINATED
+RUNNING → SHUTDOWN → TIDYING → TERMINATED
+   │          ↑
+   └── STOP ──┘
+```
 
-shutdown():     Не принимает новые задачи, дорабатывает существующие
-shutdownNow():  Не принимает новые, прерывает выполняющиеся, возвращает невыполненные
-awaitTermination():  Ждёт завершения с таймаутом
+```java
+executor.shutdown();          // новые не принимаем, принятые доделываем
+executor.shutdownNow();       // + прерываем выполняющиеся, возвращаем невыполненные
+executor.awaitTermination(t, unit);   // ждём завершения
+```
 
-// Правильный shutdown
+Канонический вариант остановки — из javadoc `ExecutorService`:
+
+```java
 executor.shutdown();
-if (!executor.awaitTermination(60, SECONDS)) {
+try {
+    if (!executor.awaitTermination(60, TimeUnit.SECONDS)) {
+        executor.shutdownNow();                                  // не успели — прерываем
+        if (!executor.awaitTermination(10, TimeUnit.SECONDS))
+            log.error("пул не остановился");
+    }
+} catch (InterruptedException e) {
     executor.shutdownNow();
-    executor.awaitTermination(10, SECONDS);
+    Thread.currentThread().interrupt();      // восстановить флаг — см. THREADS_BASICS.md §4
 }
 ```
 
-> **Источник:** JCP §8.3, Javadoc ThreadPoolExecutor
+Два замечания:
+
+- `shutdownNow()` **прерывает** задачи, то есть работает только для тех, кто реагирует на
+  прерывание ([`THREADS_BASICS.md §4`](THREADS_BASICS.md)). Задача в блокирующем `read()` его
+  проигнорирует.
+- Потоки пула по умолчанию **не демоны**: забытый `shutdown()` не даёт JVM завершиться.
 
 ---
 
-## 3. ScheduledExecutorService
+## 7. Три ловушки, которые съедают ошибки
+
+### 7.1 `submit()` проглатывает исключение, `execute()` — нет
 
 ```java
-ScheduledExecutorService ses = Executors.newScheduledThreadPool(4);
-
-// Одноразовая задержка
-ses.schedule(() -> doWork(), 5, SECONDS);
-
-// Повторяющаяся — фиксированная ЧАСТОТА
-ses.scheduleAtFixedRate(() -> doWork(),
-    0,    // initialDelay
-    10,   // period
-    SECONDS);
-// Если task занимает 3s: запуск в 0s, 10s, 20s, 30s...
-// Если task занимает 15s: запуск в 0s, 15s, 30s, 45s... (без наложения!)
-
-// Повторяющаяся — фиксированная ЗАДЕРЖКА
-ses.scheduleWithFixedDelay(() -> doWork(),
-    0,    // initialDelay
-    10,   // delay после завершения
-    SECONDS);
-// Если task занимает 3s: запуск в 0s, 13s, 26s, 39s...
-// delay отсчитывается от КОНЦА предыдущего запуска
+// PoolTraps.java
+pool.execute(() -> { throw new IllegalStateException("из execute"); });
+Future<?> f = pool.submit(() -> { throw new IllegalStateException("из submit"); });
 ```
 
-**scheduleAtFixedRate vs scheduleWithFixedDelay:**
-- `AtFixedRate`: "каждые N секунд" (по часам). Drift: если задача дольше периода — следующая сразу после.
-- `WithFixedDelay`: "через N секунд после завершения предыдущей". Гарантирует паузу.
+```
+UncaughtExceptionHandler: из execute
+после submit: в консоли ничего не появилось, isDone=true
+ошибка нашлась только в f.get(): из submit
+```
 
-> **Источник:** Javadoc ScheduledExecutorService
+`submit()` заворачивает задачу в `FutureTask`, который **ловит любое исключение и кладёт его в
+`Future`**. Если результат никто не запрашивает — а при `Runnable` его обычно не запрашивают, —
+ошибка исчезает бесследно. `UncaughtExceptionHandler` при этом не срабатывает: с точки зрения
+потока никакого исключения не было.
+
+**Правило.** Не нужен результат — используйте `execute()`. Если всё же `submit()` — либо
+обязательно читайте `Future`, либо оберните тело задачи в `try/catch` с логированием.
+
+### 7.2 Периодическая задача умирает от первого же исключения
+
+```java
+ses.scheduleAtFixedRate(() -> {
+    int n = runs.incrementAndGet();
+    if (n == 3) throw new IllegalStateException("упало на третьем запуске");
+}, 0, 100, TimeUnit.MILLISECONDS);
+```
+
+```
+запуск 1
+запуск 2
+запуск 3
+прошла секунда; всего запусков: 3 (ожидали бы ~10)
+isDone=true, isCancelled=false
+причина видна только через get(): упало на третьем запуске
+```
+
+Javadoc `ScheduledExecutorService` говорит прямо: если очередной запуск бросил исключение,
+**«Subsequent executions are suppressed»**. Задача отменяется навсегда и молча.
+
+Это классический продакшен-инцидент: фоновая синхронизация «работала полгода», а потом однажды
+упала на сетевой ошибке — и с тех пор не запускалась, потому что никто не смотрел в `Future`.
+
+**Правило.** Тело периодической задачи **всегда** оборачивается целиком:
+
+```java
+ses.scheduleAtFixedRate(() -> {
+    try { syncCatalog(); }
+    catch (Throwable t) { log.error("ошибка синхронизации, продолжаем по расписанию", t); }
+}, 0, 1, TimeUnit.MINUTES);
+```
+
+### 7.3 `ThreadLocal` переживает задачу
+
+Потоки пула живут вечно, значит и значения `ThreadLocal` в них тоже. Следующая задача увидит чужой
+контекст — разбор и замер в [`THREADS_BASICS.md §7`](THREADS_BASICS.md). Убирайте в `finally`.
 
 ---
 
-## 4. Future<V>
+## 8. `ScheduledExecutorService`
 
 ```java
-public interface Future<V> {
-    boolean cancel(boolean mayInterruptIfRunning);
-    boolean isCancelled();
-    boolean isDone();
-    V get() throws InterruptedException, ExecutionException;           // блокирует!
-    V get(long timeout, TimeUnit unit) throws TimeoutException;        // блокирует!
-}
+ses.schedule(task, 5, SECONDS);                       // один раз через 5 с
+ses.scheduleAtFixedRate(task, 0, 10, SECONDS);        // старт каждые 10 с «по часам»
+ses.scheduleWithFixedDelay(task, 0, 10, SECONDS);     // 10 с паузы ПОСЛЕ завершения
 ```
 
-### Проблемы Future
+Разница видна, когда задача длится дольше периода:
 
-```java
-Future<String> future = executor.submit(() -> fetchData());
+```
+Задача 3 с, период 10 с:
+  AtFixedRate:    старт в 0, 10, 20, 30 …    (по расписанию)
+  WithFixedDelay: старт в 0, 13, 26, 39 …    (пауза от конца предыдущего)
 
-// ❌ Блокирует вызывающий поток!
-String result = future.get();
-
-// ❌ Нельзя создать цепочку
-// ❌ Нельзя комбинировать несколько futures
-// ❌ Нельзя обработать ошибку без try-catch
-// ❌ Нельзя выполнить callback по завершении
-
-// Единственный способ проверить без блокировки:
-if (future.isDone()) {
-    String result = future.get(); // уже не блокирует
-}
+Задача 15 с, период 10 с:
+  AtFixedRate:    старт в 0, 15, 30 …        наложения НЕ будет, запуски просто опаздывают
+  WithFixedDelay: старт в 0, 25, 50 …        пауза всегда выдерживается
 ```
 
-### cancel() — нюансы
+Правило выбора: важна **частота** (сбор метрик, heartbeat) — `AtFixedRate`; важно **не нагружать
+систему подряд** (тяжёлая синхронизация, обход БД) — `WithFixedDelay`.
 
-```java
-future.cancel(false);  // НЕ прерывает выполняющуюся задачу, только предотвращает старт
-future.cancel(true);   // Вызывает Thread.interrupt() на выполняющем потоке
-// НО: задача должна проверять Thread.interrupted()!
-
-// После cancel:
-future.isDone() == true      // всегда
-future.isCancelled() == true // если cancel вернул true
-future.get() → CancellationException
-```
-
-> **Источник:** JCP §6.3.2, Javadoc Future
+Оговорка: `ScheduledThreadPoolExecutor` — не cron. Он не переживает перезапуск, не знает про часовые
+пояса и не координируется между экземплярами приложения. Для расписания в кластере нужен внешний
+планировщик.
 
 ---
 
-## 5. Future / FutureTask / CompletableFuture — сравнение
+## 9. `ForkJoinPool`
 
-| | `Future<V>` | `FutureTask<V>` | `CompletableFuture<V>` |
-|---|---|---|---|
-| Что такое | Интерфейс | Реализует `Future` + `Runnable` | Реализует `Future` + `CompletionStage` |
-| Завершить вручную | ❌ | ❌ (только через `run()`) | ✅ `complete(v)` |
-| Запустить вручную | ❌ | ✅ `run()` | ❌ |
-| Гарантия "1 раз" | — | ✅ повторные `run()` — no-op | — |
-| Цепочки / callback | ❌ | ❌ | ✅ |
-| Комбинирование | ❌ | ❌ | ✅ `allOf`, `anyOf` |
-| Обработка ошибок | try-catch на `get()` | try-catch на `get()` | `exceptionally`, `handle` |
+### Идея
 
-### FutureTask
+Пул для задач, которые **делятся на подзадачи** и ждут их результата. У каждого потока своя
+двусторонняя очередь; когда она пустеет, поток **крадёт** задачу с другого конца чужой очереди
+(work-stealing).
 
-`FutureTask` оборачивает `Callable` и запускается вручную через `run()`.
-Ключевое свойство: сколько бы раз ни вызвали `run()` — `Callable` выполнится **ровно 1 раз**, остальные вызовы — no-op. Это делает его незаменимым для паттерна "вычисли один раз среди N конкурентных потоков".
+```
+Поток 1: [A][B][C]   ← свои задачи кладёт и берёт с одного конца (LIFO)
+                  ↑
+Поток 2: []       крадёт с противоположного конца (FIFO) — обычно самую крупную
+```
+
+LIFO для своих — лучшая локальность кэша (только что созданная подзадача ещё «горячая»).
+FIFO для краж — старая задача обычно крупнее, значит одна кража даёт больше работы.
+
+### Поправка: `newWorkStealingPool` работает не так
+
+Порядок LIFO — у **обычного** `ForkJoinPool` и `commonPool`. Фабрика
+`Executors.newWorkStealingPool()` передаёт `asyncMode = true` (`Executors.java:114`), а это, по
+javadoc конструктора, «establishes local **first-in-first-out** scheduling mode for forked tasks
+that are never joined» — то есть локальная очередь становится FIFO. Режим предназначен для потока
+независимых событий, а не для рекурсивного деления.
+
+### `RecursiveTask` и порог деления
 
 ```java
-// Паттерн: "вычисли один раз, лок не держи"
-private final ConcurrentHashMap<K, FutureTask<V>> futures = new ConcurrentHashMap<>();
-
-V getOrCompute(K key, Callable<V> loader) throws Exception {
-    // computeIfAbsent атомарно кладёт задачу — только один FutureTask на ключ
-    FutureTask<V> task = futures.computeIfAbsent(key, k -> new FutureTask<>(loader));
-    task.run();       // первый вызов запускает loader, остальные — no-op
-    V value = task.get(); // блокирует пока не готово
-    futures.remove(key);  // почистить после использования
-    return value;
-}
-```
-
-**Почему не `synchronized` + проверка?**
-```
-Поток A: нет в кэше → вычисляет... (долго)
-Поток B: нет в кэше → вычисляет... (долго)  ← оба запускают loader!
-
-С FutureTask:
-Поток A: computeIfAbsent → создаёт FutureTask → run() → вычисляет...
-Поток B: computeIfAbsent → возвращает тот же FutureTask → run() → no-op → get() ждёт A
-```
-
-**Когда использовать FutureTask:**
-- Нужна гарантия "один раз" без удержания лока во время вычисления
-- Ленивая инициализация дорогого ресурса
-- Кэш с конкурентной загрузкой
-
----
-
-## 6. CompletableFuture — полный разбор
-
-### Создание
-
-```java
-// Async с результатом
-CompletableFuture<String> cf = CompletableFuture.supplyAsync(() -> compute());
-CompletableFuture<String> cf = CompletableFuture.supplyAsync(() -> compute(), myExecutor);
-
-// Async без результата
-CompletableFuture<Void> cf = CompletableFuture.runAsync(() -> doWork());
-
-// Уже завершённые
-CompletableFuture<String> cf = CompletableFuture.completedFuture("value");
-CompletableFuture<String> cf = CompletableFuture.failedFuture(new RuntimeException());
-
-// Ручное завершение
-CompletableFuture<String> cf = new CompletableFuture<>();
-cf.complete("value");           // завершить с результатом
-cf.completeExceptionally(ex);   // завершить с ошибкой
-```
-
-### Цепочки — полная карта методов
-
-```
-                          ┌────────────────────────────────────┐
-                          │        CompletableFuture<T>        │
-                          └──────────────┬─────────────────────┘
-                                         │
-    ┌────────────────────────────────────┼──────────────────────────────────┐
-    │                                    │                                  │
-    ▼                                    ▼                                  ▼
-  Transform                         Compose                            Consume
-  (возвращает значение)             (возвращает CF)                    (void)
-    │                                    │                                  │
-  thenApply(T→U) → CF<U>          thenCompose(T→CF<U>) → CF<U>      thenAccept(T→void)
-  thenApplyAsync(T→U)             thenComposeAsync(T→CF<U>)         thenAcceptAsync
-                                                                     thenRun(Runnable)
-```
-
-### thenApply vs thenCompose (КЛЮЧЕВОЙ ВОПРОС)
-
-```java
-// thenApply — аналог map. Функция возвращает ЗНАЧЕНИЕ.
-CF<String> name = CF.supplyAsync(() -> getUserId())
-    .thenApply(id -> "User-" + id);   // id → String
-// Тип: CF<String>
-
-// thenCompose — аналог flatMap. Функция возвращает CF.
-CF<Profile> profile = CF.supplyAsync(() -> getUserId())
-    .thenCompose(id -> fetchProfile(id));  // id → CF<Profile>
-// Тип: CF<Profile>
-
-// ❌ Если бы использовали thenApply с функцией, возвращающей CF:
-CF<CF<Profile>> nested = CF.supplyAsync(() -> getUserId())
-    .thenApply(id -> fetchProfile(id));  // id → CF<Profile>
-// Тип: CF<CF<Profile>> — вложенный! Не то, что нужно.
-```
-
-### Комбинирование
-
-```java
-// Два CF → один результат
-CF<String> combined = cf1.thenCombine(cf2, (r1, r2) -> r1 + " " + r2);
-
-// Два CF → void
-cf1.thenAcceptBoth(cf2, (r1, r2) -> process(r1, r2));
-
-// Два CF → выполни Runnable когда оба завершены
-cf1.runAfterBoth(cf2, () -> cleanup());
-
-// Первый из двух
-cf1.applyToEither(cf2, result -> transform(result));
-cf1.acceptEither(cf2, result -> consume(result));
-cf1.runAfterEither(cf2, () -> doSomething());
-```
-
-### allOf / anyOf
-
-```java
-// Ждать ВСЕ — возвращает CF<Void>
-CF<Void> all = CompletableFuture.allOf(cf1, cf2, cf3);
-all.thenRun(() -> {
-    // Все завершены, получаем результаты через join()
-    String r1 = cf1.join();  // не блокирует — уже завершено
-    String r2 = cf2.join();
-    String r3 = cf3.join();
-});
-
-// Ждать ЛЮБОЙ — возвращает CF<Object> (!)
-CF<Object> any = CompletableFuture.anyOf(cf1, cf2, cf3);
-any.thenAccept(result -> {
-    String fastest = (String) result;  // нужен каст!
-});
-```
-
-### Обработка ошибок
-
-```java
-// exceptionally — перехватить ошибку, вернуть fallback
-cf.exceptionally(ex -> {
-    log.error("Failed", ex);
-    return defaultValue;
-});
-
-// handle — получить и результат, и ошибку (один будет null)
-cf.handle((result, ex) -> {
-    if (ex != null) return defaultValue;
-    return transform(result);
-});
-
-// whenComplete — побочный эффект (логирование), не меняет результат
-cf.whenComplete((result, ex) -> {
-    if (ex != null) log.error("Failed", ex);
-    else log.info("Got: " + result);
-});
-```
-
-### Async суффикс — где выполняется код
-
-```java
-cf.thenApply(fn);        // В потоке, который завершил предыдущую стадию
-                          // ИЛИ в вызывающем потоке (если уже завершена)
-cf.thenApplyAsync(fn);    // В ForkJoinPool.commonPool()
-cf.thenApplyAsync(fn, executor);  // В указанном executor
-
-// ⚠️ thenApply может выполниться в ЛЮБОМ потоке!
-// Если нужна гарантия — используй Async вариант.
-```
-
-### Таймауты (Java 9+)
-
-```java
-cf.orTimeout(5, SECONDS);              // TimeoutException через 5 секунд
-cf.completeOnTimeout(defaultVal, 5, SECONDS);  // default через 5 секунд
-```
-
-### Типичные паттерны
-
-```java
-// 1. Retry pattern
-CompletableFuture<String> retry(Supplier<CF<String>> action, int maxRetries) {
-    CF<String> cf = action.get();
-    for (int i = 0; i < maxRetries; i++) {
-        cf = cf.exceptionallyCompose(ex -> action.get());  // Java 12+
-    }
-    return cf;
-}
-
-// 2. Первый успешный из нескольких (Java 9+ anyOf + filter errors)
-// В Java 21: CompletableFuture.anySuccessful() — не существует, нужно вручную
-
-// 3. Собрать все результаты в список
-List<CF<String>> futures = urls.stream()
-    .map(url -> CF.supplyAsync(() -> fetch(url)))
-    .toList();
-
-CF<List<String>> allResults = CF.allOf(futures.toArray(new CF[0]))
-    .thenApply(v -> futures.stream()
-        .map(CF::join)
-        .toList());
-```
-
-> **Источник:** Javadoc CompletableFuture, JCP §6
-
----
-
-## 7. ForkJoinPool — подробно
-
-### Work-Stealing
-
-```
-Thread-1 deque:  [Task-A] [Task-B] [Task-C]  ← fork() добавляет сюда
-                     ↑                  ↑
-                   steal              execute
-                   (снизу)            (сверху, LIFO)
-
-Thread-2 deque:  [пусто]
-                     ↑
-                   ворует Task-A из Thread-1 (FIFO)
-```
-
-- Каждый поток: свой deque задач
-- Выполнение: LIFO (последняя forked задача первой — лучшая локальность)
-- Stealing: FIFO (крадёт самую старую — обычно самую крупную)
-
-### RecursiveTask vs RecursiveAction
-
-```java
-// RecursiveTask<V> — возвращает результат
 class SumTask extends RecursiveTask<Long> {
+    private static final int THRESHOLD = 10_000;   // ниже порога — считаем сами
     protected Long compute() {
-        if (small) return directCompute();
-        SumTask left = new SumTask(firstHalf);
-        SumTask right = new SumTask(secondHalf);
-        left.fork();              // Запусти в другом потоке
-        Long rightResult = right.compute();  // Выполни в текущем
-        Long leftResult = left.join();       // Дождись результата
-        return leftResult + rightResult;
-    }
-}
-
-// RecursiveAction — без результата (void)
-class SortAction extends RecursiveAction {
-    protected void compute() {
-        if (small) { Arrays.sort(array, lo, hi); return; }
-        // fork/compute/join
+        if (hi - lo <= THRESHOLD) return computeDirectly();
+        SumTask left  = new SumTask(lo, mid);
+        SumTask right = new SumTask(mid, hi);
+        left.fork();                      // отдали в пул
+        long r = right.compute();         // ← правую считаем сами, не создавая лишнюю задачу
+        return left.join() + r;
     }
 }
 ```
 
-### commonPool()
+Порог — главный параметр: слишком мелкий даёт больше накладных расходов, чем работы; слишком крупный
+не загружает ядра. Приём `fork()` одной половины и `compute()` другой в текущем потоке — стандартный,
+он вдвое сокращает число задач.
+
+`RecursiveAction` — то же без результата.
+
+### `commonPool` и блокировки
+
+`ForkJoinPool.commonPool()` обслуживает `parallelStream()` и `CompletableFuture.*Async` без явного
+пула. Параллелизм по умолчанию — `availableProcessors() - 1` (на этой машине 9 при 10 ядрах).
+
+Что бывает, если занять его блокирующими задачами, показано в
+[`ASYNC_COMPOSITION.md §5`](ASYNC_COMPOSITION.md): параллельный поток данных из 8 элементов по 100 мс
+занял **830 мс вместо ~100**.
+
+Если блокирующего вызова в `ForkJoinPool` не избежать, есть штатный способ сообщить пулу об этом,
+чтобы он временно поднял дополнительный поток:
 
 ```java
-ForkJoinPool.commonPool()  // Shared pool, используется:
-// - parallel streams
-// - CompletableFuture.supplyAsync() (без указания executor)
-
-// Parallelism = Runtime.getRuntime().availableProcessors() - 1
-// Можно настроить: -Djava.util.concurrent.ForkJoinPool.common.parallelism=N
-
-// ⚠️ Если задачи в commonPool блокируются (I/O), это замедляет ВСЕ parallel streams!
+ForkJoinPool.managedBlock(new ForkJoinPool.ManagedBlocker() {
+    public boolean block() throws InterruptedException { result = queue.take(); return true; }
+    public boolean isReleasable() { return result != null; }
+});
 ```
 
-> **Источник:** JCP §8.1, Javadoc ForkJoinPool
+На практике проще не блокировать `ForkJoinPool` вовсе и завести отдельный `ThreadPoolExecutor`.
 
 ---
 
-## 8. Invoking Collections of Tasks
+## 10. Группы задач
 
 ```java
-// invokeAll — все задачи, ждать всех
-List<Future<String>> futures = executor.invokeAll(callables);
-// Блокирует пока ВСЕ не завершатся (или таймаут)
-// Все futures уже isDone() == true
+// Все задачи, ждём всех. Блокирует до завершения последней (или таймаута).
+List<Future<String>> all = executor.invokeAll(callables);
 
-// invokeAny — первый успешный результат
-String result = executor.invokeAny(callables);
-// Возвращает результат первого успешно завершённого
-// Отменяет остальные задачи
+// Первый успешный результат; остальные отменяются
+String fastest = executor.invokeAny(callables);
 
-// ExecutorCompletionService — результаты по мере готовности
+// Результаты по мере готовности — а не в порядке отправки
 var ecs = new ExecutorCompletionService<String>(executor);
-for (Callable<String> c : tasks) ecs.submit(c);
+tasks.forEach(ecs::submit);
 for (int i = 0; i < tasks.size(); i++) {
-    Future<String> f = ecs.take();  // первый завершённый
-    process(f.get());
+    Future<String> done = ecs.take();     // первый завершившийся
+    process(done.get());
 }
 ```
 
-> **Источник:** JCP §6.3.5, Javadoc ExecutorCompletionService
+`ExecutorCompletionService` — недооценённый инструмент: если задачи разной длительности, он позволяет
+начать обработку с первой готовой, а не ждать самую медленную.
 
 ---
 
-## 9. Шпаргалка: что использовать
+## 11. Что меняется на JDK 21
+
+Виртуальные потоки убирают исходную посылку «поток дорог, поэтому его надо переиспользовать».
+Для блокирующего ввода-вывода:
+
+```java
+// Было: пул, размер которого приходилось угадывать
+ExecutorService pool = new ThreadPoolExecutor(50, 50, …);
+
+// Стало: поток на задачу, ограничение — отдельно и явно
+ExecutorService ex = Executors.newVirtualThreadPerTaskExecutor();
+Semaphore dbLimit = new Semaphore(10);     // ограничиваем ресурс, а не потоки
+```
+
+Важный сдвиг мышления: **пул перестаёт быть регулятором нагрузки**. Раньше «10 потоков» одновременно
+означало и «10 задач», и «10 соединений к БД». Теперь ограничивать надо то, что действительно
+ограничено — соединения, запросы к API, память — семафором.
+
+Для задач, которые считают, пул остаётся правильным ответом: виртуальные потоки не добавляют ядер.
+Подробности — [`VIRTUAL_THREADS.md`](VIRTUAL_THREADS.md).
+
+---
+
+## 12. Шпаргалка
 
 ```
-Задача → результат?
-  ├─ Нет  → execute(Runnable) / runAsync()
-  └─ Да
-      ├─ Нужна цепочка/композиция? → CompletableFuture
-      ├─ Простой результат?         → submit() → Future<T>
-      └─ Divide & conquer?          → ForkJoinPool + RecursiveTask
-
-Сколько задач?
-  ├─ Много одинаковых → ThreadPoolExecutor (bounded queue!)
-  ├─ По расписанию    → ScheduledExecutorService
-  ├─ I/O-bound, Java 21+ → Executors.newVirtualThreadPerTaskExecutor()
-  └─ CPU-bound, parallel → ForkJoinPool
-
-CompletableFuture: какой метод?
-  ├─ T → U (синхронно)          → thenApply
-  ├─ T → CF<U> (async)          → thenCompose
-  ├─ T → void                   → thenAccept
-  ├─ Два CF → результат         → thenCombine
-  ├─ Ждать все                  → allOf
-  ├─ Первый из нескольких       → anyOf
-  ├─ Обработать ошибку          → exceptionally / handle
-  └─ Побочный эффект            → whenComplete
+Задачи считают                       → пул размером с число ядер
+Задачи ждут                          → N = Nядер × U × (1 + W/C), но не больше внешнего лимита
+Продакшен-пул                        → ThreadPoolExecutor + ArrayBlockingQueue + CallerRunsPolicy + имена
+Нужно затормозить поставщика         → CallerRunsPolicy
+Нужен быстрый отказ                  → AbortPolicy (по умолчанию)
+Периодическая задача                 → тело ВСЕГДА в try/catch, иначе умрёт навсегда
+Не нужен результат                   → execute(), а не submit()
+Разные зависимости                   → разные пулы (bulkhead)
+Деление задачи на подзадачи          → ForkJoinPool + RecursiveTask, порог деления
+Блокировка внутри ForkJoinPool       → ManagedBlocker или, лучше, отдельный пул
+Результаты по мере готовности        → ExecutorCompletionService
+JDK 21, блокирующий ввод-вывод       → виртуальные потоки + Semaphore на ресурс
 ```
+
+---
+
+## 13. Упражнения
+
+- [`Ex09: ForkJoinMergeSort`](../src/main/kotlin/exercises/Ex09_ForkJoinMergeSort.kt) — `RecursiveTask`,
+  порог деления.
+- [`Ex16: ExecutorService Deep`](../src/main/kotlin/exercises/Ex16_ExecutorServiceDeep.kt) — все типы
+  пулов, политики отказа, `invokeAll`/`invokeAny`/`CompletionService`.
+- [`Ex18: Scheduled & ForkJoin`](../src/main/kotlin/exercises/Ex18_ScheduledExecutorAndForkJoin.kt) —
+  `AtFixedRate` против `WithFixedDelay`, ограничитель частоты, map-reduce.
+
+---
+
+## Вопросы для самопроверки
+
+1. Что лежит в `ctl` у `ThreadPoolExecutor` и зачем состояние с числом потоков упакованы в одно слово?
+2. В каком порядке пул пытается пристроить задачу? Почему сначала очередь, а не новый поток?
+3. У пула `core=10, max=100, LinkedBlockingQueue()`. Сколько потоков будет под нагрузкой? Почему?
+4. Как посчитать размер пула для задач, которые ждут? Что важнее формулы?
+5. Чем `CallerRunsPolicy` отличается от остальных политик по смыслу, а не по механике?
+6. Куда девается исключение из `submit(Runnable)`? А из `execute(Runnable)`?
+7. Периодическая задача бросила исключение на третьем запуске. Что будет с четвёртым?
+8. `AtFixedRate` против `WithFixedDelay` — что выбрать для сбора метрик, а что для тяжёлой синхронизации?
+9. Почему `Executors.newWorkStealingPool()` работает не в LIFO-режиме?
+10. Почему блокирующая задача в `commonPool` замедляет `parallelStream` в другом месте программы?
+11. Что перестаёт быть верным про пулы на JDK 21 с виртуальными потоками?
 
 ---
 
 ## Источники
 
-**Спецификации / JEP:**
-- [JEP 266: More Concurrency Updates (JDK 9)](https://openjdk.org/jeps/266) — добавление `CompletionStage`, `orTimeout`, `completeOnTimeout`, `Flow`.
-- [JEP 444: Virtual Threads (JDK 21)](https://openjdk.org/jeps/444) — `Executors.newVirtualThreadPerTaskExecutor()` и взаимодействие с `ForkJoinPool`.
+**Исходники JDK 21:** `java/util/concurrent/ThreadPoolExecutor.java` (`ctl` — 387, `execute` — 1339),
+`java/util/concurrent/Executors.java` (`newFixedThreadPool` — 93, `newWorkStealingPool` — 114,
+`newCachedThreadPool` — 216), `java/util/concurrent/ForkJoinPool.java` (`asyncMode` — 2595, 2715).
 
 **Официальная документация:**
-- [`ThreadPoolExecutor` Javadoc](https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/concurrent/ThreadPoolExecutor.html) — описание алгоритма принятия задач (core → queue → max → reject).
-- [`ScheduledExecutorService` Javadoc](https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/concurrent/ScheduledExecutorService.html) — точная семантика `scheduleAtFixedRate` vs `scheduleWithFixedDelay`.
-- [`CompletableFuture` Javadoc](https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/concurrent/CompletableFuture.html)
-- [`ForkJoinPool` Javadoc](https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/concurrent/ForkJoinPool.html)
+- [`ThreadPoolExecutor` Javadoc (JDK 21)](https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/concurrent/ThreadPoolExecutor.html) — алгоритм приёма задач и политики отказа.
+- [`ScheduledExecutorService` Javadoc](https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/concurrent/ScheduledExecutorService.html) — «Subsequent executions are suppressed».
+- [`ForkJoinPool` Javadoc](https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/concurrent/ForkJoinPool.html) · [`ManagedBlocker`](https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/concurrent/ForkJoinPool.ManagedBlocker.html)
+- [`ExecutorService` Javadoc](https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/concurrent/ExecutorService.html) — эталонный код остановки пула.
 
-**Books / papers:**
-- *Java Concurrency in Practice* (Goetz et al., 2006) — Ch. 6 (Task Execution), Ch. 7 (Cancellation and Shutdown), Ch. 8 (Applying Thread Pools).
-- *Effective Java*, 3rd ed. (Bloch) — Item 80 («Prefer executors, tasks, and streams to threads»).
-- [Doug Lea — «A Java Fork/Join Framework» (PPoPP 2000)](https://gee.cs.oswego.edu/dl/papers/fj.pdf) — теоретическая основа `ForkJoinPool`, work-stealing deque, scan/steal protocol.
+**Книги / papers:**
+- *Java Concurrency in Practice* (Goetz et al., 2006) — Ch. 6 (Task Execution), Ch. 8 (Applying
+  Thread Pools) — оттуда формула размера пула; Ch. 7 (Cancellation and Shutdown).
+- *Effective Java*, 3rd ed. (Bloch, 2018) — Item 80 («Prefer executors, tasks, and streams to threads»).
+- [Doug Lea — «A Java Fork/Join Framework» (PPoPP 2000)](https://gee.cs.oswego.edu/dl/papers/fj.pdf) — теория work-stealing.
 
-**Engineering blogs / posts:**
-- [Tomasz Nurkiewicz — «CompletableFuture» series](https://www.nurkiewicz.com/2013/05/java-8-completablefuture-in-action.html) — практические сценарии (retry, timeouts, allOf-collect).
-- [Brian Goetz — «Concurrency past and present» (devoxx talks)](https://www.youtube.com/watch?v=YxmDCeFouxM) — про эволюцию `ExecutorService` к virtual threads.
+**Разборы:**
 - [Heinz Kabutz — «ExecutorService — 10 tips and tricks»](https://www.javaspecialists.eu/archive/Issue222.html)
-- [Inside.java — «Async programming with virtual threads vs reactive»](https://inside.java/2022/10/13/the-age-of-virtual-threads/) — Ron Pressler/Brian Goetz о миграции с CompletableFuture-цепочек.
+- [Netflix — «Performance under load» (adaptive concurrency limits)](https://netflixtechblog.medium.com/performance-under-load-3e6fa9a60581) — почему фиксированный размер пула плохо переносит изменение нагрузки.

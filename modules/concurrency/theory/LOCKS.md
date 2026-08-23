@@ -1,258 +1,368 @@
-# Locks: ReentrantLock, ReadWriteLock, StampedLock, Condition
+# Явные блокировки: `ReentrantLock`, `Condition`, `ReadWriteLock`, `StampedLock`
+
+> **Какую проблему решает.** `synchronized` умеет ровно одно: не пускать двоих. Он не умеет
+> «попробовать и отступить», «ждать не дольше секунды», «отменяемо ждать» и «разбудить только
+> писателей». Этот файл — про инструменты, которые умеют, и про то, чем за них платят.
+> **Кому это надо.** Тому, кто пишет свои структуры данных, кэши и пулы ресурсов; тому, кто борется
+> с deadlock; и тому, кому на собеседовании зададут «`ReentrantLock` против `synchronized`».
+> **Когда НЕ надо.** Если хватает готовой потокобезопасной коллекции или атомика — лок не нужен
+> вовсе (см. §1). Начинать выбор с «какой лок взять» — самая частая ошибка.
+
+Что происходит с потоком физически, когда лок занят — в [`JUC_INTERNALS.md`](JUC_INTERNALS.md);
+все локи ниже построены на одном механизме, описанном там. Гарантии видимости —
+в [`MEMORY_MODEL.md`](MEMORY_MODEL.md).
+
+Замеры сняты на Apple M4 (10 ядер), Temurin 21.0.9. Это не JMH — порядок величин.
 
 ---
 
-## 1. ReentrantLock vs synchronized
+## 1. Сначала: а нужен ли лок вообще?
 
-| | `synchronized` | `ReentrantLock` |
+Лок — самый дорогой и самый опасный вариант из возможных: он сериализует работу (закон Амдала,
+[`WHY_CONCURRENCY.md`](WHY_CONCURRENCY.md)) и приносит с собой deadlock. Прежде чем брать лок,
+пройдите список сверху вниз — первый подходящий пункт и есть ответ.
+
+| Вопрос | Если да | Почему это лучше лока |
 |---|---|---|
-| Синтаксис | Блок/метод | Явный `lock()` / `unlock()` |
-| `tryLock()` | Нет | Да (без ожидания или с таймаутом) |
-| Interruptible | Нет | `lockInterruptibly()` |
-| Fairness | Всегда unfair | Fair или unfair (`new ReentrantLock(true)`) |
-| Условий ожидания | 1 (`wait/notify`) | Несколько `Condition` |
-| `unlock()` в finally | Не нужен | **Обязателен!** |
-| Производительность | ~Одинаково (Java 6+) | Чуть быстрее при high contention |
+| Данные не меняются после создания? | неизменяемый объект с `final`-полями | гонки нет по построению, синхронизация не нужна вовсе |
+| Данные нужны только одному потоку? | локальная переменная, `ThreadLocal` | общего состояния нет |
+| Это счётчик или одна ссылка? | `AtomicLong`, `LongAdder`, `AtomicReference` | без блокировки, [`ATOMIC_CAS.md`](ATOMIC_CAS.md) |
+| Это коллекция? | `ConcurrentHashMap`, `BlockingQueue` | тонкая блокировка внутри, [`CONCURRENT_COLLECTIONS.md`](CONCURRENT_COLLECTIONS.md) |
+| Нужна атомарность нескольких полей сразу? | **вот здесь нужен лок** | ничто другое не даёт составную атомарность |
 
-**Правило (классическое, JCP 2006):** используй `synchronized` по умолчанию. `ReentrantLock` — только когда нужны его фичи.
+Практический признак того, что лок действительно нужен: **инвариант связывает больше одного поля**.
+Классика — перевод денег между счетами: списание и зачисление обязаны быть неделимы, и никакой
+атомик этого не даст.
 
-**Актуальная поправка:** на Java 21–23 `synchronized` вызывает **pinning** виртуальных потоков — carrier thread блокируется и не может взять другой VT. Если код может выполняться в виртуальных потоках, предпочитай `ReentrantLock`. Java 24 (JEP 491) убрала pinning для `synchronized`, но пока не стала стандартом в большинстве проектов. В библиотечном коде — всегда `ReentrantLock`, среда выполнения неизвестна.
+---
+
+## 2. `ReentrantLock` против `synchronized`
+
+### Что даёт явный лок
 
 ```java
 ReentrantLock lock = new ReentrantLock();
 
-// Базовое использование — ВСЕГДА unlock в finally
 lock.lock();
-try {
-    // критическая секция
-} finally {
-    lock.unlock();  // обязательно даже при исключении
-}
+try { /* критическая секция */ }
+finally { lock.unlock(); }          // ← обязательно, и обязательно в finally
+```
 
-// tryLock — не блокируется
+`unlock()` в `finally` — не стилистика: при исключении внутри секции `synchronized` освободит монитор
+сам, а явный лок останется захваченным навсегда, и приложение встанет.
+
+Четыре возможности, которых у `synchronized` нет:
+
+```java
+// 1. Попробовать и не ждать — например, чтобы пропустить обновление кэша, а не копить очередь
 if (lock.tryLock()) {
-    try { ... }
-    finally { lock.unlock(); }
-} else {
-    // не смогли захватить — альтернативное действие
-}
+    try { refreshCache(); } finally { lock.unlock(); }
+}   // не смогли — и не надо, кто-то другой уже обновляет
 
-// tryLock с таймаутом
-if (lock.tryLock(500, TimeUnit.MILLISECONDS)) {
-    try { ... }
-    finally { lock.unlock(); }
-}
+// 2. Ждать с таймаутом — основа профилактики deadlock (см. PROBLEMS.md)
+if (lock.tryLock(500, TimeUnit.MILLISECONDS)) { … }
 
-// Прерываемый lock (для deadlock prevention)
-lock.lockInterruptibly();  // бросит InterruptedException если поток прерван
+// 3. Отменяемое ожидание: поток на локе можно прервать
+lock.lockInterruptibly();     // бросит InterruptedException
 
-// Kotlin extension
-lock.withLock { /* критическая секция */ }
+// 4. Несколько условий ожидания на одном локе — см. §3
+Condition notFull = lock.newCondition();
 ```
 
-**Fair lock** — потоки получают lock в порядке FIFO ожидания.
-Предотвращает starvation, но снижает throughput (каждый lock = kernel transition).
+В Kotlin есть расширение, закрывающее самую частую ошибку:
+
+```kotlin
+lock.withLock { /* критическая секция */ }   // unlock в finally уже внутри
+```
+
+### Что с производительностью
+
+Замер из [`JUC_INTERNALS.md §7`](JUC_INTERNALS.md) — 8 потоков, миллион инкрементов каждый:
+
+| | Время |
+|---|---|
+| `synchronized` | 41–74 мс (разброс большой) |
+| `ReentrantLock` | 64–66 мс (стабильно) |
+
+Утверждение «`ReentrantLock` быстрее при высокой конкуренции» родом из Java 5 и сегодня неверно:
+JVM научилась оптимизировать монитор, и в этом замере он скорее выигрывает. Разброс у
+`synchronized` — работа адаптивных эвристик JVM.
+
+**Вывод: выбирайте не по скорости, а по возможностям.** Нужен таймаут, `tryLock`,
+прерываемость или несколько условий — `ReentrantLock`. Не нужно ничего из этого — `synchronized`
+короче и безопаснее (нельзя забыть `unlock`).
+
+### Поправка на виртуальные потоки
+
+На JDK 21–23 `synchronized` вокруг блокирующей операции **прибивает виртуальный поток к носителю**;
+`ReentrantLock` — нет, потому что блокируется через `LockSupport.park`. Замер (100 виртуальных
+потоков, каждый спит 100 мс под собственным локом):
+
+```
+JDK 21:  synchronized 1051 мс   |  ReentrantLock 105 мс
+JDK 24:  synchronized  110 мс   |  ReentrantLock 105 мс      ← JEP 491 починил
+```
+
+Механизм — в [`JUC_INTERNALS.md §8`](JUC_INTERNALS.md).
+
+**Правило.** В библиотечном коде — всегда `ReentrantLock`: среда выполнения неизвестна.
+В приложении на JDK 21–23, где используются виртуальные потоки, — тоже. На JDK 24+ ограничение снято.
+
+### Справедливость
+
+```java
+new ReentrantLock(true);     // FIFO: кто раньше встал, тот раньше зайдёт
+```
+
+По умолчанию лок **несправедлив**: только что пришедший поток может обогнать очередь (barging),
+потому что разбудить спящего дороже, чем пустить того, кто уже на процессоре. Справедливый режим
+устраняет голодание, но каждая передача лока стоит пробуждения — пропускная способность падает.
+Разбор — в [`JUC_INTERNALS.md §6`](JUC_INTERNALS.md). `synchronized` справедливым не бывает вообще.
 
 ---
 
-## 2. Condition — множественные условия ожидания
+## 3. `Condition`: несколько очередей ожидания на одном локе
+
+### Задача
+
+У монитора одна очередь ожидания на объект. В ограниченном буфере ждут двух разных событий —
+«появилось место» и «появились данные». `notifyAll()` будит всех подряд: производители просыпаются
+на сигнал, адресованный потребителям, проверяют своё условие, видят, что оно ложно, и снова засыпают.
+Чем больше потоков, тем больше холостых пробуждений.
+
+### Решение
 
 ```java
-ReentrantLock lock = new ReentrantLock();
-Condition notFull  = lock.newCondition();
-Condition notEmpty = lock.newCondition();
+final ReentrantLock lock = new ReentrantLock();
+final Condition notFull  = lock.newCondition();   // очередь производителей
+final Condition notEmpty = lock.newCondition();   // очередь потребителей
 
-// Producer
+// Производитель
 lock.lock();
 try {
-    while (buffer.isFull()) notFull.await();    // ждёт "не полон"
+    while (buffer.isFull()) notFull.await();      // ждём в СВОЕЙ очереди
     buffer.add(item);
-    notEmpty.signal();                          // сигнализирует "не пуст"
+    notEmpty.signal();                            // будим ровно одного потребителя
 } finally { lock.unlock(); }
 
-// Consumer
+// Потребитель
 lock.lock();
 try {
-    while (buffer.isEmpty()) notEmpty.await();  // ждёт "не пуст"
+    while (buffer.isEmpty()) notEmpty.await();
     Item item = buffer.take();
-    notFull.signal();                           // сигнализирует "не полон"
+    notFull.signal();
 } finally { lock.unlock(); }
 ```
 
-**Преимущество перед wait/notifyAll:**
-С двумя Condition можно разбудить только нужных (producers ИЛИ consumers).
-С одним `notifyAll()` — будишь всех (лишние накладные расходы).
+Здесь `signal()` (а не `signalAll()`) безопасен именно потому, что в очереди только те, кто ждёт
+этого конкретного события. Это и есть выигрыш: разбудили одного нужного вместо всех.
 
-**Методы Condition:**
+`await()` — по-прежнему **только в цикле `while`**: причины те же, что у `wait` — ложные пробуждения
+и возможное изменение условия между пробуждением и получением лока
+([`JUC_INTERNALS.md §4`](JUC_INTERNALS.md)).
+
+| `Object.wait/notify` | `Condition.await/signal` |
+|---|---|
+| одна очередь на монитор | сколько угодно очередей на один лок |
+| работает только внутри `synchronized` | работает только внутри `lock()` того же лока |
+| `wait(ms)` не различает таймаут и сигнал | `await(t, unit)` возвращает `boolean`; есть `awaitNanos`, `awaitUntil` |
+| прервать нельзя выборочно | есть `awaitUninterruptibly()` |
+
+Так устроен `ArrayBlockingQueue` внутри — один `ReentrantLock` и два `Condition`
+(`ArrayBlockingQueue.java:121–129`). В прикладном коде свой буфер писать не нужно: возьмите
+`BlockingQueue`.
+
+---
+
+## 4. `ReentrantReadWriteLock`: и главный миф о нём
+
+Идея: читатели не мешают друг другу, писатель работает эксклюзивно.
+
 ```java
-condition.await();                    // отпускает lock + ждёт
-condition.await(1, TimeUnit.SECONDS); // с таймаутом → bool
-condition.awaitNanos(nanos);
-condition.awaitUninterruptibly();     // не реагирует на interrupt
-condition.signal();                   // будит один поток
-condition.signalAll();                // будит всех
+ReentrantReadWriteLock rw = new ReentrantReadWriteLock();
+rw.readLock().lock();   try { … } finally { rw.readLock().unlock(); }
+rw.writeLock().lock();  try { … } finally { rw.writeLock().unlock(); }
+```
+
+```kotlin
+rw.read  { map[key] }            // Kotlin-расширения из kotlin.concurrent
+rw.write { map[key] = value }
+```
+
+### Миф: «читателей больше, чем писателей — значит, берём `ReadWriteLock`»
+
+Проверим. Восемь потоков, общая `HashMap` на 1000 записей, доля записей 0% / 1% / 10%.
+**Короткая критическая секция** — одно чтение из карты:
+
+```
+записей  0%   synchronized:  74–92 мс   ReadWriteLock: 654–687 мс   StampedLock:  2 мс
+записей  1%   synchronized:  72 мс      ReadWriteLock: 150 мс       StampedLock: 21 мс
+записей 10%   synchronized:  74 мс      ReadWriteLock:  85 мс       StampedLock: 32 мс
+```
+
+При **нуле записей** — идеальном для `ReadWriteLock` сценарии — он оказался в **семь-девять раз
+медленнее** обычного `synchronized`.
+
+Причина ровно та же, что у `AtomicLong` в [`WHY_CONCURRENCY.md §4`](WHY_CONCURRENCY.md): взятие
+блокировки на чтение — это **запись** в общее слово `state` (счётчик читателей, `sharedCount`). Восемь
+ядер дерутся за одну строку кэша на каждом чтении. Параллельность чтения есть, а масштабируемости нет.
+
+Теперь та же нагрузка, но **критическая секция длиннее** (200 обращений к карте вместо одного):
+
+```
+записей  0%   synchronized: 110 мс   ReadWriteLock: 37 мс   StampedLock: 20 мс
+записей 10%   synchronized: 102 мс   ReadWriteLock: 92 мс   StampedLock: 42 мс
+```
+
+Здесь `ReadWriteLock` уже втрое быстрее — стоимость взятия лока размазалась по длинной работе.
+
+**Настоящее правило.** `ReadWriteLock` выигрывает при **одновременном** выполнении двух условий:
+чтений существенно больше записей **и** критическая секция достаточно длинная, чтобы окупить
+стоимость самого лока. Для короткого чтения из карты правильный ответ вообще другой —
+`ConcurrentHashMap`.
+
+### Понижение блокировки: с записи на чтение
+
+Единственный законный переход между режимами:
+
+```java
+writeLock().lock();
+try {
+    data = recompute();          // изменили
+    readLock().lock();           // взяли блокировку на чтение, НЕ отпуская блокировку на запись
+} finally {
+    writeLock().unlock();        // теперь отпускаем запись — никто не проскочил
+}
+try {
+    publish(data);               // работаем с тем, что сами записали
+} finally { readLock().unlock(); }
+```
+
+Зачем: если просто отпустить `writeLock()` и потом взять `readLock()`, между этими двумя действиями другой писатель
+успеет всё изменить, и вы опубликуете чужие данные.
+
+Обратный переход (**повышение** с чтения на запись) не поддерживается и приводит к deadlock: чтобы дать
+вам блокировку на запись, лок обязан дождаться ухода всех читателей — включая вас самих.
+
+```java
+readLock().lock();
+writeLock().lock();     // ❌ ждёт, пока уйдут читатели, а один из них — этот же поток
 ```
 
 ---
 
-## 3. ReentrantReadWriteLock
+## 5. `StampedLock`: чтение вообще без записи
 
-```
-         Читатель 1 ──┐
-         Читатель 2 ──┤──► READ LOCK (одновременно всем)
-         Читатель 3 ──┘
-
-         Писатель ────────► WRITE LOCK (эксклюзивно, блокирует читателей)
-```
-
-```java
-ReentrantReadWriteLock rwLock = new ReentrantReadWriteLock();
-Lock readLock  = rwLock.readLock();
-Lock writeLock = rwLock.writeLock();
-
-// Kotlin extension:
-rwLock.read  { map[key] }           // read lock
-rwLock.write { map[key] = value }   // write lock
-```
-
-**Правила:**
-- Несколько потоков могут держать read lock одновременно
-- Write lock — эксклюзивный (никого нет)
-- Пока есть хотя бы один reader — writer ждёт
-- Не поддерживает **upgrade** read→write (только downgrade write→read)
-
-**Когда выгоден:** чтений >> записей (иначе overhead от двух lock'ов не оправдан).
-
-### Lock Downgrade (write → read)
-
-```java
-writeLock.lock();
-try {
-    // Изменяем данные
-    data = newValue;
-    readLock.lock();   // взять read lock ДО отпускания write
-} finally {
-    writeLock.unlock();  // отпустить write — никакой writer не проскочит
-}
-try {
-    // Работаем с данными под read lock
-    process(data);
-} finally {
-    readLock.unlock();
-}
-```
-
-**Зачем?** Между `writeLock.unlock()` и `readLock.lock()` другой поток мог бы изменить данные.
-Downgrade гарантирует что мы работаем с данными, которые сами только что записали.
-
-**Lock upgrade (read → write) — НЕ поддерживается**, вызовет deadlock:
-```java
-readLock.lock();
-// ... читаем ...
-writeLock.lock();   // ❌ DEADLOCK! reader ждёт writer, writer ждёт reader
-```
-
----
-
-## 4. StampedLock (Java 8+)
-
-Три режима: write, read, **optimistic read** (без блокировки).
+Тот же замер показал `StampedLock` в 2 мс против 74 мс у `synchronized` — в 37 раз быстрее.
+Причина в третьем режиме, которого нет у остальных.
 
 ```java
 StampedLock sl = new StampedLock();
 
-// Write lock
-long stamp = sl.writeLock();
-try { x = newX; y = newY; }
-finally { sl.unlockWrite(stamp); }
-
-// Read lock
-long stamp = sl.readLock();
-try { return Math.sqrt(x*x + y*y); }
-finally { sl.unlockRead(stamp); }
-
-// Optimistic read — САМОЕ ИНТЕРЕСНОЕ
-long stamp = sl.tryOptimisticRead();  // не блокируется, stamp != 0
-double curX = x, curY = y;           // читаем данные
-if (!sl.validate(stamp)) {           // проверяем: был ли write?
-    stamp = sl.readLock();           // fallback на обычный read lock
-    try { curX = x; curY = y; }
+// Оптимистичное чтение: НИЧЕГО не записывает в состояние лока
+long stamp = sl.tryOptimisticRead();      // просто запомнили версию
+int value = map.get(key);                 // читаем данные
+if (!sl.validate(stamp)) {                // а не влез ли писатель, пока мы читали?
+    stamp = sl.readLock();                // влез — честно берём read-блокировку
+    try { value = map.get(key); }
     finally { sl.unlockRead(stamp); }
 }
-return Math.sqrt(curX*curX + curY*curY);
+return value;
 ```
 
-**Преимущества:**
-- Optimistic read: нет блокировки, читатели не мешают друг другу И писателю
-- Максимальная производительность при редких записях
+Ключевое: `tryOptimisticRead()` не изменяет ни одной общей ячейки — поэтому нет и борьбы за строку
+кэша. Читатели действительно масштабируются. Цена — работу иногда приходится делать дважды.
 
-**Ограничения:**
-- **НЕ reentrant** (lock.readLock() внутри lock.readLock() → deadlock)
-- **НЕ поддерживает Condition**
-- Нельзя конвертировать stamp произвольно
+Два обязательных требования к оптимистичному чтению:
+
+1. **Сначала скопировать данные в локальные переменные, потом валидировать.** Читать «на месте»
+   нельзя: значения могут быть несогласованными в момент чтения.
+2. Прочитанное **нельзя использовать до `validate`** — ни разыменовывать, ни делить на него.
+   Пока проверка не прошла, вы читали, возможно, мусор.
+
+Ограничения, из-за которых `StampedLock` — не замена `ReentrantLock`:
+
+- **Не реентерабельный.** Повторный захват тем же потоком — deadlock.
+- **Нет `Condition`** — ждать условия нечем.
+- Не поддерживает наследование владения, `tryLock` с прерыванием ведёт себя иначе.
+
+**Когда брать:** маленькая структура данных с высокой долей чтений, где важна пропускная способность
+(координаты, кэш конфигурации, счётчики состояния). **Когда не брать:** везде, где нужна
+реентерабельность, ожидание условия или просто хочется спокойной жизни.
 
 ---
 
-## 5. LockSupport
+## 6. Правила безопасной работы с локами
 
-Низкоуровневый примитив, основа для всего `java.util.concurrent`.
-
-```java
-// Заблокировать текущий поток
-LockSupport.park();
-LockSupport.park(blocker);      // с объектом для диагностики
-LockSupport.parkNanos(nanos);
-LockSupport.parkUntil(deadline);
-
-// Разблокировать конкретный поток (из любого потока)
-LockSupport.unpark(thread);
-```
-
-**Особенность:** Каждый поток имеет один "permit". `unpark()` выдаёт permit; `park()` потребляет его. Если permit уже есть — `park()` возвращается немедленно. `unpark()` перед `park()` — park не блокирует.
+1. **Один порядок захвата на всё приложение.** Если где-то `A → B`, то нигде не должно быть `B → A`.
+   Это единственный надёжный способ исключить круговое ожидание ([`PROBLEMS.md`](PROBLEMS.md)).
+2. **Не вызывать чужой код под локом** (open call). Колбек, слушатель или переопределённый метод
+   может взять другой лок — и вы получите deadlock, о котором не знали.
+3. **Никакого ввода-вывода под локом.** Сеть и БД — снаружи критической секции.
+4. **Лок должен быть `private final`.** Публичный объект (или `this`) может быть залочен чужим
+   кодом, и вы об этом не узнаете.
+5. **Гранулярность по данным, а не по классу.** Лок на каждый счёт лучше, чем один лок на весь банк;
+   но слишком мелкие локи приводят к захвату нескольких сразу — и снова к порядку захвата.
+6. **Держать лок минимально возможное время** — прямое следствие §4 и закона Амдала.
+7. **`tryLock` с таймаутом** там, где допустимо отступить: это превращает потенциальный deadlock
+   в обычную ошибку с логом.
 
 ---
 
-## 6. Шпаргалка: что выбрать
+## 7. Шпаргалка
 
 ```
-Простая синхронизация                      → synchronized
-tryLock / interruptible / fair lock        → ReentrantLock
-Множество условий ожидания                 → ReentrantLock + Condition
-Много читателей, мало писателей            → ReentrantReadWriteLock
-Максимальная производительность, редко пишем → StampedLock (optimistic read)
-Lock downgrade нужен                       → ReentrantReadWriteLock
+Нужна атомарность нескольких полей          → лок; иначе см. §1
+Просто взаимное исключение                  → synchronized (короче, нельзя забыть unlock)
+Нужен tryLock / таймаут / прерываемость     → ReentrantLock
+Код может выполняться в виртуальном потоке (JDK 21-23) → ReentrantLock
+Несколько разных условий ожидания           → ReentrantLock + несколько Condition
+Много чтений И длинная критическая секция   → ReentrantReadWriteLock
+Много чтений И очень короткая секция        → StampedLock (оптимистичное чтение) или ConcurrentHashMap
+Нужно менять режим                          → только понижение write → read
+Голодание реально наблюдается               → new ReentrantLock(true), ценой пропускной способности
 ```
+
+---
+
+## 8. Упражнения
+
+- [`Ex03: ReentrantLockCache`](../src/main/kotlin/exercises/Ex03_ReentrantLockCache.kt) — LRU-кэш,
+  `Condition`, `getOrCompute`, понижение блокировки.
+- [`Ex04: ReadWriteLock`](../src/main/kotlin/exercises/Ex04_ReadWriteLock.kt) — `MetricsStore`,
+  согласованность, замер.
 
 ---
 
 ## Вопросы для самопроверки
 
-1. Почему `unlock()` должен быть в `finally`?
-2. Как сделать fair ReentrantLock? В чём его минус?
-3. Что такое lock downgrade и зачем он нужен?
-4. Почему lock upgrade невозможен в ReentrantReadWriteLock?
-5. В чём отличие `Condition.await()` от `Object.wait()`?
-6. Как работает optimistic read в StampedLock?
-7. Когда ReadWriteLock НЕ даёт преимущества над synchronized?
+1. Три способа обойтись без лока вообще. Признак того, что лок всё-таки нужен?
+2. Почему `unlock()` обязан быть в `finally`, а для `synchronized` этого не требуется?
+3. Что даёт `ReentrantLock`, чего принципиально нет у `synchronized`? Быстрее ли он?
+4. Почему в коде библиотеки на JDK 21 предпочитают `ReentrantLock`? Как это измерить?
+5. Зачем нужны два `Condition` вместо одного `notifyAll()`?
+6. При нуле записей `ReadWriteLock` оказался в 7 раз медленнее `synchronized`. Почему?
+7. При каких двух условиях `ReadWriteLock` действительно выигрывает?
+8. Что такое понижение блокировки и зачем оно? Почему повышение невозможно?
+9. Почему оптимистичное чтение `StampedLock` масштабируется лучше блокировки на чтение?
+10. Что нельзя делать со значением, прочитанным до `validate()`?
+11. Что такое open call и чем он опасен?
 
 ---
 
 ## Источники
 
 **Спецификации / JEP:**
-- [JEP 491: Synchronize Virtual Threads without Pinning (JDK 24)](https://openjdk.org/jeps/491) — почему `synchronized` блокировал carrier-поток до Java 24 и как это решили.
-- [JEP 444: Virtual Threads (final, JDK 21)](https://openjdk.org/jeps/444) — раздел Pinning, рекомендация переходить на `ReentrantLock`.
+- [JEP 491: Synchronize Virtual Threads without Pinning (JDK 24)](https://openjdk.org/jeps/491)
+- [JEP 444: Virtual Threads (JDK 21)](https://openjdk.org/jeps/444) — раздел Pinning.
 
 **Официальная документация:**
 - [`java.util.concurrent.locks` package summary (JDK 21)](https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/concurrent/locks/package-summary.html)
-- [`ReentrantLock` Javadoc](https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/concurrent/locks/ReentrantLock.html)
-- [`StampedLock` Javadoc](https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/concurrent/locks/StampedLock.html)
+- [`ReentrantLock`](https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/concurrent/locks/ReentrantLock.html) · [`ReentrantReadWriteLock`](https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/concurrent/locks/ReentrantReadWriteLock.html) · [`StampedLock`](https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/concurrent/locks/StampedLock.html) — в javadoc `StampedLock` есть канонический пример оптимистичного чтения.
 
-**Книги / papers:**
-- *Java Concurrency in Practice* (Goetz et al., 2006) — Ch. 13 (Explicit Locks), Ch. 14 (Building Custom Synchronizers).
-- [Doug Lea — «The java.util.concurrent Synchronizer Framework» (AQS paper, 2005)](https://gee.cs.oswego.edu/dl/papers/aqs.pdf) — внутреннее устройство `AbstractQueuedSynchronizer`, на котором построены все локи.
-
-**Engineering blogs / posts:**
-- [Heinz Kabutz — «Phaser, StampedLock and friends» (JavaSpecialists Newsletter)](https://www.javaspecialists.eu/archive/Issue215.html) — практические нюансы StampedLock.
-- [Aleksey Shipilëv — «Java Object Header Layout» (для biased locking)](https://shipilev.net/jvm/objects-inside-out/) — что было в заголовке объекта до отмены biased locking в JEP 374.
-- [JEP 374: Disable and Deprecate Biased Locking (JDK 15)](https://openjdk.org/jeps/374) — почему `synchronized` стало проще, но не быстрее.
+**Книги / статьи:**
+- *Java Concurrency in Practice* (Goetz et al., 2006) — Ch. 13 (Explicit Locks), Ch. 11 (Performance
+  and Scalability) — почему сериализация дороже, чем кажется.
+- [Doug Lea — «The java.util.concurrent Synchronizer Framework»](https://gee.cs.oswego.edu/dl/papers/aqs.pdf)
+- [Heinz Kabutz — «Phaser, StampedLock and friends»](https://www.javaspecialists.eu/archive/Issue215.html) — практические грабли `StampedLock`.
+- [JEP 374: Disable and Deprecate Biased Locking (JDK 15)](https://openjdk.org/jeps/374) — что изменилось в стоимости `synchronized`.

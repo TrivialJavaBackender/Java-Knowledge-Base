@@ -499,7 +499,7 @@ public class MyProcessor extends AbstractProcessor {
 - Bytecode / `invokedynamic` / lambda → [`BYTECODE_INVOKEDYNAMIC.md`](BYTECODE_INVOKEDYNAMIC.md)
 - JPMS, `opens` / `exports` / `--add-opens` → [`JPMS_MODULES.md`](JPMS_MODULES.md)
 - VarHandle и atomic CAS концептуально → [`modules/concurrency/theory/ATOMIC_CAS.md`](../../concurrency/theory/ATOMIC_CAS.md)
-- Access modes семантика через JMM → [`modules/concurrency/theory/THREADS_BASICS.md`](../../concurrency/theory/THREADS_BASICS.md)
+- Access modes семантика через JMM → [`modules/concurrency/theory/MEMORY_MODEL.md`](../../concurrency/theory/MEMORY_MODEL.md)
 - FFM API с VarHandle → [`FOREIGN_MEMORY_VECTOR.md`](FOREIGN_MEMORY_VECTOR.md)
 
 ### Внешние ресурсы

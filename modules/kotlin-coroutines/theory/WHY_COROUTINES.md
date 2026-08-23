@@ -155,8 +155,8 @@ fun buildPage(userId: Long): CompletableFuture<Page> {
 **Стектрейсы.** Ошибка приходит завёрнутой в `CompletionException`, а трейс показывает поток пула,
 а не место, где цепочку собрали.
 
-> Полный разбор самого API `CompletableFuture` — в
-> [`concurrency/theory/EXECUTORS_FUTURES.md`](../../concurrency/theory/EXECUTORS_FUTURES.md).
+> Полный разбор `CompletableFuture` — от мотивации до внутреннего устройства — в
+> [`concurrency/theory/ASYNC_COMPOSITION.md`](../../concurrency/theory/ASYNC_COMPOSITION.md).
 > Как стыковать его с корутинами — в [`INTEROP.md`](INTEROP.md).
 
 ---

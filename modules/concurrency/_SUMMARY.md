@@ -1,33 +1,43 @@
 # Concurrency — Semantic Summary
 
 ## Core Model
-- JMM: happens-before defines visibility; without it, reads may observe stale values
-- Threads share heap (objects), not stack (locals, parameters)
-- Monitor = mutual exclusion lock + condition variable (wait/notify)
+- Весь `java.util.concurrent` — одна машина: `volatile int state` + CAS (быстрый путь) + очередь AQS
+  + `LockSupport.park/unpark` (медленный). Классы отличаются лишь смыслом `state`.
+- `LockSupport.park()` ветвится по `Thread.isVirtual()` — стык j.u.c. с Loom и причина pinning
+  у `synchronized` (до JDK 24).
+- JMM — контракт: переупорядочивать можно всё, что не нарушает happens-before. «volatile сбрасывает
+  кэш» — неверно: кэши когерентны, дело в оптимизациях компилятора и барьерах.
+- `CompletableFuture` — стек колбеков на CAS: поля `result` и `stack`, `postComplete` — трамплин.
 
 ## Key Concepts
-- **JMM / visibility**: volatile (visibility, not atomicity), synchronized (happens-before on unlock→lock), final fields
-- **Locks**: ReentrantLock (explicit, timed, interruptible), ReadWriteLock (concurrent reads), StampedLock (optimistic read)
-- **CAS / atomics**: AtomicInteger/AtomicReference, CAS loop, ABA problem → AtomicStampedReference
-- **Concurrent collections**: ConcurrentHashMap (segmented CAS), BlockingQueue (producer-consumer), CopyOnWriteArrayList (read-heavy)
-- **Executors**: ThreadPoolExecutor (corePool/maxPool/queue/keepAlive), CompletableFuture (async pipeline), ForkJoinPool (work-stealing)
-- **Synchronizers**: CountDownLatch (one-shot gate), CyclicBarrier (reusable rendezvous), Semaphore (permits), Phaser (dynamic parties)
-- **Virtual threads**: M:N model, park without blocking carrier thread; pinning occurs only on synchronized + native frames
+- Сколько потоков: `L = λW` (Литтл); для ожидающих `N = Nядер × U × (1 + W/C)`, но предел задаёт
+  внешний ресурс (пул соединений, лимит API).
+- Цена: поток ≈ 2 МБ стека, ~22 мкс создание, ~1.2 мкс переключение; виртуальный ≈ 1.5 мкс.
+- CAS не бесплатен: 8 потоков → 4.66 попытки на инкремент, `AtomicLong` вчетверо медленнее лока;
+  `LongAdder` (`Striped64` + `@Contended`) быстрее в 40 раз ценой неточного `sum()`.
+- `ConcurrentHashMap`: лок на бин (сегменты — это Java 7); дерево требует и `TREEIFY_THRESHOLD = 8`,
+  и `MIN_TREEIFY_CAPACITY = 64`; рекурсивный `computeIfAbsent` → `IllegalStateException`.
+- `ThreadPoolExecutor`: `ctl` = состояние (3 бита) + число потоков (29); приём core → очередь → max
+  → отказ, поэтому неограниченная очередь обнуляет `maximumPoolSize`.
+- Виртуальные потоки: пул больше не регулятор нагрузки — ограничиваем ресурс через `Semaphore`.
+  `ScopedValue` и `StructuredTaskScope` — preview и в JDK 24.
 
 ## Important Invariants
-- volatile guarantees visibility AND ordering (happens-before), but NOT atomicity of compound operations
-- CAS is atomic but subject to ABA; loop until success or add stamp
-- ForkJoin tasks must be independent (no side-channel shared state between subtasks)
-- Virtual threads use platform thread (carrier) pool; synchronized + blocking = carrier pinning = thread pool starvation
-- double-checked locking requires volatile on the field to avoid partially constructed object visibility
+- Нет happens-before → результат не определён. `volatile` даёт порядок и атомарность 64-битных
+  полей, но не атомарность `count++`.
+- `final`-поля видны целиком, если `this` не утёк из конструктора.
+- Любое ожидание — в цикле (ложные пробуждения); `unpark` до `park` не теряется.
+- `ReadWriteLock` выигрывает только при длинной критической секции; при короткой он в 7–9 раз
+  медленнее `synchronized`.
+- `CompletableFuture.cancel(true)` не прерывает задачу, `orTimeout` не останавливает работу.
 
 ## Common Pitfalls
-- Deadlock: circular lock acquisition order → enforce global lock ordering
-- Livelock: threads keep retrying and yielding to each other → add randomized backoff
-- Starvation: unfair lock grants → use `new ReentrantLock(true)` (fair mode)
-- Lock on wrong monitor (e.g., `synchronized(new Object())`) → no mutual exclusion
-- Calling wait() outside synchronized block → IllegalMonitorStateException
+- `submit(Runnable)` прячет исключение в `Future`; периодическая задача умирает от первого исключения.
+- `ThreadLocal` в пуле переживает задачу → утечка данных и памяти; нужен `remove()` в `finally`.
+- Блокировка в `commonPool` тормозит `parallelStream` в другом месте программы.
+- Задача, ждущая задачу того же пула, — зависание, которое `jcmd` не считает deadlock.
+- Ложное разделение строки кэша: замедление в 3–12 раз. `sun.misc.Contended` не существует с Java 9.
 
 ## Related Modules
-- `kotlin-coroutines` — coroutines as lightweight alternative to threads; virtual threads are complementary
-- `system-design` — distributed locks (Redisson, database locks) as extension of local locking
+- `kotlin-coroutines` — та же задача на уровне языка; `INTEROP.md` — мост к `CompletableFuture`.
+- `system-design` — надёжность поверх этих примитивов. `java-core` — JIT и оптимизации.

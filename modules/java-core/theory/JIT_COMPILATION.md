@@ -387,7 +387,7 @@ public int bench() { /* ... */ }
 
 - Safepoints, GC pauses → [`GARBAGE_COLLECTION.md`](GARBAGE_COLLECTION.md)
 - Code Cache для JIT-кода → [`JVM_MEMORY_AREAS.md`](JVM_MEMORY_AREAS.md)
-- Lock elision и memory model → [`modules/concurrency/theory/THREADS_BASICS.md`](../../concurrency/theory/THREADS_BASICS.md)
+- Lock elision и memory model → [`modules/concurrency/theory/MEMORY_MODEL.md`](../../concurrency/theory/MEMORY_MODEL.md)
 - Bytecode, invokedynamic (что JIT встраивает) → [`BYTECODE_INVOKEDYNAMIC.md`](BYTECODE_INVOKEDYNAMIC.md)
 - Vector API autovectorization → [`FOREIGN_MEMORY_VECTOR.md`](FOREIGN_MEMORY_VECTOR.md)
 

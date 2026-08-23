@@ -4,25 +4,50 @@ Canonical concept → owner file map. One concept, one owner. Other modules must
 
 ## Concurrency
 
-- JMM → modules/concurrency/theory/THREADS_BASICS.md
-- happens-before → modules/concurrency/theory/THREADS_BASICS.md
-- volatile → modules/concurrency/theory/THREADS_BASICS.md
+- зачем конкурентность / цена потока → modules/concurrency/theory/WHY_CONCURRENCY.md
+- закон Литтла (Little's law) → modules/concurrency/theory/WHY_CONCURRENCY.md
+- закон Амдала / Universal Scalability Law → modules/concurrency/theory/WHY_CONCURRENCY.md
+- latency vs throughput (в конкурентности) → modules/concurrency/theory/WHY_CONCURRENCY.md
+- thread lifecycle → modules/concurrency/theory/THREADS_BASICS.md
 - synchronized → modules/concurrency/theory/THREADS_BASICS.md
 - wait/notify → modules/concurrency/theory/THREADS_BASICS.md
-- thread lifecycle → modules/concurrency/theory/THREADS_BASICS.md
+- interrupt / кооперативная отмена потока → modules/concurrency/theory/THREADS_BASICS.md
+- ThreadLocal → modules/concurrency/theory/THREADS_BASICS.md
+- JMM → modules/concurrency/theory/MEMORY_MODEL.md
+- happens-before → modules/concurrency/theory/MEMORY_MODEL.md
+- volatile → modules/concurrency/theory/MEMORY_MODEL.md
+- memory reordering / store buffer → modules/concurrency/theory/MEMORY_MODEL.md
+- safe publication → modules/concurrency/theory/MEMORY_MODEL.md
+- final field semantics → modules/concurrency/theory/MEMORY_MODEL.md
+- double-checked locking → modules/concurrency/theory/MEMORY_MODEL.md
+- data race vs race condition → modules/concurrency/theory/MEMORY_MODEL.md
+- jcstress → modules/concurrency/theory/MEMORY_MODEL.md
+- AbstractQueuedSynchronizer (AQS) → modules/concurrency/theory/JUC_INTERNALS.md
+- LockSupport park/unpark → modules/concurrency/theory/JUC_INTERNALS.md
+- CLH queue → modules/concurrency/theory/JUC_INTERNALS.md
+- barging / fair vs unfair → modules/concurrency/theory/JUC_INTERNALS.md
+- spurious wakeup → modules/concurrency/theory/JUC_INTERNALS.md
+- Thread.onSpinWait → modules/concurrency/theory/JUC_INTERNALS.md
 - ReentrantLock → modules/concurrency/theory/LOCKS.md
 - ReadWriteLock → modules/concurrency/theory/LOCKS.md
-- StampedLock → modules/concurrency/theory/LOCKS.md
+- StampedLock / optimistic read → modules/concurrency/theory/LOCKS.md
 - Condition → modules/concurrency/theory/LOCKS.md
+- lock downgrade → modules/concurrency/theory/LOCKS.md
 - lock pinning (virtual threads) → modules/concurrency/theory/LOCKS.md
 - CAS (Compare-And-Swap) → modules/concurrency/theory/ATOMIC_CAS.md
 - AtomicInteger / AtomicReference → modules/concurrency/theory/ATOMIC_CAS.md
 - ABA problem → modules/concurrency/theory/ATOMIC_CAS.md
 - lock-free concurrency → modules/concurrency/theory/ATOMIC_CAS.md
+- LongAdder / Striped64 → modules/concurrency/theory/ATOMIC_CAS.md
+- false sharing / @Contended → modules/concurrency/theory/ATOMIC_CAS.md
+- VarHandle / access modes → modules/concurrency/theory/ATOMIC_CAS.md
+- Treiber stack → modules/concurrency/theory/ATOMIC_CAS.md
 - ConcurrentHashMap → modules/concurrency/theory/CONCURRENT_COLLECTIONS.md
 - BlockingQueue → modules/concurrency/theory/CONCURRENT_COLLECTIONS.md
 - CopyOnWriteArrayList → modules/concurrency/theory/CONCURRENT_COLLECTIONS.md
 - ConcurrentSkipListMap → modules/concurrency/theory/CONCURRENT_COLLECTIONS.md
+- weakly consistent iterator → modules/concurrency/theory/CONCURRENT_COLLECTIONS.md
+- Collections.synchronizedXxx → modules/concurrency/theory/CONCURRENT_COLLECTIONS.md
 - CountDownLatch → modules/concurrency/theory/SYNCHRONIZERS.md
 - CyclicBarrier → modules/concurrency/theory/SYNCHRONIZERS.md
 - Semaphore → modules/concurrency/theory/SYNCHRONIZERS.md
@@ -30,18 +55,31 @@ Canonical concept → owner file map. One concept, one owner. Other modules must
 - Exchanger → modules/concurrency/theory/SYNCHRONIZERS.md
 - ThreadPoolExecutor → modules/concurrency/theory/EXECUTORS_FUTURES.md
 - FixedThreadPool / CachedThreadPool → modules/concurrency/theory/EXECUTORS_FUTURES.md
-- CompletableFuture → modules/concurrency/theory/EXECUTORS_FUTURES.md
+- pool sizing (размер пула потоков) → modules/concurrency/theory/EXECUTORS_FUTURES.md
+- rejection policy / CallerRunsPolicy → modules/concurrency/theory/EXECUTORS_FUTURES.md
 - ForkJoinPool → modules/concurrency/theory/EXECUTORS_FUTURES.md
 - work-stealing → modules/concurrency/theory/EXECUTORS_FUTURES.md
+- ManagedBlocker → modules/concurrency/theory/EXECUTORS_FUTURES.md
+- ScheduledExecutorService → modules/concurrency/theory/EXECUTORS_FUTURES.md
+- ExecutorCompletionService → modules/concurrency/theory/EXECUTORS_FUTURES.md
+- CompletableFuture → modules/concurrency/theory/ASYNC_COMPOSITION.md
+- CompletionStage → modules/concurrency/theory/ASYNC_COMPOSITION.md
+- thenApply vs thenCompose → modules/concurrency/theory/ASYNC_COMPOSITION.md
+- ForkJoinPool.commonPool (ловушка) → modules/concurrency/theory/ASYNC_COMPOSITION.md
+- Future vs FutureTask → modules/concurrency/theory/ASYNC_COMPOSITION.md
 - deadlock → modules/concurrency/theory/PROBLEMS.md
 - livelock → modules/concurrency/theory/PROBLEMS.md
 - starvation → modules/concurrency/theory/PROBLEMS.md
 - race condition → modules/concurrency/theory/PROBLEMS.md
 - Coffman conditions → modules/concurrency/theory/PROBLEMS.md
+- thread dump / jcmd Thread.print → modules/concurrency/theory/PROBLEMS.md
+- thread pool starvation → modules/concurrency/theory/PROBLEMS.md
+- JFR events (concurrency) → modules/concurrency/theory/PROBLEMS.md
 - virtual threads → modules/concurrency/theory/VIRTUAL_THREADS.md
 - platform threads → modules/concurrency/theory/VIRTUAL_THREADS.md
 - M:N threading model → modules/concurrency/theory/VIRTUAL_THREADS.md
 - StructuredTaskScope → modules/concurrency/theory/VIRTUAL_THREADS.md
+- ScopedValue → modules/concurrency/theory/VIRTUAL_THREADS.md
 
 ## Kotlin Coroutines
 
@@ -933,14 +971,18 @@ Concepts that legitimately appear in multiple modules — canonical owner listed
 | consistent hashing | caching-deep-dive/DISTRIBUTED_CACHING.md (cache distribution) | databases/SHARDING.md (DB sharding context) |
 | Redis (deep) | caching-deep-dive/REDIS.md | databases/DATABASE_TYPES.md (high-level KV overview) |
 | CoroutineScope vs coroutineScope | kotlin-coroutines/SCOPE_CONTEXT.md (interface type) | kotlin-coroutines/STRUCTURED_CONCURRENCY.md (builder function) |
+| механика приостановки потока/корутины | concurrency/JUC_INTERNALS.md (AQS, park/unpark, поток ОС) | kotlin-coroutines/SUSPEND_INTERNALS.md (Continuation, CPS, кто возобновляет) |
+| ограничение конкурентности | concurrency/SYNCHRONIZERS.md (Semaphore, j.u.c.) | kotlin-coroutines/BACKEND_PATTERNS.md (корутинный вариант) · system-design/RELIABILITY_PATTERNS.md (bulkhead как паттерн) |
+| размер пула потоков / закон Литтла | concurrency/EXECUTORS_FUTURES.md (формула, ctl, очередь) | system-design/RELIABILITY_PATTERNS.md (адаптивные лимиты) |
+| false sharing / строка кэша | concurrency/ATOMIC_CAS.md (замер, @Contended, Striped64) | caching-deep-dive (CPU-кэш как уровень иерархии) |
 | Semaphore | concurrency/SYNCHRONIZERS.md (j.u.c., блокирующий) | kotlin-coroutines/SHARED_STATE.md (kotlinx.coroutines.sync, suspend) |
 | взаимное исключение | concurrency/LOCKS.md (монитор, ReentrantLock) | kotlin-coroutines/SHARED_STATE.md (Mutex: почему не synchronized, нереентерабельность) |
-| CompletableFuture | concurrency/EXECUTORS_FUTURES.md (API, цепочки, пулы) | kotlin-coroutines/INTEROP.md (мост await/future/asDeferred) |
+| CompletableFuture | concurrency/ASYNC_COMPOSITION.md (устройство, цепочки, ловушки) | kotlin-coroutines/INTEROP.md (мост await/future/asDeferred) |
 | exponential backoff + jitter | system-design/RELIABILITY_PATTERNS.md (рецепт, retry budget) | kotlin-coroutines/BACKEND_PATTERNS.md (корутинная реализация) |
 | cache stampede / single-flight | caching-deep-dive/ANTI_PATTERNS.md (явление) | kotlin-coroutines/BACKEND_PATTERNS.md (single-flight на Mutex + CompletableDeferred) |
 | Circuit Breaker | system-design/microservice_patterns.md (паттерн) | spring-frameworks/SPRING_CLOUD.md (Resilience4j) · kotlin-coroutines/BACKEND_PATTERNS.md (набросок + отличие от retry) |
 | virtual threads | concurrency/VIRTUAL_THREADS.md (устройство, pinning, StructuredTaskScope) | kotlin-coroutines/DISPATCHERS.md (VT как диспетчер через asCoroutineDispatcher) |
-| JMM | concurrency/THREADS_BASICS.md (happens-before, volatile, synchronized) | java-core/JMM_REFERENCE.md (cross-ref only) |
+| JMM | concurrency/MEMORY_MODEL.md (happens-before, volatile, публикация, гонки) | java-core/JMM_REFERENCE.md (cross-ref only) · concurrency/THREADS_BASICS.md (применение synchronized) |
 | VarHandle | java-core/REFLECTION_HANDLES.md (API + access modes) | concurrency/ATOMIC_CAS.md (atomic operations использование) |
 | ClassLoader leak | java-core/CLASS_LOADERS.md (mechanism + diagnostic) | spring-frameworks/SPRING_BOOT.md (DevTools hot-reload contexts) |
 | lock elision / lock coarsening | java-core/JIT_COMPILATION.md (JIT optimization) | concurrency/LOCKS.md (synchronized semantics) |
@@ -948,7 +990,7 @@ Concepts that legitimately appear in multiple modules — canonical owner listed
 | ByteBuffer (direct) / off-heap | java-core/JVM_MEMORY_AREAS.md (allocation model) | java-core/FOREIGN_MEMORY_VECTOR.md (modern replacement) |
 | Reflection (perf cost) | java-core/REFLECTION_HANDLES.md | spring-frameworks/SPRING_CORE_DI.md (DI internals использование) |
 | goroutines / M:N scheduler | go/SCHEDULER.md (GMP, netpoller, work-stealing) | concurrency/VIRTUAL_THREADS.md (JVM virtual threads, M:N model) |
-| happens-before / memory model | concurrency/THREADS_BASICS.md (JMM, general) | go/MEMORY_GC.md (Go memory model: channels/mutex/Once guarantees) |
+| happens-before / memory model | concurrency/MEMORY_MODEL.md (JMM, general) | go/MEMORY_GC.md (Go memory model: channels/mutex/Once guarantees) |
 | tri-color GC / write barrier | java-core/GARBAGE_COLLECTION.md (general invariant) | go/MEMORY_GC.md (Go concurrent non-moving impl, GOGC/GOMEMLIMIT) |
 | generics implementation | java-core/GENERICS_ERASURE.md (Java type erasure) | go/GENERICS.md (GC-shape stenciling + dictionaries) |
 | testing tooling | software-engineering/TESTING.md (pyramid, general philosophy) | go/TESTING_GO.md (testing pkg, table-driven, benchmarks, fuzzing) |

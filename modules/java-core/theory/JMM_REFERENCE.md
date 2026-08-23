@@ -14,10 +14,10 @@ JMM — раздел JLS §17, описывающий **partial-order на де�
 
 | Концепт | Файл |
 |---|---|
-| happens-before, sequential consistency, JMM partial order | [`modules/concurrency/theory/THREADS_BASICS.md`](../../concurrency/theory/THREADS_BASICS.md) |
-| `volatile`, semantics, fence injection | [`modules/concurrency/theory/THREADS_BASICS.md`](../../concurrency/theory/THREADS_BASICS.md) |
-| `synchronized`, monitor enter/exit memory effects | [`modules/concurrency/theory/THREADS_BASICS.md`](../../concurrency/theory/THREADS_BASICS.md) |
-| `final` field safe publication | [`modules/concurrency/theory/THREADS_BASICS.md`](../../concurrency/theory/THREADS_BASICS.md) |
+| happens-before, sequential consistency, JMM partial order | [`modules/concurrency/theory/MEMORY_MODEL.md`](../../concurrency/theory/MEMORY_MODEL.md) |
+| `volatile`, semantics, fence injection | [`modules/concurrency/theory/MEMORY_MODEL.md`](../../concurrency/theory/MEMORY_MODEL.md) |
+| `synchronized`, monitor enter/exit memory effects | [`modules/concurrency/theory/MEMORY_MODEL.md`](../../concurrency/theory/MEMORY_MODEL.md) |
+| `final` field safe publication | [`modules/concurrency/theory/MEMORY_MODEL.md`](../../concurrency/theory/MEMORY_MODEL.md) |
 | ReentrantLock, ReadWriteLock, StampedLock, Condition | [`modules/concurrency/theory/LOCKS.md`](../../concurrency/theory/LOCKS.md) |
 | CAS, Compare-And-Swap, ABA problem | [`modules/concurrency/theory/ATOMIC_CAS.md`](../../concurrency/theory/ATOMIC_CAS.md) |
 | Atomic-классы, AtomicReference, ABA | [`modules/concurrency/theory/ATOMIC_CAS.md`](../../concurrency/theory/ATOMIC_CAS.md) |
@@ -45,7 +45,7 @@ JMM описывает **взаимодействие потоков**. Все, 
 Объясни модель **в двух фразах**:
 > JMM определяет partial-order *happens-before* на действиях памяти. Если действие `a` happens-before `b`, то эффекты `a` видны при выполнении `b`. Без happens-before компилятор/CPU могут реоrdering операции для производительности. `volatile`, `synchronized`, `Thread.start`/`join`, `final`-init, lock release/acquire — устанавливают happens-before.
 
-Подробности — см. `modules/concurrency/theory/THREADS_BASICS.md`.
+Подробности — см. `modules/concurrency/theory/MEMORY_MODEL.md`.
 
 ## Related
 

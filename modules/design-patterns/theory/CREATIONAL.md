@@ -268,7 +268,7 @@ final class Circle implements Prototype<Circle> {
 
 Область модели памяти (почему нужен `volatile`, что такое happens-before и корректная публикация
 объекта) здесь не раскрывается — канонический владелец темы JMM:
-[../../concurrency/theory/THREADS_BASICS.md](../../concurrency/theory/THREADS_BASICS.md) и
+[../../concurrency/theory/MEMORY_MODEL.md](../../concurrency/theory/MEMORY_MODEL.md) и
 [../../concurrency/theory/ATOMIC_CAS.md](../../concurrency/theory/ATOMIC_CAS.md).
 
 ```java

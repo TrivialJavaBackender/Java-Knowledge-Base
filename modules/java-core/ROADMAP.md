@@ -154,4 +154,4 @@
 > Только pointer на канонических владельцев. Реальное изучение — в `concurrency`.
 
 - [ ] Прочитать cross-reference и понять разделение зон
-- [ ] Канонический материал в [`modules/concurrency/theory/THREADS_BASICS.md`](../concurrency/theory/THREADS_BASICS.md)
+- [ ] Канонический материал в [`modules/concurrency/theory/MEMORY_MODEL.md`](../concurrency/theory/MEMORY_MODEL.md)

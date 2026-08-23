@@ -1,261 +1,418 @@
-# Потоки, synchronized, volatile, wait/notify
+# Поток: запуск, остановка, ожидание, `synchronized`
+
+> **Какую проблему решает.** Показывает минимальный набор средств, которыми поток запускают,
+> просят остановиться, дожидаются и не пускают в один участок кода вдвоём — и объясняет, почему
+> каждое из них устроено именно так.
+> **Кому это надо.** Всем: на этих примитивах построено всё остальное в модуле, и на собеседовании
+> они спрашиваются первыми.
+> **Когда НЕ надо.** В прикладном коде `Thread` напрямую почти не создают — есть пулы
+> ([`EXECUTORS_FUTURES.md`](EXECUTORS_FUTURES.md)) и виртуальные потоки
+> ([`VIRTUAL_THREADS.md`](VIRTUAL_THREADS.md)). Но понимать, чем вы управляете, нужно.
+
+Правила видимости данных (`volatile`, happens-before, безопасная публикация) вынесены в
+[`MEMORY_MODEL.md`](MEMORY_MODEL.md) — здесь только управление потоком.
+Что происходит с потоком физически, когда он блокируется, — в [`JUC_INTERNALS.md`](JUC_INTERNALS.md).
 
 ---
 
-## 1. Жизненный цикл потока
+## 1. Что такое поток и сколько он стоит
+
+Поток — это независимая последовательность выполнения со своим стеком. Платформенный поток Java
+отображается **один к одному** на поток операционной системы: его создаёт и планирует ядро.
+
+Отсюда две вещи, которые надо помнить всегда:
+
+- **У потока свой стек и общая куча.** Локальные переменные и параметры принадлежат потоку —
+  их не надо синхронизировать. Объекты в куче общие — с ними всё сложно.
+- **Поток стоит денег.** На этой машине: 2 МБ резерва под стек, ~22 мкс на создание, ~1.2 мкс на
+  переключение. Замеры и следствия — в [`WHY_CONCURRENCY.md`](WHY_CONCURRENCY.md).
+
+---
+
+## 2. Жизненный цикл и зачем он нужен на практике
 
 ```
-NEW ──start()──► RUNNABLE ──────────────────────────────► TERMINATED
+NEW ──start()──► RUNNABLE ─────────────────────────────► TERMINATED
                     │   ▲
-          blocked   │   │ lock acquired / sleep ends
+       не пускают   │   │ лок получен / сон закончился
                     ▼   │
-                 BLOCKED (ждёт монитор)
+                 BLOCKED (ждёт монитор synchronized)
                     │   ▲
-          wait()    │   │ notify()/notifyAll()
+        wait/park   │   │ notify / unpark
                     ▼   │
                  WAITING / TIMED_WAITING
 ```
 
-| Состояние | Причина |
-|---|---|
-| `NEW` | Создан, `start()` не вызван |
-| `RUNNABLE` | Выполняется или готов к выполнению |
-| `BLOCKED` | Ждёт захвата монитора (`synchronized`) |
-| `WAITING` | `wait()`, `join()`, `LockSupport.park()` |
-| `TIMED_WAITING` | `sleep(n)`, `wait(n)`, `join(n)` |
-| `TERMINATED` | Завершён (нормально или с исключением) |
+| Состояние | Причина | Что это значит в дампе потоков |
+|---|---|---|
+| `NEW` | создан, `start()` не вызван | — |
+| `RUNNABLE` | выполняется или готов | занимает процессор (или ждёт ввода-вывода — ОС этого JVM не сообщает) |
+| `BLOCKED` | ждёт монитор `synchronized` | **конкуренция за лок**; много таких потоков — узкое место или deadlock |
+| `WAITING` | `wait()`, `join()`, `LockSupport.park()` | ждёт события; типично для потоков пула без работы |
+| `TIMED_WAITING` | `sleep(n)`, `wait(n)`, `poll(t)` | то же, но с таймаутом |
+| `TERMINATED` | завершён | — |
+
+**Зачем это знать.** Состояния — основной инструмент диагностики: снимаете дамп потоков
+(`jcmd <pid> Thread.print`) и смотрите распределение. Все потоки пула в `WAITING` на очереди —
+работы нет. Все в `BLOCKED` на одном мониторе — нашли узкое место. Подробно — в
+[`PROBLEMS.md`](PROBLEMS.md).
+
+Важная тонкость: **`RUNNABLE` не означает «работает»**. Поток, заблокированный на чтении из сокета,
+для JVM выглядит `RUNNABLE`, потому что блокировка произошла в нативном коде. Судить о загрузке
+процессора по числу `RUNNABLE` нельзя.
 
 ---
 
-## 2. Thread API
+## 3. Запуск и ожидание
 
 ```java
 Thread t = new Thread(() -> doWork());
-t.setName("worker-1");
-t.setDaemon(true);  // должно быть ДО start()!
-t.start();
+t.setName("worker-1");        // видно в дампе и в логах — называйте потоки осмысленно
+t.setDaemon(true);            // только ДО start()
+t.start();                    // ← создаёт поток ОС; вызов run() напрямую этого не делает
 
-// Из другого потока:
-t.interrupt();          // устанавливает interrupt flag
-t.join();               // ждёт завершения
-t.join(1000);           // ждёт не более 1000ms
-Thread.currentThread(); // текущий поток
-
-// Внутри задачи:
-Thread.sleep(100);                    // бросает InterruptedException
-Thread.interrupted();                 // проверяет и СБРАСЫВАЕТ флаг
-Thread.currentThread().isInterrupted(); // проверяет без сброса
+t.join();                     // ждать завершения
+t.join(1000);                 // ждать не дольше секунды
 ```
 
-**Daemon thread** — JVM завершается когда остались только daemon-потоки.
-GC, finalizer — daemon. Потоки из thread pool — non-daemon.
-
-**interrupt()** — не убивает поток. Устанавливает флаг прерывания.
-Методы `sleep()`, `wait()`, `join()` при установленном флаге бросают `InterruptedException` и **сбрасывают** флаг. Правильная реакция:
+Две частые ошибки:
 
 ```java
-try {
+t.run();     // ❌ обычный вызов метода в текущем потоке, никакого параллелизма
+t.start();
+t.start();   // ❌ IllegalThreadStateException — поток запускается один раз
+```
+
+**Демон-поток** не удерживает JVM: она завершается, когда остались только демоны. Отсюда правило —
+демоном делают фоновые служебные потоки (метрики, планировщик), но **никогда** тот, который пишет
+данные: JVM может завершиться посреди записи. Потоки из `Executors` по умолчанию **не** демоны,
+поэтому забытый `shutdown()` не даёт приложению завершиться.
+
+---
+
+## 4. Прерывание — это протокол, а не команда
+
+### 4.1 Почему поток нельзя убить
+
+```java
+// Stop.java на JDK 21
+t.stop();      // -> java.lang.UnsupportedOperationException
+t.suspend();   // -> java.lang.UnsupportedOperationException
+t.resume();    // -> java.lang.UnsupportedOperationException
+```
+
+Эти методы существовали и были объявлены устаревшими ещё в Java 1.2, а начиная с JDK 20 просто
+бросают исключение. Причина: `stop()` бросал `ThreadDeath` в произвольной точке — в том числе
+посреди изменения структуры данных под локом. Лок при этом освобождался, а данные оставались
+испорченными, и обнаруживалось это где-то далеко. Восстановить инварианты было невозможно, поэтому
+безопасного способа «убить поток извне» в Java нет — и не появится.
+
+Отсюда единственная модель: **поток можно только попросить остановиться**, а он должен согласиться.
+
+### 4.2 Как устроено прерывание
+
+`interrupt()` делает две вещи:
+
+1. Поднимает у потока **флаг прерывания**.
+2. Если поток в этот момент спит в `sleep()`, `wait()`, `join()` или `park()` — выводит его оттуда.
+   Методы `sleep`/`wait`/`join` бросают `InterruptedException` и **сбрасывают флаг**;
+   `LockSupport.park()` просто возвращается (флаг остаётся поднятым).
+
+```java
+Thread.interrupted();                      // проверить И СБРОСИТЬ флаг (статический!)
+Thread.currentThread().isInterrupted();    // проверить, не сбрасывая
+```
+
+Цикл, который считает, сам не прервётся — он обязан проверять флаг:
+
+```java
+while (!Thread.currentThread().isInterrupted()) {
+    computeChunk();          // без проверки цикл проигнорирует interrupt()
+}
+```
+
+### 4.3 Два правильных ответа на `InterruptedException`
+
+`InterruptedException` — это не ошибка, а **сообщение «вас просят закончить»**. Проглотить его —
+значит отменить решение, принятое кем-то выше.
+
+```java
+// ✅ Вариант 1: не наше дело решать — пробрасываем
+void doWork() throws InterruptedException {
     Thread.sleep(1000);
-} catch (InterruptedException e) {
-    Thread.currentThread().interrupt(); // восстановить флаг!
-    return;
 }
+
+// ✅ Вариант 2: не можем пробросить (например, реализуем Runnable) — восстанавливаем флаг и выходим
+public void run() {
+    try {
+        while (true) { queue.take(); process(); }
+    } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();   // вернуть флаг: выше по стеку тоже должны узнать
+    }
+}
+
+// ❌ Так нельзя
+try { Thread.sleep(1000); } catch (InterruptedException e) { }              // сигнал потерян
+try { Thread.sleep(1000); } catch (InterruptedException e) { log.error(e); } // то же самое
 ```
+
+Почему восстановление флага важно: `sleep`/`wait` его сбрасывают. Если вы не поднимете флаг обратно,
+код выше по стеку (например, цикл пула потоков, решающий, пора ли завершаться) никогда не узнает,
+что была команда остановиться.
+
+### 4.4 Чего прерывание не умеет
+
+Прерывание работает только для методов, которые о нём знают. Обычный блокирующий ввод-вывод — нет:
+
+```java
+socket.getInputStream().read();     // interrupt() НЕ прервёт
+resultSet.next();                   // interrupt() НЕ прервёт (зависит от драйвера)
+```
+
+Способы всё-таки прекратить ожидание:
+
+- **Закрыть ресурс** из другого потока: `socket.close()` заставит `read()` бросить
+  `SocketException`. Это стандартный приём для сокетов.
+- Использовать `InterruptibleChannel` (`java.nio`) — такие каналы на `interrupt()` закрываются
+  и бросают `ClosedByInterruptException`.
+- Ставить **таймауты на уровне клиента** (`setSoTimeout`, таймауты `HttpClient`, `Statement`) —
+  это единственное, что работает всегда.
 
 ---
 
-## 3. synchronized — монитор
+## 5. `synchronized`: взаимное исключение
 
-Каждый объект в Java имеет встроенный монитор (intrinsic lock).
+### Задача
 
 ```java
-// Монитор объекта this:
-synchronized void method() { ... }
-synchronized (this) { ... }
+class Counter {
+    private int value;
+    void increment() { value++; }     // читаем, увеличиваем, записываем — три операции
+}
+```
 
-// Монитор класса:
-static synchronized void staticMethod() { ... }
-synchronized (MyClass.class) { ... }
+Два потока могут прочитать одно и то же значение и записать одно и то же — один инкремент
+потеряется. Нужно, чтобы «три операции» стали неделимыми для остальных.
 
-// Произвольный объект-замок:
+### Механизм
+
+У каждого объекта в Java есть встроенный монитор. `synchronized` захватывает его на входе и
+освобождает на выходе — в том числе при исключении.
+
+```java
+synchronized void method() { }            // монитор объекта this
+synchronized (this) { }                   // то же явно
+static synchronized void m() { }          // монитор объекта-класса MyClass.class
 private final Object lock = new Object();
-synchronized (lock) { ... }
+synchronized (lock) { }                   // выделенный лок — предпочтительный вариант
 ```
 
-**Свойства:**
-- **Reentrant** — поток может повторно захватить уже захваченный им монитор
-- **Взаимное исключение** — только один поток владеет монитором
-- **Visibility** — выход из synchronized flushes все записи в main memory; вход invalidates кэш
+Три свойства:
+
+- **Взаимное исключение**: внутри одного монитора одновременно только один поток.
+- **Реентерабельность**: поток может войти повторно в монитор, которым уже владеет (иначе
+  `synchronized`-метод не мог бы вызвать другой `synchronized`-метод того же объекта).
+- **Видимость**: выход из монитора happens-before последующего входа в него — см.
+  [`MEMORY_MODEL.md §4`](MEMORY_MODEL.md).
+
+### Ошибки
 
 ```java
-// synchronized на разных объектах — НЕ защищают одно и то же!
-synchronized (lockA) { counter++; }  // поток 1
-synchronized (lockB) { counter++; }  // поток 2 — race condition!
+// ❌ Разные мониторы не защищают одно состояние
+synchronized (lockA) { counter++; }
+synchronized (lockB) { counter++; }        // гонка сохраняется
+
+// ❌ Синхронизация на новом объекте — монитор, которым не владеет никто больше
+synchronized (new Object()) { … }
+
+// ❌ Синхронизация на публичном объекте: чужой код может взять тот же монитор
+public synchronized void m() { … }         // монитор this виден снаружи
+// ✅ private final Object lock — снаружи взять нельзя
+
+// ❌ Долгая работа под локом
+synchronized (this) {
+    var data = httpClient.get(url);        // сетевой вызов держит лок
+    db.save(data);                         // и обращение к БД тоже
+}
 ```
+
+Последнее — самый частый источник проблем в продакшене: пока один поток ходит в сеть, все остальные
+стоят в `BLOCKED`. Правило: **под локом только работа с памятью**, ввод-вывод — снаружи.
+
+> **Отдельно про виртуальные потоки.** На JDK 21–23 `synchronized` вокруг блокирующей операции
+> прибивает виртуальный поток к носителю — замер и разбор в
+> [`JUC_INTERNALS.md §8`](JUC_INTERNALS.md). В библиотечном коде это повод предпочесть
+> `ReentrantLock`.
 
 ---
 
-## 4. volatile
+## 6. `wait` / `notify`: ожидание условия
+
+### Задача
+
+`synchronized` умеет «не пускать двоих». Он не умеет «подожди, пока появятся данные». Наивное
+решение — крутиться в цикле:
 
 ```java
-private volatile boolean running = true;
-
-// Поток 1:
-running = false;
-
-// Поток 2:
-while (running) { doWork(); }  // гарантированно увидит false
+while (buffer.isEmpty()) { }          // сжигает целое ядро впустую
+while (buffer.isEmpty()) Thread.sleep(10);   // лучше, но задержка до 10 мс на пустом месте
 ```
 
-**Гарантирует:**
-- **Visibility** — запись видна другим потокам немедленно (без кэширования в регистрах/L1)
-- **Happens-before** — запись в volatile HB чтению той же переменной
-- **Порядок** — запрещает переупорядочивание (memory barrier)
+Нужен способ уснуть и быть разбуженным ровно тогда, когда условие может стать истинным. Для этого у
+монитора есть вторая роль — очередь ожидания.
 
-**НЕ гарантирует:**
-- **Атомарность составных операций** — `count++` это read→modify→write, три операции
+### Механизм
 
 ```java
-volatile int count = 0;
-count++;  // ❌ НЕ атомарно! Используй AtomicInteger
-```
-
-**Когда достаточно volatile:**
-- Один поток пишет, остальные читают (simple flag)
-- Публикация ссылки на immutable объект
-
----
-
-## 5. Happens-Before (JMM)
-
-Отношение частичного порядка: если A happens-before B, то все записи A гарантированно видны в B.
-
-**Правила happens-before:**
-1. **Program order** — в одном потоке: каждая операция HB следующей
-2. **Monitor lock** — unlock(m) HB lock(m) того же монитора
-3. **Volatile** — запись в volatile HB чтению той же переменной
-4. **Thread start** — `t.start()` HB первая операция потока t
-5. **Thread join** — последняя операция t HB возврат из `t.join()`
-6. **Transitive** — A HB B, B HB C → A HB C
-
-```java
-int x = 0;
-Thread t = new Thread(() -> {
-    x = 42;  // запись
-});
-t.start();
-t.join();
-System.out.println(x);  // гарантированно 42 (join создаёт HB)
-```
-
----
-
-## 6. wait / notify / notifyAll
-
-**Правило:** всегда вызывать только внутри `synchronized` по тому же объекту.
-
-```java
-// Producer
+// Производитель
 synchronized (lock) {
-    while (buffer.isFull()) {   // while, не if!
-        lock.wait();            // атомарно: отпускает монитор + усыпляет
-    }
+    while (buffer.isFull()) lock.wait();   // атомарно: отпустить монитор + уснуть
     buffer.add(item);
-    lock.notifyAll();
+    lock.notifyAll();                      // разбудить ожидающих
 }
 
-// Consumer
+// Потребитель
 synchronized (lock) {
-    while (buffer.isEmpty()) {
-        lock.wait();
-    }
+    while (buffer.isEmpty()) lock.wait();
     Item item = buffer.take();
     lock.notifyAll();
 }
 ```
 
-**Почему while, а не if?**
-Spurious wakeup — поток может проснуться без `notify()`. Всегда проверяй условие повторно.
+Три обязательных правила и причина каждого:
 
-**notify() vs notifyAll():**
-- `notify()` — будит один произвольный поток
-- `notifyAll()` — будит все ждущие потоки
-- Почти всегда используй `notifyAll()`: `notify()` опасен если несколько условий ожидания на одном объекте — сигнал может достаться "не тому" потоку (signal hijacking)
+1. **Только внутри `synchronized` по тому же объекту.** Иначе `IllegalMonitorStateException`.
+   Причина в атомарности: `wait()` обязан отпустить монитор и уснуть одной неделимой операцией,
+   иначе сигнал успеет проскочить между этими шагами.
+2. **Только в цикле `while`, никогда в `if`.** Поток может проснуться без `notify`
+   (spurious wakeup) — это общее свойство примитивов ожидания, см.
+   [`JUC_INTERNALS.md §4`](JUC_INTERNALS.md). Кроме того, между пробуждением и получением монитора
+   условие мог изменить кто-то ещё.
+3. **`notifyAll()`, а не `notify()`**, если на одном мониторе ждут разных условий. `notify()`
+   разбудит одного случайного, и им может оказаться поток, чьё условие не выполнено —
+   он снова уснёт, а тот, кого надо было разбудить, не проснётся (перехват сигнала).
+
+`notify()` допустим, только когда все ожидающие ждут одного и того же и достаточно разбудить одного.
+
+**Когда нужно разделить условия** — берите `ReentrantLock` с несколькими `Condition`: там «не полон»
+и «не пуст» — разные очереди, и `signal()` идёт точно по адресу ([`LOCKS.md §2`](LOCKS.md)).
+В прикладном коде ограниченный буфер вообще не пишут руками — берут `BlockingQueue`
+([`CONCURRENT_COLLECTIONS.md`](CONCURRENT_COLLECTIONS.md)).
 
 ---
 
-## 7. Типичные ошибки
+## 7. `ThreadLocal`: своё состояние у каждого потока
+
+Переменная, у которой **у каждого потока свой экземпляр**. Синхронизация не нужна, потому что общего
+состояния нет.
 
 ```java
-// ❌ Проверка без синхронизации
-if (!initialized) {  // может увидеть устаревшее значение
-    initialize();
-}
+static final ThreadLocal<SimpleDateFormat> FMT =
+    ThreadLocal.withInitial(() -> new SimpleDateFormat("yyyy-MM-dd"));
+FMT.get().format(date);      // у каждого потока свой SimpleDateFormat (он не потокобезопасен)
+```
 
-// ❌ Синхронизация на разных объектах
-synchronized (new Object()) { ... }  // каждый раз новый монитор — бесполезно
+Типичные применения: непотокобезопасные объекты вроде `SimpleDateFormat`, «текущий пользователь»
+и `requestId` для логов (MDC в SLF4J), «текущая транзакция» в Spring.
 
-// ❌ notify() вместо notifyAll() с несколькими условиями
-// Одно условие — можно notify()
-// Несколько — обязательно notifyAll()
+### Ловушка: в пуле потоки переиспользуются
 
-// ❌ wait() без цикла
-synchronized (lock) {
-    if (!condition) lock.wait();  // spurious wakeup!
-    // используй while
-}
+```java
+// TL.java
+ExecutorService pool = Executors.newFixedThreadPool(1);
+pool.submit(() -> { USER.set("alice"); print("задача 1 положила: " + USER.get()); }).get();
+pool.submit(() ->   print("задача 2 видит чужое: " + USER.get())).get();
+```
 
-// ❌ Длинные synchronized блоки
-synchronized (this) {
-    compute();        // долгая операция — блокирует всех
-    db.save(result);  // I/O внутри lock — антипаттерн
+```
+задача 1 положила: alice
+задача 2 видит чужое: alice
+```
+
+Следствия сразу два, и оба неприятные:
+
+- **Утечка данных между запросами.** Второй запрос увидел контекст первого. Если там был
+  идентификатор пользователя — это уже проблема безопасности.
+- **Утечка памяти.** Значение живёт, пока жив поток, а потоки пула живут вечно. Ключи в
+  `ThreadLocalMap` — слабые ссылки, а значения — обычные, поэтому значение не соберётся, пока
+  кто-нибудь не тронет эту карту снова.
+
+**Правило.** Всё, что положили в `ThreadLocal` внутри задачи, обязаны убрать:
+
+```java
+try {
+    USER.set(currentUser);
+    handle(request);
+} finally {
+    USER.remove();          // не set(null), а именно remove()
 }
 ```
+
+`InheritableThreadLocal` копирует значение в дочерний поток при создании — но в пуле дочерние потоки
+не создаются, так что для передачи контекста в задачи пула он бесполезен.
+
+На JDK 21 есть альтернатива — `ScopedValue` (пока preview): неизменяемое значение, действующее
+только внутри блока, автоматически убирается на выходе, дешёвое при большом числе потоков.
+См. [`VIRTUAL_THREADS.md`](VIRTUAL_THREADS.md).
 
 ---
 
 ## 8. Шпаргалка
 
 ```
-Нужна видимость одного флага?              → volatile
-Нужна атомарность составных операций?      → synchronized или AtomicXxx
-Нужна координация (жди условия)?           → synchronized + wait/notify
-Нужно ограничить блок синхронизации?       → synchronized(lock) { ... }
-Нужен более мощный инструмент?             → ReentrantLock + Condition
+Запустить                      → new Thread(...).start()   (не run()!)
+Дождаться                      → join()
+Попросить остановиться         → interrupt() + проверка флага в цикле
+Поймали InterruptedException   → пробросить ИЛИ восстановить флаг и выйти; никогда не глотать
+Прервать блокирующий ввод-вывод → закрыть ресурс либо таймаут на клиенте
+Не пускать двоих               → synchronized (private final Object lock)
+Подождать условия              → wait() в while + notifyAll()
+Несколько разных условий       → ReentrantLock + несколько Condition
+Своё состояние на поток        → ThreadLocal + обязательный remove() в finally
 ```
+
+---
+
+## 9. Упражнения
+
+- [`Ex01: ThreadBasics`](../src/main/kotlin/exercises/Ex01_ThreadBasics.kt) — потоки, `synchronized`,
+  пинг-понг на `wait/notify`.
+- [`Ex02: ProducerConsumer`](../src/main/kotlin/exercises/Ex02_ProducerConsumer.kt) — ограниченный
+  буфер на `wait/notify`.
 
 ---
 
 ## Вопросы для самопроверки
 
-1. Чем `Thread.interrupted()` отличается от `isInterrupted()`?
-2. Почему `wait()` должен вызываться в цикле?
-3. Что такое spurious wakeup?
-4. Чем `notify()` опасен при нескольких условиях?
-5. Что произойдёт если `volatile` переменную инкрементируют 2 потока?
-6. Назови все правила happens-before.
-7. Почему синхронизация на `new Object()` внутри метода бесполезна?
+1. Чем `t.run()` отличается от `t.start()`?
+2. Почему `Thread.stop()` на JDK 21 бросает исключение? Что именно он ломал?
+3. Что делает `interrupt()` с потоком, который сейчас считает в цикле? А со спящим?
+4. Чем `Thread.interrupted()` отличается от `isInterrupted()`?
+5. Вы поймали `InterruptedException` внутри `Runnable.run()`. Какие два допустимых действия?
+6. Как прервать поток, зависший на `socket.read()`?
+7. Почему `wait()` обязан вызываться внутри `synchronized`, и почему в цикле `while`?
+8. Когда `notify()` допустим вместо `notifyAll()`?
+9. Почему `synchronized` на публичном объекте — плохая идея?
+10. Что не так с `ThreadLocal` в пуле потоков? Как правильно?
+11. Почему поток, читающий из сокета, показан как `RUNNABLE`?
 
 ---
 
 ## Источники
 
-**Спецификации / стандарты:**
-- [JLS §17 — Threads and Locks (Java SE 21)](https://docs.oracle.com/javase/specs/jls/se21/html/jls-17.html) — правила happens-before, semantics `volatile`, монитора, `final`-полей.
-- [JSR-133: Java Memory Model and Thread Specification Revision](https://www.cs.umd.edu/~pugh/java/memoryModel/) — оригинальная редакция JMM (Pugh, Manson, Adve, Goetz, Lea).
-- [JSR-133 FAQ (Jeremy Manson, Brian Goetz)](https://www.cs.umd.edu/~pugh/java/memoryModel/jsr-133-faq.html) — самая прагматичная версия объяснения JMM.
+**Спецификации:**
+- [JLS §17 — Threads and Locks (Java SE 21)](https://docs.oracle.com/javase/specs/jls/se21/html/jls-17.html) — семантика монитора и `wait/notify`.
+- [JEP 449: Deprecate the Windows 32-bit x86 Port](https://openjdk.org/jeps/449) — контекст удаления устаревших методов Thread; сами `stop/suspend/resume` перестали работать в JDK 20.
 
 **Официальная документация:**
-- [`java.lang.Thread` (Javadoc, JDK 21)](https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/Thread.html)
-- [`java.lang.Object#wait/notify/notifyAll`](https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/Object.html#wait())
+- [`java.lang.Thread` (JDK 21)](https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/Thread.html) — раздел про `interrupt` и устаревшие методы.
+- [`Object#wait/notify/notifyAll`](https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/Object.html#wait()) — про spurious wakeup прямо в javadoc.
+- [`ThreadLocal`](https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/ThreadLocal.html)
 
 **Книги:**
-- *Java Concurrency in Practice* (Brian Goetz et al., 2006) — Ch. 3 (Sharing Objects), 14 (Building Custom Synchronizers), 16 (The Java Memory Model).
-- *Effective Java*, 3rd ed. (Joshua Bloch, 2018) — Items 78–84 (concurrency).
-- *Concurrent Programming in Java*, 2nd ed. (Doug Lea, 1999) — фундамент того, как устроен `java.util.concurrent`.
+- *Java Concurrency in Practice* (Goetz et al., 2006) — Ch. 7 (Cancellation and Shutdown) — эталонное
+  изложение политики прерывания; Ch. 14 (Building Custom Synchronizers).
+- *Effective Java*, 3rd ed. (Bloch, 2018) — Item 81 («Prefer concurrency utilities to `wait` and `notify`»).
 
-**Engineering blogs / posts:**
-- [Aleksey Shipilëv — «Close Encounters of the Java Memory Model Kind» (JMM Pragmatics)](https://shipilev.net/blog/2014/jmm-pragmatics/) — лучшее современное объяснение JMM с примерами.
-- [Java Concurrency Stress Tests (jcstress) — OpenJDK](https://github.com/openjdk/jcstress) — тесты, которые ловят реальные нарушения JMM на твоей JVM.
-- [Brian Goetz — «Java theory and practice» (IBM developerWorks, archive.org)](https://web.archive.org/web/20210417000000*/developerWorks/java/library/j-jtp*) — серия статей-первоисточников по JCIP.
-- [Mechanical Sympathy (Martin Thompson)](https://mechanical-sympathy.blogspot.com/) — про CPU-кэши, барьеры, false sharing.
+**Разбор:**
+- [Java Thread Primitive Deprecation (Oracle)](https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/doc-files/threadPrimitiveDeprecation.html) — официальное объяснение, почему `stop`/`suspend` небезопасны.

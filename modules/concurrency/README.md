@@ -1,89 +1,105 @@
 # Java Concurrency — Interview Prep
 
-Площадка для практики Java Concurrency перед техническими собеседованиями.
-Покрывает все основные классы, концепции и типичные вопросы из `java.util.concurrent`.
+Подготовка к техническим собеседованиям по Java Concurrency и `java.util.concurrent`.
 
-## Структура проекта
+Теория написана не как справочник API, а как объяснение: каждый файл начинается с задачи, показывает,
+где ломается наивное решение, и только потом вводит механизм — со ссылкой на исходники JDK 21 или
+на воспроизводимый замер.
+
+## Структура
 
 ```
-├── ROADMAP.md                          # 8 модулей с чеклистами и ссылками на теорию
-├── INTERVIEW_QUESTIONS.md              # 32 вопроса с ответами и источниками (JCP, JLS)
+├── ROADMAP.md                  # 12 модулей с чеклистами
+├── INTERVIEW_QUESTIONS.md      # 82 вопроса с ответами и источниками
 │
-├── theory/                             # Теория по каждому модулю
-│   ├── THREADS_BASICS.md               # Потоки, synchronized, volatile, wait/notify, JMM
-│   ├── LOCKS.md                        # ReentrantLock, ReadWriteLock, StampedLock, Condition
-│   ├── ATOMIC_CAS.md                   # CAS, Atomic*, LongAdder vs AtomicLong, ABA
-│   ├── CONCURRENT_COLLECTIONS.md       # CHM, BlockingQueue, CopyOnWrite, SkipList
-│   ├── EXECUTORS_FUTURES.md            # Все пулы, ThreadPoolExecutor, CompletableFuture, ForkJoin
-│   ├── SYNCHRONIZERS.md                # CountDownLatch, CyclicBarrier, Semaphore, Phaser
-│   ├── PROBLEMS.md                     # Deadlock, livelock, race condition, JMM
-│   └── VIRTUAL_THREADS.md              # VT, pinning, ScopedValue, StructuredTaskScope
+├── theory/
+│   ├── WHY_CONCURRENCY.md          # зачем конкурентность, закон Литтла, цена потока
+│   ├── THREADS_BASICS.md           # поток, прерывание как протокол, synchronized, wait/notify, ThreadLocal
+│   ├── MEMORY_MODEL.md             # видимость, happens-before, публикация, гонки
+│   ├── JUC_INTERNALS.md            # AQS, park/unpark — как устроен весь пакет сразу
+│   ├── LOCKS.md                    # ReentrantLock, Condition, ReadWriteLock, StampedLock
+│   ├── ATOMIC_CAS.md               # CAS и его цена, LongAdder, VarHandle, lock-free
+│   ├── CONCURRENT_COLLECTIONS.md   # ConcurrentHashMap, BlockingQueue, COW, SkipList
+│   ├── SYNCHRONIZERS.md            # CountDownLatch, CyclicBarrier, Semaphore, Phaser
+│   ├── EXECUTORS_FUTURES.md        # пулы, очереди, политики отказа, ForkJoinPool
+│   ├── ASYNC_COMPOSITION.md        # CompletableFuture изнутри
+│   ├── PROBLEMS.md                 # deadlock, livelock, голодание + диагностика
+│   └── VIRTUAL_THREADS.md          # Loom, pinning, миграция
 │
-└── src/main/kotlin/exercises/
-    ├── Ex01  Thread basics, synchronized, wait/notify (ping-pong)
-    ├── Ex02  Producer-Consumer — bounded buffer на wait/notify
-    ├── Ex03  ReentrantLock + Condition — LRU-кэш, getOrCompute, lock downgrade
-    ├── Ex04  ReadWriteLock — MetricsStore, consistency demo, benchmark
-    ├── Ex05  CAS, lock-free Treiber Stack, AtomicLong vs LongAdder
-    ├── Ex06  ConcurrentHashMap merge, CopyOnWriteArrayList event bus
-    ├── Ex07  BlockingQueue pipeline (ABQ + LBQ, poison pill)
-    ├── Ex08  CompletableFuture: цепочки, allOf, anyOf, exceptionally
-    ├── Ex09  ForkJoinPool, RecursiveTask — merge sort + max finder
-    ├── Ex10  CountDownLatch, CyclicBarrier, Semaphore, Exchanger
-    ├── Ex11  Deadlock: создание, обнаружение (ThreadMXBean), исправление
-    ├── Ex12  Virtual Threads, pinning, benchmark (Java 21+)
-    ├── Ex13  CHM: computeIfAbsent, merge, bulk ops, compute vs merge
-    ├── Ex14  BlockingQueue: SynchronousQ, PriorityBQ, DelayQ, TransferQ, fair ABQ
-    ├── Ex15  ConcurrentSkipListMap, newKeySet, CopyOnWriteArraySet
-    ├── Ex16  Все виды thread pools, rejection policies, invokeAll/Any/CompletionService
-    ├── Ex17  CompletableFuture: thenCombine, handle, retry+backoff, timeout, race
-    └── Ex18  ScheduledExecutor (rate vs delay), rate limiter, ForkJoin map-reduce
+├── src/main/kotlin/exercises/      # Ex01–Ex18 — упражнения с TODO
+└── src/main/java/applied/          # прикладные задачи с тестами
 ```
 
 ## Темы
 
-| Тема | Ключевые классы | Упражнения | Теория |
-|------|----------------|-----------|--------|
-| Потоки и синхронизация | `Thread`, `synchronized`, `volatile`, `wait/notify` | 01, 02 | [THREADS_BASICS](theory/THREADS_BASICS.md) |
-| Locks | `ReentrantLock`, `ReadWriteLock`, `StampedLock`, `Condition` | 03, 04 | [LOCKS](theory/LOCKS.md) |
-| Atomic & CAS | `AtomicInteger`, `AtomicReference`, `LongAdder` | 05 | [ATOMIC_CAS](theory/ATOMIC_CAS.md) |
-| Concurrent Collections | `ConcurrentHashMap`, `CopyOnWriteArrayList`, `BlockingQueue` | 06, 07, 13, 14, 15 | [CONCURRENT_COLLECTIONS](theory/CONCURRENT_COLLECTIONS.md) |
-| Executors & Futures | `ThreadPoolExecutor`, `CompletableFuture`, `ForkJoinPool` | 08, 09, 16, 17, 18 | [EXECUTORS_FUTURES](theory/EXECUTORS_FUTURES.md) |
-| Synchronizers | `CountDownLatch`, `CyclicBarrier`, `Semaphore`, `Phaser` | 10 | [SYNCHRONIZERS](theory/SYNCHRONIZERS.md) |
-| Проблемы | Deadlock, livelock, race condition, JMM | 11 | [PROBLEMS](theory/PROBLEMS.md) |
-| Virtual Threads | `Thread.ofVirtual()`, pinning, `ScopedValue` | 12 | [VIRTUAL_THREADS](theory/VIRTUAL_THREADS.md) |
+| Тема | Теория | Упражнения |
+|------|--------|-----------|
+| Зачем и чем платим | [WHY_CONCURRENCY](theory/WHY_CONCURRENCY.md) | — |
+| Потоки, `synchronized`, `wait/notify` | [THREADS_BASICS](theory/THREADS_BASICS.md) | 01, 02 |
+| Модель памяти | [MEMORY_MODEL](theory/MEMORY_MODEL.md) | — |
+| Внутренности j.u.c. | [JUC_INTERNALS](theory/JUC_INTERNALS.md) | — |
+| Локи | [LOCKS](theory/LOCKS.md) | 03, 04 |
+| Atomic и CAS | [ATOMIC_CAS](theory/ATOMIC_CAS.md) | 05 |
+| Коллекции | [CONCURRENT_COLLECTIONS](theory/CONCURRENT_COLLECTIONS.md) | 06, 07, 13, 14, 15 |
+| Синхронизаторы | [SYNCHRONIZERS](theory/SYNCHRONIZERS.md) | 10 |
+| Пулы потоков | [EXECUTORS_FUTURES](theory/EXECUTORS_FUTURES.md) | 09, 16, 18 |
+| `CompletableFuture` | [ASYNC_COMPOSITION](theory/ASYNC_COMPOSITION.md) | 08, 17 |
+| Проблемы и диагностика | [PROBLEMS](theory/PROBLEMS.md) | 11 |
+| Виртуальные потоки | [VIRTUAL_THREADS](theory/VIRTUAL_THREADS.md) | 12 |
 
 ## Как работать
 
-Каждый файл упражнения содержит TODO с описанием задачи. Реализуй, затем запусти:
+В каждом упражнении есть `TODO` с описанием задачи. Реализуй и запусти:
 
 ```bash
-# Компиляция
 mvn compile
-
-# Запуск конкретного упражнения
 mvn exec:java -Dexec.mainClass="exercises.Ex01_ThreadBasicsKt"
+
+# Прикладная часть (Java) — с тестами
+mvn test -Dtest=BankServiceTest
+```
+
+Замеры из теории воспроизводятся одной командой без сборки — например:
+
+```bash
+java Hoist.java        # флаг остановки без volatile
+java Reorder.java      # переупорядочивание: оба потока видят 0
+java Pin.java          # pinning виртуальных потоков
 ```
 
 Команды в CLAUDE.md:
 - `"проверь Ex01"` — проверка реализации + запуск
-- `"следующий"` / `"next"` — следующий незавершённый модуль
+- `"следующий"` / `"next"` — следующий модуль по ROADMAP
 - `"квиз"` / `"quiz"` — 5 случайных вопросов из INTERVIEW_QUESTIONS.md
 
 ## Code review — на что смотреть
 
-- **Kotlin Ex01–Ex18** (`mvn exec:java`): race condition, неправильные локи, утечки, корректность `wait/notify`, видимость (`volatile` / happens-before).
-- **Applied (Java, `src/main/java/applied/{reservations,bank,cache,orderbook,scheduler,ratelimiter}`)**: тесты `mvn test -Dtest=ClassName`; смотри thread safety, стратегию локов, корректность под конкуренцией.
+**Kotlin Ex01–Ex18:**
+- гонки и потерянные обновления; составные операции, сделанные неатомарно (`check-then-act`);
+- видимость: отсутствие `volatile` или happens-before там, где данные передаются между потоками;
+- локи: `unlock()` не в `finally`, лок на публичном объекте, ввод-вывод под локом, порядок захвата;
+- ожидание: `wait`/`await` вне цикла, `notify()` там, где нужен `notifyAll()`;
+- отмена: проглоченный `InterruptedException`, отсутствие проверки флага в вычислительном цикле;
+- пулы: неограниченная очередь, забытый `shutdown()`, `submit()` без чтения `Future`,
+  периодическая задача без `try/catch`;
+- `ThreadLocal` без `remove()` в пуле;
+- `CompletableFuture`: `*Async` без явного executor, `join()` внутри стадии, `exceptionally`
+  не в том месте цепочки.
+
+**Applied (Java, `src/main/java/applied/…`):** тесты `mvn test -Dtest=ClassName`; смотри
+потокобезопасность, стратегию блокировок, поведение под конкуренцией.
 
 ## Стек
 
-- Kotlin 2.2 / JVM 21
-- Maven 3.9
-- JUnit 5
+- Kotlin 2.2 / JDK 21 (Temurin 21.0.9)
+- Maven 3.9, JUnit 5
+
+Замеры в теории сняты на Apple M4 (10 ядер), Temurin 21.0.9. Это не JMH — порядок величин;
+у вас цифры будут другими, выводы те же.
 
 ## Источники
 
 - *Java Concurrency in Practice* — Brian Goetz et al.
-- Java Language Specification §17 (Memory Model)
-- OpenJDK source code
-- JEP 444 (Virtual Threads), JEP 481 (ScopedValue)
+- JLS §17 (Threads and Locks), JSR-133 FAQ
+- Исходники JDK 21 (`$JAVA_HOME/lib/src.zip`) — на них ссылается теория с номерами строк
+- JEP 444 (Virtual Threads), JEP 491 (Synchronize Virtual Threads without Pinning)

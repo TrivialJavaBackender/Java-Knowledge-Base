@@ -11,7 +11,7 @@ G1/ZGC, tri-color, write barrier). Поэтому общие концепции 
 по ссылке у их канонических владельцев:
 
 - общий **happens-before** и модель памяти (JMM) — каноника в
-  [../../concurrency/theory/THREADS_BASICS.md](../../concurrency/theory/THREADS_BASICS.md);
+  [../../concurrency/theory/MEMORY_MODEL.md](../../concurrency/theory/MEMORY_MODEL.md);
 - общие определения **data race / гонок / взаимоблокировок** — в
   [../../concurrency/theory/PROBLEMS.md](../../concurrency/theory/PROBLEMS.md);
 - общий **tri-color invariant** и **write barrier (GC)** — в
@@ -26,7 +26,7 @@ G1/ZGC, tri-color, write barrier). Поэтому общие концепции 
 
 Общий смысл отношения happens-before (если A *happens-before* B, то эффекты A видны в B)
 разобран на стороне JVM в
-[../../concurrency/theory/THREADS_BASICS.md](../../concurrency/theory/THREADS_BASICS.md). Идея
+[../../concurrency/theory/MEMORY_MODEL.md](../../concurrency/theory/MEMORY_MODEL.md). Идея
 одинаковая; различается **набор примитивов**, устанавливающих это отношение. Спецификация
 «The Go Memory Model» задаёт следующие гарантии (это Go-специфика).
 
@@ -114,7 +114,7 @@ Java `volatile`/`VarHandle` с volatile-доступом (каноника по 
 
 Параллель с JMM: набор «рёбер» другой (там — `volatile`, `synchronized`, `final`-поля, старт
 потока, `Thread.join`), но фундамент тот же — частичный порядок, дающий видимость. Каноника —
-[../../concurrency/theory/THREADS_BASICS.md](../../concurrency/theory/THREADS_BASICS.md).
+[../../concurrency/theory/MEMORY_MODEL.md](../../concurrency/theory/MEMORY_MODEL.md).
 
 ---
 
@@ -501,7 +501,7 @@ GODEBUG=allocfreetrace=1 ./app  # (очень шумно) трасса кажд�
   `sync/atomic`, `context` в реальных паттернах.
 - [./PERFORMANCE_PROFILING.md](./PERFORMANCE_PROFILING.md) — escape analysis (`-gcflags=-m`),
   `sync.Pool`, профили heap/alloc в `pprof`, бенчмарки.
-- [../../concurrency/theory/THREADS_BASICS.md](../../concurrency/theory/THREADS_BASICS.md) —
+- [../../concurrency/theory/MEMORY_MODEL.md](../../concurrency/theory/MEMORY_MODEL.md) —
   каноническая теория happens-before / JMM (база для раздела 1).
 - [../../concurrency/theory/PROBLEMS.md](../../concurrency/theory/PROBLEMS.md) — общие
   определения data race, взаимоблокировок, голодания (база для раздела 2).

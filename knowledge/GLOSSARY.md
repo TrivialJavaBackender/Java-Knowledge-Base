@@ -41,6 +41,14 @@ circuit breaker, backoff, jitter, single-flight, cache stampede, dead-letter, fa
 неузнаваемыми (ср. Saga, Outbox, Raft). Русское пояснение допустимо в скобках при первом
 упоминании — «повторы с экспоненциальной паузой (backoff)», — но основная форма латиницей.
 
+### Имена механизмов JVM и конкурентности
+happens-before, deadlock, livelock, lock-free, pinning, barging, spurious wakeup, mount / unmount, false sharing
+
+Терминология модели памяти Java и Loom. Переводы либо не закрепились, либо теряют узнаваемость
+в поиске и в чужом коде. Русское пояснение при первом упоминании уместно — «влезание без очереди
+(barging)», «прибивание к носителю (pinning)», «ложное разделение (false sharing)», — дальше
+основная форма латиницей.
+
 ---
 
 ## 2. Каноничные русские варианты

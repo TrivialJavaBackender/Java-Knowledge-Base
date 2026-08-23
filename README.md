@@ -23,14 +23,18 @@
 
 | Модуль | Файл |
 |--------|------|
+| 0. Зачем конкурентность | [WHY_CONCURRENCY.md](modules/concurrency/theory/WHY_CONCURRENCY.md) |
 | 1. Основы потоков | [THREADS_BASICS.md](modules/concurrency/theory/THREADS_BASICS.md) |
-| 2. Locks | [LOCKS.md](modules/concurrency/theory/LOCKS.md) |
-| 3. Atomic / CAS | [ATOMIC_CAS.md](modules/concurrency/theory/ATOMIC_CAS.md) |
-| 4. Concurrent Collections | [CONCURRENT_COLLECTIONS.md](modules/concurrency/theory/CONCURRENT_COLLECTIONS.md) |
-| 5. Executors & Futures | [EXECUTORS_FUTURES.md](modules/concurrency/theory/EXECUTORS_FUTURES.md) |
-| 6. Synchronizers | [SYNCHRONIZERS.md](modules/concurrency/theory/SYNCHRONIZERS.md) |
-| 7. Проблемы многопоточности | [PROBLEMS.md](modules/concurrency/theory/PROBLEMS.md) |
-| 8. Virtual Threads | [VIRTUAL_THREADS.md](modules/concurrency/theory/VIRTUAL_THREADS.md) |
+| 2. Модель памяти | [MEMORY_MODEL.md](modules/concurrency/theory/MEMORY_MODEL.md) |
+| 3. Внутренности j.u.c. | [JUC_INTERNALS.md](modules/concurrency/theory/JUC_INTERNALS.md) |
+| 4. Locks | [LOCKS.md](modules/concurrency/theory/LOCKS.md) |
+| 5. Atomic / CAS | [ATOMIC_CAS.md](modules/concurrency/theory/ATOMIC_CAS.md) |
+| 6. Concurrent Collections | [CONCURRENT_COLLECTIONS.md](modules/concurrency/theory/CONCURRENT_COLLECTIONS.md) |
+| 7. Synchronizers | [SYNCHRONIZERS.md](modules/concurrency/theory/SYNCHRONIZERS.md) |
+| 8. Пулы потоков | [EXECUTORS_FUTURES.md](modules/concurrency/theory/EXECUTORS_FUTURES.md) |
+| 9. CompletableFuture | [ASYNC_COMPOSITION.md](modules/concurrency/theory/ASYNC_COMPOSITION.md) |
+| 10. Проблемы и диагностика | [PROBLEMS.md](modules/concurrency/theory/PROBLEMS.md) |
+| 11. Virtual Threads | [VIRTUAL_THREADS.md](modules/concurrency/theory/VIRTUAL_THREADS.md) |
 
 ### Упражнения (Kotlin)
 

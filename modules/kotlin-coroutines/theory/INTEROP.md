@@ -154,8 +154,8 @@ class ProfileFacade(private val scope: CoroutineScope) {
 val cf: CompletableFuture<Profile> = deferred.asCompletableFuture()
 ```
 
-> Само API `CompletableFuture` (цепочки, `thenCompose`, пулы, ловушки) — в
-> [`concurrency/theory/EXECUTORS_FUTURES.md`](../../concurrency/theory/EXECUTORS_FUTURES.md).
+> Само API `CompletableFuture` (устройство, цепочки, `thenCompose`, ловушки) — в
+> [`concurrency/theory/ASYNC_COMPOSITION.md`](../../concurrency/theory/ASYNC_COMPOSITION.md).
 
 ---
 

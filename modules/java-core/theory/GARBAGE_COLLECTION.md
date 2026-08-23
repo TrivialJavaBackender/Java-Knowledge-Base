@@ -598,7 +598,7 @@ Default `-XX:MaxRAMPercentage=25.0` — JVM возьмёт 25% от cgroup limit
 
 ## Related
 
-- JMM (happens-before, visibility) → [`modules/concurrency/theory/THREADS_BASICS.md`](../../concurrency/theory/THREADS_BASICS.md)
+- JMM (happens-before, visibility) → [`modules/concurrency/theory/MEMORY_MODEL.md`](../../concurrency/theory/MEMORY_MODEL.md)
 - JVM memory areas (heap, metaspace, code cache, direct) → [`JVM_MEMORY_AREAS.md`](JVM_MEMORY_AREAS.md)
 - JIT и safepoint placement, lock elision → [`JIT_COMPILATION.md`](JIT_COMPILATION.md)
 - Reference types и `Cleaner` API детальнее → [`REFLECTION_HANDLES.md`](REFLECTION_HANDLES.md) (раздел VarHandle и Unsafe replacement)

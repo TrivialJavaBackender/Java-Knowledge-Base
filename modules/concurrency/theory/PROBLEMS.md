@@ -1,339 +1,364 @@
-# Проблемы многопоточности: Deadlock, Livelock, Starvation, Race Condition, JMM
+# Что ломается в многопоточном коде и как это найти
+
+> **Какую проблему решает.** Перечисляет отказы, свойственные только конкурентному коду — зависания,
+> голодание, утечки — и, главное, показывает, **как их диагностировать на живом процессе**, а не
+> угадывать по логам.
+> **Кому это надо.** Всем, кто дежурит по сервису: эти отказы не воспроизводятся на ноутбуке и
+> проявляются под нагрузкой.
+> **Когда НЕ надо.** Правила видимости и гонок — не здесь, а в [`MEMORY_MODEL.md`](MEMORY_MODEL.md).
+
+Гонка данных и состояние гонки разобраны в [`MEMORY_MODEL.md §7`](MEMORY_MODEL.md),
+ложное разделение — в [`ATOMIC_CAS.md §3`](ATOMIC_CAS.md). Здесь — проблемы **живости**:
+код корректен, но система не двигается.
+
+Все дампы ниже сняты с реальных процессов на Temurin 21.0.9.
 
 ---
 
-## 1. Deadlock
+## 1. Взаимная блокировка (deadlock)
 
-Четыре условия Коффмана — все четыре **необходимы одновременно**:
-
-1. **Mutual exclusion** — ресурс занят эксклюзивно (нельзя разделить)
-2. **Hold and wait** — поток держит ресурс и ждёт другой
-3. **No preemption** — ресурс нельзя отобрать принудительно
-4. **Circular wait** — A ждёт B, B ждёт A (или цепочка длиннее)
+Два потока держат по ресурсу и ждут ресурс друг друга. Никто не сдвинется никогда.
 
 ```java
-// Классический deadlock: два потока, два lock'а
-Object lockA = new Object(), lockB = new Object();
-
-Thread t1 = new Thread(() -> {
-    synchronized (lockA) {
-        Thread.sleep(100);
-        synchronized (lockB) { /* ... */ }  // ждёт t2
-    }
-});
-
-Thread t2 = new Thread(() -> {
-    synchronized (lockB) {
-        Thread.sleep(100);
-        synchronized (lockA) { /* ... */ }  // ждёт t1
-    }
-});
+// Классика: перевод денег между счетами, взятыми в разном порядке
+synchronized (from) { synchronized (to)   { … } }    // поток 1: A, затем B
+synchronized (to)   { synchronized (from) { … } }    // поток 2: B, затем A
 ```
 
-### Предотвращение
+### Четыре условия Коффмана
 
-**Lock ordering** — все потоки захватывают блокировки в одном порядке:
+Deadlock возможен, только если выполнены **все четыре** одновременно. Значит, достаточно нарушить
+любое одно:
+
+| Условие | Что означает | Как нарушить |
+|---|---|---|
+| Взаимное исключение | ресурс нельзя разделить | неизменяемость, копия на поток, версионность вместо лока |
+| Удержание и ожидание | держу одно, жду второе | брать все локи разом либо не брать второй под первым |
+| Неотбираемость | нельзя отнять принудительно | `tryLock` с таймаутом — поток сам отступает |
+| Круговое ожидание | A ждёт B, B ждёт A | **глобальный порядок захвата** |
+
+На практике борются с двумя последними.
+
+### Порядок захвата — основной приём
+
 ```java
-// ✅ Всегда lockA перед lockB
-synchronized (lockA) { synchronized (lockB) { ... } }
-// Circular wait невозможен
+// Упорядочиваем по стабильному признаку — например, по идентификатору счёта
+Account first  = from.id() < to.id() ? from : to;
+Account second = from.id() < to.id() ? to   : from;
+synchronized (first) { synchronized (second) { transfer(from, to, amount); } }
 ```
 
-**tryLock с таймаутом** — отступить если не удалось захватить:
+Если естественного порядка нет, используют `System.identityHashCode()` плюс «замок-арбитр» на редкий
+случай совпадения хеш-кодов (приём из *Java Concurrency in Practice* §10.1.2).
+
+### Таймаут вместо ожидания
+
 ```java
-while (true) {
-    if (lockA.tryLock(50, MILLISECONDS)) {
-        try {
-            if (lockB.tryLock(50, MILLISECONDS)) {
-                try { doWork(); return; }
-                finally { lockB.unlock(); }
-            }
-        } finally { lockA.unlock(); }
-    }
-    Thread.sleep(random backoff);  // избежать livelock
+if (lockA.tryLock(50, MILLISECONDS)) {
+    try {
+        if (lockB.tryLock(50, MILLISECONDS)) {
+            try { doWork(); return; } finally { lockB.unlock(); }
+        }
+    } finally { lockA.unlock(); }
 }
+Thread.sleep(ThreadLocalRandom.current().nextInt(20, 60));   // случайная пауза — против livelock (§3)
 ```
 
-**Open calls** — не вызывай чужой код под своим lock'ом.
+Это превращает вечное зависание в обычную ошибку, которую видно в логе и в метриках.
+Доступно только явным локам ([`LOCKS.md`](LOCKS.md)) — у `synchronized` таймаута нет.
 
-### Обнаружение
+### Не вызывать чужой код под локом
+
+```java
+// ❌ Слушатель может взять другой лок — и вы получите deadlock, о котором не знали
+synchronized (this) { listeners.forEach(l -> l.onChange(state)); }
+
+// ✅ Скопировать под локом, вызвать снаружи (open call)
+List<Listener> snapshot;
+synchronized (this) { snapshot = List.copyOf(listeners); }
+snapshot.forEach(l -> l.onChange(state));
+```
+
+---
+
+## 2. Как найти deadlock на живом процессе
+
+### Дамп потоков
+
+```bash
+jcmd <pid> Thread.print          # предпочтительный способ
+jstack <pid>                     # то же, более старый инструмент
+kill -3 <pid>                    # дамп в stdout процесса (Unix)
+```
+
+JVM **сама находит** циклы ожидания и печатает их в начале дампа. Реальный вывод для примера выше:
+
+```
+Found one Java-level deadlock:
+=============================
+"перевод-1":
+  waiting to lock monitor 0x0000000c06955ce0 (object 0x000000070e8180a8, a java.lang.Object),
+  which is held by "перевод-2"
+
+"перевод-2":
+  waiting to lock monitor 0x0000000c06955c00 (object 0x000000070e8240a0, a java.lang.Object),
+  which is held by "перевод-1"
+
+Java stack information for the threads listed above:
+===================================================
+"перевод-1":
+	at Dead.lambda$main$0(Dead.java:5)
+	- waiting to lock <0x000000070e8180a8> (a java.lang.Object)
+	- locked <0x000000070e8240a0> (a java.lang.Object)
+```
+
+Как это читать:
+
+- **`waiting to lock <0x…8180a8>`** — какого монитора ждём.
+- **`- locked <0x…8240a0>`** — что при этом уже держим. Именно пара «жду одно, держу другое»
+  и образует цикл.
+- Состояние потока — `BLOCKED (on object monitor)`.
+- Адреса объектов совпадают крест-накрест — это и есть круговое ожидание.
+
+Явные локи находятся так же, только формулировка другая:
+
+```
+"rl-1":
+  waiting for ownable synchronizer 0x000000031007f4c8,
+  (a java.util.concurrent.locks.ReentrantLock$NonfairSync), which is held by "rl-2"
+```
+
+Отсюда практическое следствие: **осмысленные имена потоков** (`payment-worker-3`, а не `Thread-17`)
+экономят время в тот момент, когда оно дороже всего.
+
+### Программно
 
 ```java
 ThreadMXBean bean = ManagementFactory.getThreadMXBean();
-long[] deadlockedIds = bean.findDeadlockedThreads();
-if (deadlockedIds != null) {
-    for (ThreadInfo info : bean.getThreadInfo(deadlockedIds)) {
-        System.out.println(info.getThreadName() +
-            " blocked on " + info.getLockName());
+long[] ids = bean.findDeadlockedThreads();          // и мониторы, и явные локи
+if (ids != null) {
+    for (ThreadInfo info : bean.getThreadInfo(ids, true, true))
+        log.error("deadlock: {} ждёт {}", info.getThreadName(), info.getLockName());
+}
+```
+
+Полезно повесить это на периодическую проверку и отдавать метрикой — тогда о зависании узнаёте вы,
+а не пользователи. (Не забудьте про ловушку из
+[`EXECUTORS_FUTURES.md §7.2`](EXECUTORS_FUTURES.md): периодическая задача умирает от первого
+исключения.)
+
+### Чего дамп НЕ покажет
+
+**Голодание пула JVM не считает взаимной блокировкой.** Если задача, выполняющаяся в пуле, ждёт
+результата другой задачи того же пула, а свободных потоков нет — система стоит намертво, но
+формально каждый поток просто «ждёт данные»:
+
+```java
+// ❌ Пул на 2 потока; внешняя задача ждёт внутреннюю, а место для внутренней уже занято
+ExecutorService pool = Executors.newFixedThreadPool(2);
+pool.submit(() -> {
+    Future<String> inner = pool.submit(() -> load());
+    return inner.get();                                  // ждёт вечно
+});
+```
+
+В дампе это выглядит как потоки в `WAITING` на `Object.wait`/`park` — и никакого
+«Found one Java-level deadlock». Опознаётся по косвенным признакам: все потоки пула заняты,
+очередь растёт, процессор простаивает.
+
+**Правило.** Задача не должна ждать результата другой задачи того же пула. Либо отдельный пул для
+вложенных задач, либо композиция без блокировки (`thenCompose`, см.
+[`ASYNC_COMPOSITION.md §5`](ASYNC_COMPOSITION.md)).
+
+---
+
+## 3. Livelock
+
+Потоки **активны**, но не продвигаются: каждый реагирует на действия другого и откатывается.
+
+```java
+while (!done) {
+    if (!lockB.tryLock()) {
+        lockA.unlock();       // вежливо уступаем...
+        lockA.lock();         // ...и оба одновременно повторяем то же самое
+        continue;
     }
 }
 ```
+
+Отличие от deadlock — в симптоме: при deadlock процессор **простаивает**, при livelock он
+**загружен на 100%**, а полезной работы нет. По дампу потоки выглядят `RUNNABLE`.
+
+Лечение — **случайная пауза** перед повтором. Детерминированная задержка не помогает: потоки просто
+синхронно повторят конфликт.
+
+```java
+Thread.sleep(ThreadLocalRandom.current().nextInt(baseMs, baseMs * 2));
+```
+
+Тот же принцип лежит в основе повторов с экспоненциальной паузой (backoff) в сетевых протоколах:
+без случайной составляющей клиенты повторяют запросы синхронно и добивают сервер.
+
+---
+
+## 4. Голодание
+
+Поток не получает ресурс никогда или получает его исчезающе редко.
+
+| Причина | Проявление | Лечение |
+|---|---|---|
+| Несправедливый лок, короткие секции | один поток постоянно обгоняет очередь (barging, [`JUC_INTERNALS.md §6`](JUC_INTERNALS.md)) | `new ReentrantLock(true)` — ценой пропускной способности |
+| Длинная критическая секция | остальные стоят в `BLOCKED` | вынести ввод-вывод из-под лока |
+| `notify()` вместо `notifyAll()` | сигнал достаётся «не тому» потоку | `notifyAll()` или отдельные `Condition` |
+| Все потоки пула заняты медленной зависимостью | быстрые запросы не обслуживаются | отдельные пулы (bulkhead), [`EXECUTORS_FUTURES.md §3`](EXECUTORS_FUTURES.md) |
+
+Последняя строка — самая частая в продакшене и самая обидная: один медленный внешний сервис
+«съедает» пул, и падает **всё** приложение, включая функциональность, которая от него не зависит.
+
+Про приоритеты потоков: `Thread.setPriority()` — подсказка планировщику ОС, которая на разных
+платформах работает по-разному, а у виртуальных потоков игнорируется полностью. Как средство борьбы
+с голоданием — не рассматривается.
+
+---
+
+## 5. Утечка потоков
+
+Потоки создаются и не завершаются. Симптом — медленный рост числа потоков в метриках, затем
+`OutOfMemoryError: unable to create native thread`.
+
+Типичные источники:
+
+```java
+// ❌ Пул создаётся на каждый запрос и не закрывается
+public Result handle(Request r) {
+    ExecutorService pool = Executors.newFixedThreadPool(4);   // +4 потока навсегда
+    …                                                          // shutdown() нет
+}
+
+// ❌ Поток ждёт вечно на неограниченном take() и не реагирует на остановку
+while (true) { process(queue.take()); }
+
+// ❌ Задача проглотила InterruptedException — остановка не работает
+catch (InterruptedException e) { }                            // см. THREADS_BASICS.md §4
+```
+
+Как обнаружить:
 
 ```bash
-# Из командной строки:
-jstack <pid>           # дамп стеков — покажет "Found one Java-level deadlock"
-kill -3 <pid>          # то же через сигнал (Unix)
-jconsole / VisualVM    # GUI
+jcmd <pid> Thread.print | grep -c '"'                 # сколько потоков сейчас
+jcmd <pid> Thread.print | grep 'java.lang.Thread.State' | sort | uniq -c   # в каком состоянии
+```
+
+Растущее число потоков с одинаковым именем — почти всегда утечка пула.
+
+---
+
+## 6. Инструменты
+
+### Дамп потоков — первое, что делают
+
+```bash
+jcmd <pid> Thread.print > dump1.txt
+sleep 10
+jcmd <pid> Thread.print > dump2.txt      # два дампа с интервалом
+```
+
+Два дампа важнее одного: если стек потока за 10 секунд не изменился, он действительно висит,
+а не просто попал под снимок.
+
+Что смотреть:
+
+- распределение по состояниям: много `BLOCKED` — конкуренция за лок; всё в `WAITING` — работы нет
+  или голодание пула; много `RUNNABLE` — либо считаем, либо livelock;
+- повторяющийся кадр стека в нескольких потоках — это и есть узкое место;
+- напоминание из [`THREADS_BASICS.md §2`](THREADS_BASICS.md): поток, заблокированный на сетевом
+  чтении, показан как `RUNNABLE`.
+
+### Java Flight Recorder — когда нужна история, а не снимок
+
+```bash
+java -XX:StartFlightRecording=duration=60s,filename=rec.jfr -jar app.jar
+jcmd <pid> JFR.start name=diag settings=profile      # или на живом процессе
+jcmd <pid> JFR.dump name=diag filename=rec.jfr
+```
+
+События, относящиеся к конкурентности:
+
+| Событие | О чём |
+|---|---|
+| `jdk.JavaMonitorEnter` | ожидание монитора `synchronized` дольше порога — где именно конкуренция |
+| `jdk.JavaMonitorWait` | ожидание в `Object.wait` |
+| `jdk.ThreadPark` | ожидание в `LockSupport.park` — то есть на любом локе из j.u.c. |
+| `jdk.ThreadStart` / `jdk.ThreadEnd` | утечка потоков видна как рост без завершений |
+| `jdk.VirtualThreadPinned` | виртуальный поток прибит к носителю ([`VIRTUAL_THREADS.md`](VIRTUAL_THREADS.md)) |
+
+Преимущество JFR перед дампом: он показывает **сколько суммарно** времени потрачено на ожидание
+конкретного монитора, а не только «в этот момент кто-то ждал».
+
+### Проверка инвариантов до продакшена
+
+Гонки не ловятся обычными тестами — нужен `jcstress`
+([`MEMORY_MODEL.md §8`](MEMORY_MODEL.md)). Минимальная замена в обычном тесте — «стартовый пистолет»
+на `CountDownLatch` ([`SYNCHRONIZERS.md §1`](SYNCHRONIZERS.md)) и много повторений.
+
+---
+
+## 7. Шпаргалка
+
+```
+Процессор простаивает, ничего не движется   → deadlock: jcmd <pid> Thread.print
+Процессор на 100%, прогресса нет            → livelock: добавить случайную паузу
+Пул занят, очередь растёт, процессор простаивает → голодание пула (в дампе НЕ виден как deadlock)
+Число потоков растёт                        → утечка: забытый shutdown() или проглоченное прерывание
+Одни запросы обслуживаются, другие нет      → голодание: разделить пулы (bulkhead)
+
+Профилактика deadlock:
+  глобальный порядок захвата локов
+  tryLock с таймаутом и случайной паузой
+  не вызывать чужой код под локом
+  никакого ввода-вывода под локом
+  задача не ждёт другую задачу того же пула
 ```
 
 ---
 
-## 2. Livelock
+## 8. Упражнения
 
-Потоки **активны** (не заблокированы), но не прогрессируют — постоянно реагируют на действия друг друга.
-
-```java
-// Пример: оба пытаются уступить друг другу
-while (!done) {
-    if (!lock.tryLock()) {
-        // Не смогли захватить — отступаем
-        releaseMine();
-        continue;  // но другой поток делает то же самое!
-    }
-}
-```
-
-**Решение:** рандомизированный backoff — `Thread.sleep(random milliseconds)`.
-TCP/IP использует exponential backoff именно по этой причине.
-
-**Отличие от deadlock:** потоки не заблокированы, CPU занят (100%). Deadlock — потоки заблокированы, CPU свободен.
-
----
-
-## 3. Starvation
-
-Поток **никогда** (или очень редко) не получает доступ к ресурсу.
-
-**Причины:**
-- Unfair lock — поток с высоким приоритетом вытесняет низкоприоритетный
-- Длинные synchronized блоки — один поток долго держит lock
-- `notify()` вместо `notifyAll()` — будит не тот поток
-
-```java
-// ❌ Starvation: задача всегда будит не тот поток
-synchronized (lock) {
-    condition = true;
-    lock.notify();  // может постоянно будить один и тот же поток
-}
-
-// ✅ Fair lock
-ReentrantLock fairLock = new ReentrantLock(true);
-// Потоки получают lock в порядке FIFO
-```
-
-**Решение:** fair locks, справедливое разделение времени, `notifyAll()`.
-
----
-
-## 4. Race Condition vs Data Race
-
-### Data Race
-
-Два потока обращаются к одной переменной, хотя бы один пишет, **без happens-before**.
-По JMM это **undefined behavior** — любой результат допустим.
-
-```java
-int x = 0;                    // shared, без синхронизации
-
-Thread t1 = new Thread(() -> x = 1);   // пишет
-Thread t2 = new Thread(() -> print(x)); // читает
-// x может быть 0 или 1 — зависит от реализации JVM, CPU, кэшей
-```
-
-### Race Condition
-
-**Логическая ошибка**: результат зависит от порядка выполнения потоков.
-Бывает даже при корректной синхронизации (если синхронизирован неправильно).
-
-```java
-// Check-then-act — классическая race condition
-if (!map.containsKey(key)) {       // Поток A проверил — нет
-    // Поток B вставил!
-    map.put(key, expensive());     // Поток A тоже вставил — дублирование!
-}
-
-// ✅ Атомарно
-map.computeIfAbsent(key, k -> expensive());
-```
-
-```java
-// Read-modify-write
-counter++;  // read → modify → write — три операции, race condition!
-
-// ✅ Атомарно
-AtomicInteger counter = new AtomicInteger();
-counter.incrementAndGet();
-```
-
-| | Data Race | Race Condition |
-|---|---|---|
-| Определение | Нет HB для concurrent доступа | Неверный результат из-за порядка |
-| Требует | Concurrent read+write без sync | Логически некорректная синхронизация |
-| Может быть без другого | Теоретически да (benign data race), но по JMM — всегда UB | Да (race condition без data race) |
-
-> **Benign data race** — data race, который "случайно работает" на конкретной JVM/CPU (например, идемпотентная запись одного и того же значения). Формально это всё равно UB по JMM и полагаться на него нельзя. На практике для собеседований: "data race всегда проблема".
-
-**Race condition без data race** — пример: два потока атомарно читают и записывают в `AtomicReference`, но вместе делают check-then-act:
-```java
-if (ref.get() == null)       // атомарно, но...
-    ref.set(new Value());    // между ними вклинился другой поток!
-```
-
----
-
-## 5. Java Memory Model (JMM)
-
-### Проблема без JMM
-
-Современные CPU и JVM **переупорядочивают** инструкции для производительности:
-- CPU out-of-order execution
-- JIT компилятор оптимизирует
-- Каждое ядро имеет свой кэш
-
-```java
-// Без синхронизации другой поток может увидеть в ЛЮБОМ порядке:
-a = 1;
-b = 2;
-// Другой поток может увидеть: b=2 до a=1!
-```
-
-### Happens-Before — что создаёт гарантию видимости
-
-```
-Правило                           Пример
-─────────────────────────────────────────────────────
-Program order                     x=1; y=x → y всегда 1
-Monitor unlock → lock             unlock(m) → lock(m)
-Volatile write → read             write(v) → read(v)
-Thread.start()                    start(t) → первая op в t
-Thread.join()                     последняя op в t → join()
-Transitive A→B→C → A→C
-```
-
-### Double-Checked Locking
-
-```java
-// ❌ Сломанный вариант (без volatile) — unsafe publication
-private Singleton instance;
-
-Singleton getInstance() {
-    if (instance == null) {                  // Поток может увидеть частично
-        synchronized (this) {               // инициализированный объект!
-            if (instance == null) {
-                instance = new Singleton(); // 3 шага: alloc, init, assign
-            }                               // JIT может переупорядочить!
-        }
-    }
-    return instance;
-}
-
-// ✅ С volatile — безопасно
-private volatile Singleton instance;
-// volatile запрещает переупорядочивание: assign всегда после init
-```
-
-### Safe Publication
-
-Объект **безопасно опубликован** если другие потоки видят его полностью инициализированным:
-
-```java
-// ✅ Безопасные способы публикации:
-private static final Obj obj = new Obj();           // static final (class loading HB)
-private volatile Obj ref = new Obj();               // volatile
-private final AtomicReference<Obj> ref = new AtomicReference<>(new Obj()); // atomic
-// Через synchronized block при публикации
-
-// ❌ Unsafe publication:
-private Obj ref;
-new Thread(() -> { ref = new Obj(); }).start();
-// другой поток может увидеть частично инициализированный Obj!
-```
-
----
-
-## 6. Дополнительные проблемы
-
-### False Sharing
-
-Разные переменные в одной **кэш-линии** (64 байта). Запись одной инвалидирует кэш других ядер.
-
-```java
-// ❌ counter0 и counter1 скорее всего в одной кэш-линии
-long[] counters = new long[2];
-// Поток 1 пишет counters[0], Поток 2 пишет counters[1] — замедление!
-
-// ✅ Padding (@Contended — Java 8+)
-@sun.misc.Contended  // доступен через модуль jdk.unsupported (Java 9+)
-class Counter { volatile long value; }
-// JVM добавляет padding вокруг поля до 128 байт
-
-// ⚠️ Для пользовательского кода нужен JVM-флаг:
-// -XX:-RestrictContended
-// Без флага аннотация применяется только к классам самой JDK!
-```
-
-### Thread Confinement
-
-Объект используется только одним потоком — синхронизация не нужна.
-
-```java
-// Stack confinement — переменные внутри метода
-void process() {
-    List<String> local = new ArrayList<>();  // только этот поток видит
-    // no sync needed
-}
-
-// ThreadLocal
-ThreadLocal<SimpleDateFormat> formatter =
-    ThreadLocal.withInitial(SimpleDateFormat::new);
-// Каждый поток свой экземпляр
-```
-
----
-
-## Шпаргалка: как предотвратить
-
-```
-Deadlock          → Lock ordering / tryLock / open calls
-Livelock          → Randomized backoff
-Starvation        → Fair locks / notifyAll() / минимальный scope lock
-Race condition    → Synchronized / Atomic / правильный выбор структур данных
-Data race         → Volatile / synchronized — обеспечить HB
-False sharing     → @Contended / padding
-```
+- [`Ex11: DeadlockDetection`](../src/main/kotlin/exercises/Ex11_DeadlockDetection.kt) — создать
+  deadlock, обнаружить через `ThreadMXBean`, исправить порядком захвата.
 
 ---
 
 ## Вопросы для самопроверки
 
-1. Назови 4 условия Коффмана. Как нарушить каждое?
-2. Чем livelock отличается от deadlock? Как обнаружить каждый?
-3. Что такое data race? Чем отличается от race condition?
-4. Почему double-checked locking без volatile — UB?
-5. Что такое safe publication? Назови 4 способа.
-6. Что такое false sharing? Как диагностировать?
-7. Может ли race condition быть без data race? Пример.
+1. Назовите четыре условия Коффмана. Как нарушить каждое?
+2. Как упорядочить захват локов, если у объектов нет естественного порядка?
+3. Что искать в дампе потоков, чтобы подтвердить deadlock? Какие две строки образуют цикл?
+4. Находит ли `jcmd` deadlock на `ReentrantLock`? Как он выглядит в выводе?
+5. Задача в пуле ждёт другую задачу того же пула. Найдёт ли это `jcmd`? Как опознать?
+6. Чем livelock отличается от deadlock по загрузке процессора?
+7. Почему случайная пауза лечит livelock, а фиксированная — нет?
+8. Почему один медленный внешний сервис способен уронить всё приложение? Что с этим делать?
+9. Как по дампу отличить «пул простаивает» от «пул голодает»?
+10. Зачем снимать два дампа подряд?
+11. Какие события JFR относятся к конкурентности и что даёт JFR сверх дампа?
 
 ---
 
 ## Источники
 
-**Спецификации / стандарты:**
-- [JLS §17.4 — Memory Model (Java SE 21)](https://docs.oracle.com/javase/specs/jls/se21/html/jls-17.html#jls-17.4) — формальное определение happens-before, data race, well-formed executions.
-- [JSR-133 FAQ (Manson, Goetz)](https://www.cs.umd.edu/~pugh/java/memoryModel/jsr-133-faq.html) — DCL, safe publication, volatile semantics.
+**Спецификации и документация:**
+- [`ThreadMXBean#findDeadlockedThreads` (JDK 21)](https://docs.oracle.com/en/java/javase/21/docs/api/java.management/java/lang/management/ThreadMXBean.html#findDeadlockedThreads()) — находит и мониторы, и явные локи.
+- [`jcmd` (JDK 21 tools reference)](https://docs.oracle.com/en/java/javase/21/docs/specs/man/jcmd.html) · [`jstack`](https://docs.oracle.com/en/java/javase/21/docs/specs/man/jstack.html)
+- [JDK Flight Recorder — список событий](https://docs.oracle.com/en/java/javase/21/jfapi/) — `jdk.JavaMonitorEnter`, `jdk.ThreadPark`, `jdk.VirtualThreadPinned`.
 
-**Books / papers:**
-- *Java Concurrency in Practice* (Goetz et al., 2006) — Ch. 10 (Avoiding Liveness Hazards), Ch. 16 (The Java Memory Model).
-- [Coffman, Elphick, Shoshani (1971) — «System Deadlocks» (ACM Computing Surveys 3(2))](https://dl.acm.org/doi/10.1145/356586.356588) — оригинал четырёх условий deadlock'а.
-- *The Art of Multiprocessor Programming*, 2nd ed. (Herlihy/Shavit, 2020) — Ch. 7 (Spin Locks and Contention).
+**Papers / книги:**
+- [Coffman, Elphick, Shoshani (1971) — «System Deadlocks» (ACM Computing Surveys 3(2))](https://dl.acm.org/doi/10.1145/356586.356588) — оригинал четырёх условий.
+- *Java Concurrency in Practice* (Goetz et al., 2006) — Ch. 10 (Avoiding Liveness Hazards) — приём
+  с `identityHashCode` и «замком-арбитром»; Ch. 11 (Performance and Scalability).
+- *Release It!*, 2nd ed. (Michael Nygard, 2018) — «Blocked Threads» и «Bulkheads»: те же отказы
+  с точки зрения эксплуатации.
 
-**Официальная документация:**
-- [`ThreadMXBean#findDeadlockedThreads` (JDK 21)](https://docs.oracle.com/en/java/javase/21/docs/api/java.management/java/lang/management/ThreadMXBean.html#findDeadlockedThreads()) — программное обнаружение deadlock'а.
-- [`jdk.internal.vm.annotation.Contended` / `jstack(1)`, `jcmd Thread.print`](https://docs.oracle.com/en/java/javase/21/docs/specs/man/jstack.html)
-
-**Engineering blogs / posts:**
-- [Aleksey Shipilëv — «Close Encounters of the Java Memory Model Kind»](https://shipilev.net/blog/2014/jmm-pragmatics/) — детальный разбор DCL, publication, volatile, final.
-- [Aleksey Shipilëv — «Java Concurrency Stress Tests (jcstress)»](https://github.com/openjdk/jcstress) — стресс-тесты, ловящие data races на реальной JVM.
-- [Cliff Click — «False Sharing» (talk + slides)](https://www.youtube.com/watch?v=PVkRl5XAWzE) — что это, как диагностировать perf-tools.
-- [Martin Thompson — «False sharing && @Contended»](https://mechanical-sympathy.blogspot.com/2011/07/false-sharing.html)
-- [Doug Lea — «The JSR-133 Cookbook for Compiler Writers»](https://gee.cs.oswego.edu/dl/jmm/cookbook.html) — реальные барьеры, генерируемые JIT'ом для разных JMM-конструкций.
+**Разборы:**
+- [OpenJDK jcstress](https://github.com/openjdk/jcstress) — проверка конкурентных инвариантов.
+- [Netflix — «Performance under load»](https://netflixtechblog.medium.com/performance-under-load-3e6fa9a60581) — почему фиксированные пулы плохо переносят деградацию зависимостей.

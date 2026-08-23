@@ -1,220 +1,346 @@
-# Virtual Threads (Java 21+)
+# Виртуальные потоки (JDK 21+)
+
+> **Какую проблему решает.** Модель «поток на запрос» проста и отлаживаема, но упирается в цену
+> потока ОС. Виртуальные потоки делают поток дешёвым — и возвращают возможность писать
+> блокирующий линейный код при десятках тысяч одновременных запросов.
+> **Кому это надо.** Тому, кто на JDK 21 выбирает между пулом, `CompletableFuture` и виртуальными
+> потоками; тому, кто мигрирует существующий сервис; и тому, у кого спросят про pinning.
+> **Когда НЕ надо.** Для задач, которые считают: ядер не прибавится. И там, где нужен точный
+> контроль над потоками (привязка к ядру, приоритеты, свои `ThreadFactory` с состоянием).
+
+Механика блокировки, на которой всё держится, — в [`JUC_INTERNALS.md §8`](JUC_INTERNALS.md).
+Все замеры и статусы проверены прогоном на **Temurin 21.0.9** и **Temurin 24.0.2**.
 
 ---
 
-## 1. Platform vs Virtual Threads
+## 1. Задача
+
+Из [`WHY_CONCURRENCY.md`](WHY_CONCURRENCY.md): при 1000 rps и 300 мс на запрос нужно 300
+одновременных обработок. При 10 000 rps — уже 3000. Платформенный поток стоит 2 МБ резерва стека и
+~22 мкс на создание, а ядро планирует их само, ничего не зная о запросах.
+
+Было два выхода, и оба неудобны: не блокировать поток (асинхронный стиль — код перестаёт быть
+обычным, [`ASYNC_COMPOSITION.md`](ASYNC_COMPOSITION.md)) или ограничить конкурентность пулом
+(деградирует задержка). Виртуальные потоки — третий: **оставить блокирующий код и сделать поток
+дешёвым**.
+
+---
+
+## 2. Что это такое
 
 ```
-Platform Thread:
-  Java Thread ──1:1──► OS Thread ──► CPU Core
-  ~1MB stack, дорогой context switch, ~10K потоков на JVM
+Платформенный поток:  Thread ──1:1── поток ОС ── ядро процессора
+                      2 МБ стека, планирует ядро, потолок — тысячи
 
-Virtual Thread:
-  Virtual Thread ──M:N──► Carrier Thread (Platform) ──► CPU Core
-  ~KB stack, JVM управляет, миллионы потоков
+Виртуальный поток:    Thread ──M:N── поток-носитель (платформенный) ── ядро
+                      стек в куче, планирует JVM, потолок — миллионы
 ```
 
-| | Platform Thread | Virtual Thread |
-|---|---|---|
-| Создание | `new Thread()` | `Thread.ofVirtual().start()` |
-| Стоимость | ~1 MB RAM + OS overhead | ~1 KB, JVM managed |
-| Max на JVM | ~10K–50K | Миллионы |
-| Блокировка I/O | Блокирует OS thread | Unmount (carrier свободен) |
-| CPU-bound | Одинаково | Одинаково (нет преимущества) |
-| Лучший use case | CPU-bound, legacy code | I/O-bound, много concurrent задач |
+Виртуальный поток — это обычный `java.lang.Thread`, у которого стек живёт **в куче** в виде
+продолжения (continuation). Когда поток блокируется, JVM снимает его с носителя (unmount) и
+сохраняет продолжение; когда операция готова — возвращает на свободный носитель (mount).
 
-### Создание
+Носители — это `ForkJoinPool`, число которых по умолчанию равно числу ядер (видно по имени потока:
+`VirtualThread[#21]/runnable@ForkJoinPool-1-worker-1`).
 
 ```java
-// Один виртуальный поток
-Thread vt = Thread.ofVirtual()
-    .name("my-vt")
-    .start(() -> doWork());
-
-// Executor — один поток на задачу
-ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor();
-executor.submit(() -> fetchFromDatabase());
-
-// Builder для настройки
-Thread.ofVirtual()
-    .name("worker-", 0)  // нумерованные имена
-    .inheritInheritableThreadLocals(false)
-    .factory();  // ThreadFactory
+Thread.ofVirtual().name("vt-1").start(() -> doWork());       // один поток
+Executors.newVirtualThreadPerTaskExecutor();                 // поток на задачу
+Thread.ofVirtual().factory();                                // ThreadFactory для чужого API
 ```
+
+Свойства, которые отличаются от платформенных (проверено):
+
+```
+isDaemon = true                                   ← всегда демон
+setDaemon(false) -> IllegalArgumentException      ← сделать недемоном нельзя
+priority после setPriority(MIN) = 5               ← приоритет игнорируется
+```
+
+Отсюда важное следствие: виртуальные потоки **не удерживают JVM от завершения**. Ждать их окончания
+нужно явно — `join()`, `CountDownLatch` или закрытие `ExecutorService` (у него `close()` в
+try-with-resources как раз ждёт завершения всех задач).
 
 ---
 
-## 2. Как работает scheduling
+## 3. Что даёт на практике
+
+Замер из [`WHY_CONCURRENCY.md §3.2`](WHY_CONCURRENCY.md) — создать и дождаться 10 000 потоков:
 
 ```
-Virtual Thread "VT-1" выполняет blocking I/O:
-  1. VT-1 вызывает socket.read()
-  2. JVM: unmount VT-1 с carrier thread → continuation сохранена в heap
-  3. Carrier thread свободен → берёт следующий Virtual Thread
-  4. I/O готово → VT-1 mount на свободный carrier → продолжает
-
-Carrier threads = ForkJoinPool (parallelism = CPU cores)
+платформенные: ~220 мс   (~22 мкс на поток)
+виртуальные:    ~15 мс   (~1.5 мкс на поток)
 ```
 
-**Преимущество:** 10 000 concurrent HTTP-запросов → 10 000 virtual threads, но лишь 8 carrier threads (на 8-ядерной машине). Нет overhead от 10 000 OS threads.
+Тот же тест на 300 задач по 300 мс: пул на 300 платформенных потоков — 333 мс, виртуальные — 316 мс,
+но без 300 стеков по 2 МБ.
 
----
-
-## 3. Pinning — главная проблема
-
-**Pinning** — virtual thread не может unmount от carrier thread:
+Предел проверяется прямо:
 
 ```java
-// ❌ Pinning: synchronized блок
-synchronized (lock) {
-    Thread.sleep(1000);  // sleep вызовет unmount, но carrier заблокирован!
-    // Carrier thread недоступен для других VT всё это время
-}
-
-// ✅ ReentrantLock — поддерживает unmount
-ReentrantLock lock = new ReentrantLock();
-lock.lock();
-try {
-    Thread.sleep(1000);  // VT unmounts, carrier свободен
-} finally {
-    lock.unlock();
+// Million.java — java -Xmx2g Million.java
+try (var ex = Executors.newVirtualThreadPerTaskExecutor()) {
+    for (int i = 0; i < 1_000_000; i++) ex.submit(() -> { Thread.sleep(1000); done.countDown(); });
 }
 ```
 
-**Когда происходит pinning:**
-1. Virtual thread выполняется внутри `synchronized` блока
-2. Virtual thread вызывает native метод
+```
+1 000 000 виртуальных потоков по 1 с: 10226 мс
+```
 
-> **Java 24 (JEP 491):** `synchronized` больше не вызывает pinning! Но до Java 24 — используй `ReentrantLock`.
+Миллион потоков действительно создаётся и работает — на платформенных это невозможно в принципе.
+Но обратите внимание: не 1 секунда, а 10. Виртуальные потоки дёшевы, а не бесплатны: миллион
+объектов-продолжений, миллион таймеров и очередь планировщика тоже чего-то стоят.
 
-### Диагностика pinning
+---
+
+## 4. Pinning — единственная серьёзная ловушка
+
+### Механизм
+
+Виртуальный поток снимается с носителя, только если блокировка проходит через `LockSupport.park`
+(см. [`JUC_INTERNALS.md §8`](JUC_INTERNALS.md)). Через `park` блокируется **весь**
+`java.util.concurrent`. А `synchronized` до JDK 24 блокировался инструкцией `monitorenter` внутри
+виртуальной машины, которая про виртуальные потоки не знала, — носитель оставался занят.
+
+Второй случай, где снять поток нельзя, — **вызов нативного метода** (JNI): нативный кадр стека
+скопировать в кучу невозможно.
+
+### Замер
+
+100 виртуальных потоков, каждый спит 100 мс под **собственным** локом (конкуренции нет вовсе):
+
+```
+### JDK 21 (10 ядер → 10 носителей):
+synchronized  : 1051 мс      ← 100 задач / 10 носителей × 100 мс, параллельности нет
+ReentrantLock :  105 мс
+без лока      :  106 мс
+
+### JDK 24 (JEP 491):
+synchronized  :  110 мс      ← починено
+ReentrantLock :  105 мс
+```
+
+Замедление ровно в 10 раз — это отношение «сто задач к десяти носителям».
+
+### Диагностика
 
 ```bash
--Djdk.tracePinnedThreads=full   # логировать каждый pinning event
--Djdk.tracePinnedThreads=short  # только стек-трейс без деталей
+java -Djdk.tracePinnedThreads=short  -jar app.jar     # стек места, где прибило
+java -Djdk.tracePinnedThreads=full   -jar app.jar     # полный стек
 ```
+
+Реальный вывод на JDK 21:
+
+```
+VirtualThread[#35]/runnable@ForkJoinPool-1-worker-10 reason:MONITOR
+    Pin.lambda$main$0(Pin.java:9) <== monitors:1
+```
+
+`reason:MONITOR` — прибило на `synchronized`; `reason:NATIVE` — на нативном вызове. Строка указывает
+точное место. В JFR то же самое видно событием `jdk.VirtualThreadPinned`.
+
+### Что делать
+
+| JDK | Что делать |
+|---|---|
+| 21–23 | заменить `synchronized` на `ReentrantLock` **в путях, где есть блокирующие операции**; в библиотечном коде — везде |
+| 24+ | ничего: JEP 491 снял ограничение для `synchronized` |
+| любой | нативные вызовы остаются причиной pinning — выносить их на платформенный пул |
+
+Важная оговорка: `synchronized` **вокруг быстрой операции в памяти** безвреден и на JDK 21 — носитель
+занят микросекунды. Переписывать весь код не нужно; ищите `synchronized` вокруг ввода-вывода.
 
 ---
 
-## 4. ThreadLocal с Virtual Threads
+## 5. Что меняется в архитектуре
 
-**Проблема:** при миллионе virtual threads — миллион копий ThreadLocal.
+### Пул перестаёт быть регулятором нагрузки
+
+Это самый важный сдвиг, и его чаще всего упускают. В модели с пулом «10 потоков» одновременно
+означало и «10 задач», и «не больше 10 запросов к БД», и «не больше 10 обращений к внешнему API».
+Один параметр ограничивал всё сразу.
+
+Виртуальных потоков может быть миллион — и все они одновременно постучатся в базу.
 
 ```java
-// ❌ Дорого при большом количестве VT
-ThreadLocal<UserContext> ctx = new ThreadLocal<>();
+// ❌ Было: пул ограничивал всё сразу
+ExecutorService pool = Executors.newFixedThreadPool(20);
 
-// ✅ ScopedValue (Java 21–23 preview → финализировано в Java 24, JEP 487)
-ScopedValue<UserContext> USER_CTX = ScopedValue.newInstance();
+// ✅ Стало: потоков сколько угодно, ограничиваем РЕСУРС, а не потоки
+ExecutorService ex = Executors.newVirtualThreadPerTaskExecutor();
+Semaphore dbLimit  = new Semaphore(20);      // ровно под размер пула соединений
+Semaphore apiLimit = new Semaphore(50);      // ровно под лимит внешнего API
 
-ScopedValue.where(USER_CTX, new UserContext("admin"))
-    .run(() -> {
-        // USER_CTX.get() доступен здесь и во всех вложенных вызовах
-        doWork();
-    });
-// После run() — значение автоматически убрано
+dbLimit.acquire();
+try { return jdbc.query(sql); } finally { dbLimit.release(); }
 ```
 
-**ScopedValue vs ThreadLocal:**
+Про `Semaphore` как ограничитель — [`SYNCHRONIZERS.md §3`](SYNCHRONIZERS.md).
 
-| | ThreadLocal | ScopedValue |
+### «Пул виртуальных потоков» — антипаттерн
+
+```java
+// ❌ Бессмысленно: виртуальные потоки не надо переиспользовать
+Executors.newFixedThreadPool(200, Thread.ofVirtual().factory());
+```
+
+Пул существует, чтобы не создавать дорогие потоки заново. Виртуальный поток стоит 1.5 мкс —
+переиспользовать нечего. Более того, пул возвращает обе проблемы: искусственное ограничение
+конкурентности и переживание `ThreadLocal` между задачами
+([`THREADS_BASICS.md §7`](THREADS_BASICS.md)).
+
+### Пул соединений к БД становится главным ограничителем
+
+Раньше пул потоков был меньше или равен пулу соединений, и очередь за соединением почти не
+возникала. Теперь тысячи виртуальных потоков будут ждать соединения — и ждать будут долго, если
+таймаут получения выставлен щедро. Проверьте: `connectionTimeout` в HikariCP, размер пула,
+метрики ожидания.
+
+---
+
+## 6. Чего виртуальные потоки не дают
+
+- **Ускорения вычислений.** Ядер не прибавилось. Для задач, которые считают, правильный ответ —
+  `ForkJoinPool` или пул размером с число ядер ([`EXECUTORS_FUTURES.md`](EXECUTORS_FUTURES.md)).
+- **Безопасности при общем состоянии.** Гонки, дедлоки, видимость — всё то же самое. Более того,
+  их становится проще получить: конкурентность выросла на порядки.
+- **Автоматической защиты от перегрузки.** См. §5: ограничивать надо явно.
+- **Бесплатной памяти.** Стек в куче — тоже память, и приостановленный поток держит все свои объекты.
+
+---
+
+## 7. `ScopedValue` вместо `ThreadLocal` — и его статус
+
+`ThreadLocal` при миллионе потоков — это миллион копий значения. Предлагаемая замена:
+
+```java
+static final ScopedValue<User> CURRENT = ScopedValue.newInstance();
+
+ScopedValue.where(CURRENT, user).run(() -> {
+    handle(request);          // CURRENT.get() доступен здесь и во всех вложенных вызовах
+});                           // на выходе значение убирается автоматически
+```
+
+| | `ThreadLocal` | `ScopedValue` |
 |---|---|---|
-| Mutability | Mutable | Immutable |
-| Scope | На весь lifetime потока | Ограниченный блок |
-| Наследование | InheritableThreadLocal | Автоматически в дочерние VT |
-| Производительность | O(1) get | Быстрее при большом числе потоков |
-| Cleanup | Нужен remove() | Автоматически |
+| Изменяемость | изменяемый | неизменяемый |
+| Область действия | вся жизнь потока | только внутри блока |
+| Очистка | нужен `remove()` в `finally` | автоматически |
+| Наследование | `InheritableThreadLocal` (копирование) | видно в дочерних задачах структурного блока |
+
+> **Статус (проверено прогоном).** `ScopedValue` — **preview** и на JDK 21, и на JDK 24: без
+> `--enable-preview` код не компилируется на обеих версиях. В продакшене на JDK 21 это означает
+> `ThreadLocal` с обязательным `remove()`.
 
 ---
 
-## 5. Structured Concurrency (Java 24, финализировано)
+## 8. `StructuredTaskScope` — и его статус
 
-Дочерние потоки живут строго внутри блока родителя — нет утечек.
-
-**История:** incubator в Java 19–20, preview в Java 21–23, **финализировано в Java 24 (JEP 499)**.
+Идея: дочерние задачи живут строго внутри блока родителя, а отмена и ошибки идут по дереву.
 
 ```java
-// Java 22+ / финальный API (Java 24):
 try (var scope = new StructuredTaskScope.ShutdownOnFailure()) {
-    StructuredTaskScope.Subtask<String> user    = scope.fork(() -> fetchUser(id));
-    StructuredTaskScope.Subtask<String> address = scope.fork(() -> fetchAddress(id));
+    StructuredTaskScope.Subtask<Profile> p = scope.fork(() -> fetchProfile(id));
+    StructuredTaskScope.Subtask<Orders>  o = scope.fork(() -> fetchOrders(id));
 
-    scope.join();           // ждём оба
-    scope.throwIfFailed();  // пробрасываем ошибки
+    scope.join();              // дождаться обеих
+    scope.throwIfFailed();     // если любая упала — пробросить
 
-    return user.get() + " at " + address.get();
-}
-// Выход из try-with-resources: все дочерние задачи гарантированно завершены
+    return render(p.get(), o.get());
+}   // выход из try гарантирует: обе задачи завершены или отменены
 ```
 
-> **Важно:** В Java 21 (preview) `fork()` возвращал `Supplier<T>`. С Java 22 тип изменился на `StructuredTaskScope.Subtask<T>`. Код выше — актуальный финальный API.
+Что это даёт против `CompletableFuture`: нет утечек фоновых задач, отмена сквозная, стектрейс
+не рвётся, и время жизни задач видно прямо в структуре кода.
 
-**Политики:**
-- `ShutdownOnFailure` — если любой fork упал → отменить остальные
-- `ShutdownOnSuccess` — если любой fork успешен → отменить остальные (anyOf)
+> **Статус (проверено прогоном).** `StructuredTaskScope` — **preview** и на JDK 21, и на JDK 24.
+> Без `--enable-preview` не компилируется ни там, ни там:
+>
+> ```
+> STS.java:1: error: StructuredTaskScope is a preview API and is disabled by default.
+> ```
+>
+> API между версиями менялся (в JDK 21 `fork()` возвращал `Supplier<T>`, с JDK 22 —
+> `Subtask<T>`), и продолжает меняться. Знать концепцию для собеседования нужно; закладываться
+> на неё в продакшене — нет.
+>
+> Прогнать пример на JDK 21 можно так:
+> `java --enable-preview --source 21 STS.java`
 
-**Преимущества перед CompletableFuture:**
-- Никаких утечек потоков (структурированная иерархия)
-- Чёткая отмена (если родитель отменён — дети тоже)
-- Читаемый код (нет callback hell)
+Готовый аналог, доступный без preview, — структурная конкурентность в корутинах Kotlin
+([`kotlin-coroutines/STRUCTURED_CONCURRENCY.md`](../../kotlin-coroutines/theory/STRUCTURED_CONCURRENCY.md)).
 
 ---
 
-## 6. Практические рекомендации
+## 9. Как мигрировать
+
+1. **Начните с точки входа.** Замените пул обработчиков запросов на
+   `newVirtualThreadPerTaskExecutor()`. В Spring Boot 3.2+ это один параметр:
+   `spring.threads.virtual.enabled=true`.
+2. **Расставьте семафоры** на всё, что было неявно ограничено размером пула: БД, внешние API,
+   тяжёлые операции с памятью.
+3. **Найдите pinning**: запустите нагрузочный тест с `-Djdk.tracePinnedThreads=short` и почините
+   найденные места (`synchronized` вокруг ввода-вывода → `ReentrantLock`).
+4. **Проверьте `ThreadLocal`**: убедитесь, что есть `remove()`, и что размер хранимого невелик.
+5. **Оставьте пулы** для задач, которые считают, и для нативных вызовов.
+6. **Пересмотрите таймауты и размер пула соединений** — ожидание переехало из очереди пула потоков
+   в очередь за соединением.
+
+---
+
+## 10. Шпаргалка
 
 ```
-✅ Используй VT для:
-  - HTTP серверы (Netty-free: один VT на запрос)
-  - JDBC запросы (блокирующий драйвер)
-  - Много параллельных I/O операций
-  - Замена пула с newFixedThreadPool(много)
-
-❌ НЕ используй VT для:
-  - CPU-bound задач (нет преимущества)
-  - Задач с synchronized (pinning до Java 24)
-  - Там где нужен точный контроль над потоками
-
-⚠️ Заменяй synchronized на ReentrantLock в критических путях
-⚠️ Не используй ThreadLocal для большого состояния — ScopedValue
-⚠️ Не используй thread priorities у VT — игнорируются
+Много блокирующего ввода-вывода, JDK 21+   → виртуальные потоки, поток на задачу
+Ограничить нагрузку                        → Semaphore на ресурс, НЕ размер пула
+Задачи считают                             → обычный пул / ForkJoinPool, VT не помогут
+synchronized вокруг ввода-вывода (JDK 21-23) → заменить на ReentrantLock
+Диагностика                                → -Djdk.tracePinnedThreads=short, событие jdk.VirtualThreadPinned
+Контекст запроса                           → ThreadLocal + remove() (ScopedValue пока preview)
+Группа связанных задач                     → StructuredTaskScope (тоже preview) либо CompletableFuture
+Пул виртуальных потоков                    → так не делают
+Дождаться завершения                       → явно: они всегда демоны
 ```
+
+---
+
+## 11. Упражнения
+
+- [`Ex12: VirtualThreads`](../src/main/kotlin/exercises/Ex12_VirtualThreads.kt) — массовое создание,
+  pinning, сравнение с платформенными.
 
 ---
 
 ## Вопросы для самопроверки
 
-1. Что такое pinning? Как его избежать (до и после Java 24)?
-2. Сколько carrier threads у newVirtualThreadPerTaskExecutor?
-3. Чем ScopedValue лучше ThreadLocal для Virtual Threads?
-4. Что такое structured concurrency? Чем лучше CompletableFuture?
-5. Для каких задач Virtual Threads НЕ дают преимущества?
-6. Как диагностировать pinning?
-7. Что произойдёт если запустить 1 000 000 virtual threads с Thread.sleep(1000)?
+1. Где живёт стек виртуального потока и что происходит при блокировке?
+2. Сколько потоков-носителей по умолчанию? Как это увидеть?
+3. Почему `ReentrantLock` не прибивает виртуальный поток, а `synchronized` на JDK 21 — прибивает?
+4. Почему в замере получилось замедление ровно в 10 раз?
+5. Как найти pinning в работающем приложении?
+6. Виртуальные потоки — демоны. Какое практическое следствие?
+7. Почему «пул виртуальных потоков» бессмысленен?
+8. Что перестаёт ограничивать размер пула после перехода на виртуальные потоки? Чем заменить?
+9. Финализированы ли `ScopedValue` и `StructuredTaskScope` в JDK 24? Как проверить самому?
+10. Для каких задач виртуальные потоки не дают ничего?
 
 ---
 
 ## Источники
 
-**JEPs (последовательность эволюции Loom):**
-- [JEP 425: Virtual Threads (Preview, JDK 19)](https://openjdk.org/jeps/425)
-- [JEP 436: Virtual Threads (Second Preview, JDK 20)](https://openjdk.org/jeps/436)
-- [JEP 444: Virtual Threads (Final, JDK 21)](https://openjdk.org/jeps/444) — текущая стабильная редакция.
-- [JEP 491: Synchronize Virtual Threads without Pinning (JDK 24)](https://openjdk.org/jeps/491) — устранение pinning для `synchronized`.
-- [JEP 487: Scoped Values (Fourth Preview, JDK 24)](https://openjdk.org/jeps/487) — replacement для `ThreadLocal` под Loom.
-- [JEP 499: Structured Concurrency (Fourth Preview, JDK 24)](https://openjdk.org/jeps/499) — `StructuredTaskScope` API.
-- [JEP 480: Structured Concurrency (Third Preview, JDK 23)](https://openjdk.org/jeps/480) — последняя итерация перед текущей.
+**JEP (эволюция Loom):**
+- [JEP 444: Virtual Threads (Final, JDK 21)](https://openjdk.org/jeps/444) — текущая стабильная редакция; разделы Motivation и Pinning.
+- [JEP 491: Synchronize Virtual Threads without Pinning (JDK 24)](https://openjdk.org/jeps/491)
+- [JEP 481: Scoped Values (Third Preview, JDK 23)](https://openjdk.org/jeps/481) · [JEP 487 (Fourth Preview, JDK 24)](https://openjdk.org/jeps/487)
+- [JEP 480: Structured Concurrency (Third Preview, JDK 23)](https://openjdk.org/jeps/480) · [JEP 499 (Fourth Preview, JDK 24)](https://openjdk.org/jeps/499)
 
 **Официальная документация:**
-- [`Thread.ofVirtual()` (JDK 21)](https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/Thread.Builder.OfVirtual.html)
-- [`Executors.newVirtualThreadPerTaskExecutor` (JDK 21)](https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/concurrent/Executors.html#newVirtualThreadPerTaskExecutor())
-- [Inside.java — Project Loom landing page](https://openjdk.org/projects/loom/)
+- [Core Libraries: Virtual Threads (JDK 21)](https://docs.oracle.com/en/java/javase/21/core/virtual-threads.html) — в том числе `-Djdk.tracePinnedThreads`.
+- [`Thread.ofVirtual()`](https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/Thread.Builder.OfVirtual.html) · [`Executors.newVirtualThreadPerTaskExecutor`](https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/concurrent/Executors.html#newVirtualThreadPerTaskExecutor())
+- [Project Loom (OpenJDK)](https://openjdk.org/projects/loom/)
 
-**Talks / posts:**
-- [Ron Pressler — «State of Loom» (Inside.java)](https://cr.openjdk.org/~rpressler/loom/loom/sol1_part1.html) — каноническое объяснение мотивации и архитектуры.
-- [Brian Goetz — «Project Loom: Modern Concurrency for the JVM» (Devoxx)](https://www.youtube.com/watch?v=EO9oMiL1fFo)
-- [Ron Pressler — «Loom and Reactive Programming»](https://www.youtube.com/watch?v=lIq-x_iI-kc) — почему Loom не отменяет реактивщину, но меняет её роль.
-- [Tomasz Nurkiewicz — «Java 21: Virtual Threads in Practice»](https://inside.java/2022/10/13/the-age-of-virtual-threads/)
-
-**Tooling / диагностика:**
-- [`-Djdk.tracePinnedThreads=full|short`](https://docs.oracle.com/en/java/javase/21/core/virtual-threads.html#GUID-DC4306FC-D6C1-4BCC-AECE-48C32C1A8DAA) — официальный гайд по диагностике pinning.
-- [JFR events для Loom: `jdk.VirtualThreadStart`, `jdk.VirtualThreadPinned`, `jdk.VirtualThreadSubmitFailed`](https://docs.oracle.com/en/java/javase/21/jfapi/) — флайт-рекордер сразу видит проблемы.
+**Доклады и разборы:**
+- [Ron Pressler — «State of Loom»](https://cr.openjdk.org/~rpressler/loom/loom/sol1_part1.html) — каноническое объяснение мотивации.
+- [Inside.java — «The Age of Virtual Threads»](https://inside.java/2022/10/13/the-age-of-virtual-threads/)
+- [Brian Goetz — «Project Loom: Modern Concurrency for the JVM»](https://www.youtube.com/watch?v=EO9oMiL1fFo)
