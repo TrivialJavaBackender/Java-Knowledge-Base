@@ -1043,6 +1043,16 @@ Canonical concept → owner file map. One concept, one owner. Other modules must
 - рамка ответа «уточнить → критерий → размен → фиксация» → modules/engineering-process/theory/DECISION_SCENARIOS.md
 - «пять задач против двух», перегруз спринта, релиз в пятницу, два P0 → modules/engineering-process/theory/DECISION_SCENARIOS.md
 - когда правильный ответ — согласиться без разменов → modules/engineering-process/theory/DECISION_SCENARIOS.md
+- разговор с руководителем про «задачу на час» (разложить, не спорить) → modules/engineering-process/theory/DECISION_SCENARIOS.md
+- межкомандная блокировка: срок ожидания и лестница эскалации → modules/engineering-process/theory/DECISION_SCENARIOS.md
+- disagree and commit, условие пересмотра решения (ADR) → modules/engineering-process/theory/DECISION_SCENARIOS.md
+- внедрение новой технологии: цена владения и точка невозврата → modules/engineering-process/theory/DECISION_SCENARIOS.md
+- своя ошибка, стоившая денег: порядок действий → modules/engineering-process/theory/DECISION_SCENARIOS.md
+- наставничество против личной скорости → modules/engineering-process/theory/DECISION_SCENARIOS.md
+- спайк (spike) как ответ на «оцени незнакомое» → modules/engineering-process/theory/DECISION_SCENARIOS.md
+- отстаивание технического решения перед продуктом → modules/engineering-process/theory/DECISION_SCENARIOS.md
+- изменение процесса снизу, круг без разрешения → modules/engineering-process/theory/DECISION_SCENARIOS.md
+- bus factor: передача участия, а не документации → modules/engineering-process/theory/DECISION_SCENARIOS.md
 
 ## Disambiguated Concepts
 

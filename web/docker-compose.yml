@@ -1,5 +1,5 @@
 services:
-  postgres:
+  postgres-learn-app:
     image: postgres:16-alpine
     environment:
       POSTGRES_DB: interview_prep
@@ -8,7 +8,7 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      - pg_data:/var/lib/postgresql/data
+      - learn_app_pg_data:/var/lib/postgresql/data
 
 volumes:
-  pg_data:
+  learn_app_pg_data:
