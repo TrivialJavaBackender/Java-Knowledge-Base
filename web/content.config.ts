@@ -26,4 +26,5 @@ export const MODULES: ModuleConfig[] = [
   { slug: 'go',        title: 'Golang',      order: 12, qaFormat: 'qa-bold' },
   { slug: 'design-patterns',      title: 'Design Patterns (GoF)', order: 13, qaFormat: 'qa-bold' },
   { slug: 'ddd',                  title: 'Domain-Driven Design', order: 14, qaFormat: 'qa-bold' },
+  { slug: 'engineering-process',  title: 'Engineering Process',  order: 15, qaFormat: 'qa-bold' },
 ];

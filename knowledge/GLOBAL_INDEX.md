@@ -951,6 +951,99 @@ Canonical concept → owner file map. One concept, one owner. Other modules must
 
 ---
 
+## Engineering Process
+
+### Цикл и роли
+- полный цикл разработки (идея → бэклог → спринт → код → релиз → прод) → modules/engineering-process/theory/INTRO_SDLC.md
+- цена процесса и цена его отсутствия → modules/engineering-process/theory/INTRO_SDLC.md
+- когда Scrum не нужен (исследование, поддержка, инфраструктурная команда) → modules/engineering-process/theory/INTRO_SDLC.md
+- ответственности Scrum 2020 (Product Owner / Scrum Master / разработчики) → modules/engineering-process/theory/ROLES_AND_STAKEHOLDERS.md
+- роли вокруг команды (PM, аналитик, EM, тимлид, архитектор, QA, SRE, комплаенс) → modules/engineering-process/theory/ROLES_AND_STAKEHOLDERS.md
+- стейкхолдер, карта «влияние × интерес» → modules/engineering-process/theory/ROLES_AND_STAKEHOLDERS.md
+- кто решает об объёме работ и кто о реализации → modules/engineering-process/theory/ROLES_AND_STAKEHOLDERS.md
+
+### Источники работы и бэклог
+- шесть источников работы (продукт, продажи, поддержка, комплаенс, инциденты, команда) → modules/engineering-process/theory/DISCOVERY_AND_INTAKE.md
+- приём заявок (intake), единая точка входа → modules/engineering-process/theory/DISCOVERY_AND_INTAKE.md
+- пользовательская история / job story / требование → modules/engineering-process/theory/DISCOVERY_AND_INTAKE.md
+- критерии приёмки (проверяемость через отрицание) → modules/engineering-process/theory/DISCOVERY_AND_INTAKE.md
+- Definition of Ready (DoR) — и почему его нет в Scrum Guide → modules/engineering-process/theory/DISCOVERY_AND_INTAKE.md
+- бэклог продукта vs бэклог спринта (владельцы, права на изменение) → modules/engineering-process/theory/BACKLOG_MANAGEMENT.md
+- уточнение бэклога (refinement) → modules/engineering-process/theory/BACKLOG_MANAGEMENT.md
+- нарезка задач: вертикальный срез, SPIDR → modules/engineering-process/theory/BACKLOG_MANAGEMENT.md
+- Definition of Done (DoD) как обязательство инкремента → modules/engineering-process/theory/BACKLOG_MANAGEMENT.md
+- гниение бэклога → modules/engineering-process/theory/BACKLOG_MANAGEMENT.md
+
+### Scrum
+- события Scrum и их тайм-боксы → modules/engineering-process/theory/SCRUM_PROCESS.md
+- обязательства артефактов (Product Goal / Sprint Goal / Definition of Done) → modules/engineering-process/theory/SCRUM_PROCESS.md
+- чего Scrum Guide не говорит (оценки, стори-поинты, velocity, DoR, «три роли») → modules/engineering-process/theory/SCRUM_PROCESS.md
+- отмена спринта → modules/engineering-process/theory/SCRUM_PROCESS.md
+- ScrumBut-антипаттерны → modules/engineering-process/theory/SCRUM_PROCESS.md
+- критерий выбора Scrum vs Kanban → modules/engineering-process/theory/SCRUM_PROCESS.md
+
+### Оценка и приоритизация
+- стори-поинт, относительная оценка → modules/engineering-process/theory/ESTIMATION.md
+- Planning Poker, референсная оценка → modules/engineering-process/theory/ESTIMATION.md
+- скорость команды (velocity) и её злоупотребления → modules/engineering-process/theory/ESTIMATION.md
+- вероятностный прогноз (Монте-Карло по историческому потоку), перцентили 50/85/95 → modules/engineering-process/theory/ESTIMATION.md
+- конус неопределённости → modules/engineering-process/theory/ESTIMATION.md
+- #NoEstimates → modules/engineering-process/theory/ESTIMATION.md
+- приоритет как ранг, а не ярлык → modules/engineering-process/theory/PRIORITIZATION.md
+- cost of delay, четыре профиля срочности → modules/engineering-process/theory/PRIORITIZATION.md
+- WSJF (формула, чувствительность к входным оценкам) → modules/engineering-process/theory/PRIORITIZATION.md
+- RICE / ICE / MoSCoW / Kano (критерий выбора модели) → modules/engineering-process/theory/PRIORITIZATION.md
+- внешний срок как ограничение, а не приоритет → modules/engineering-process/theory/PRIORITIZATION.md
+- размен вместо отказа (варианты спринта с ценой) → modules/engineering-process/theory/PRIORITIZATION.md
+
+### Поток
+- закон Литтла применительно к потоку задач команды → modules/engineering-process/theory/FLOW_AND_WIP.md
+- загрузка и очередь (рост ожидания с ростом загрузки) → modules/engineering-process/theory/FLOW_AND_WIP.md
+- WIP-лимиты, вытягивающая система → modules/engineering-process/theory/FLOW_AND_WIP.md
+- цена переключения контекста → modules/engineering-process/theory/FLOW_AND_WIP.md
+- время цикла vs время выполнения, перцентиль вместо среднего → modules/engineering-process/theory/FLOW_AND_WIP.md
+- накопительная диаграмма потока (CFD) → modules/engineering-process/theory/FLOW_AND_WIP.md
+- признаки перегруженной команды → modules/engineering-process/theory/FLOW_AND_WIP.md
+- Scrumban → modules/engineering-process/theory/FLOW_AND_WIP.md
+
+### Код и релизы
+- trunk-based development / GitHub Flow / GitFlow (критерий выбора) → modules/engineering-process/theory/BRANCHING_AND_CODE_FLOW.md
+- долгоживущая ветка: расхождение и цена слияния → modules/engineering-process/theory/BRANCHING_AND_CODE_FLOW.md
+- merge vs rebase vs squash (история и расследование бага) → modules/engineering-process/theory/BRANCHING_AND_CODE_FLOW.md
+- код-ревью как параметр потока (размер PR, время ожидания) → modules/engineering-process/theory/BRANCHING_AND_CODE_FLOW.md
+- CI-гейт (что обязано пройти до слияния) → modules/engineering-process/theory/BRANCHING_AND_CODE_FLOW.md
+- Conventional Commits → modules/engineering-process/theory/BRANCHING_AND_CODE_FLOW.md
+- срез релизной ветки / теги / непрерывное развёртывание → modules/engineering-process/theory/RELEASE_STRATEGIES.md
+- semver 2.0.0 (и когда его нарушают) → modules/engineering-process/theory/RELEASE_STRATEGIES.md
+- release train → modules/engineering-process/theory/RELEASE_STRATEGIES.md
+- deploy ≠ release, feature flags как механизм доставки → modules/engineering-process/theory/RELEASE_STRATEGIES.md
+- хотфикс и cherry-pick в релизную ветку → modules/engineering-process/theory/RELEASE_STRATEGIES.md
+- откат vs накат исправления (roll-forward) → modules/engineering-process/theory/RELEASE_STRATEGIES.md
+- миграции схемы БД: expand/contract, обратная совместимость → modules/engineering-process/theory/RELEASE_STRATEGIES.md
+
+### Долг, инциденты, метрики
+- технический долг, квадрант Фаулера → modules/engineering-process/theory/TECH_DEBT.md
+- долг vs легаси vs плохой код → modules/engineering-process/theory/TECH_DEBT.md
+- перевод долга в валюту бизнеса (надбавка на задачу, окупаемость) → modules/engineering-process/theory/TECH_DEBT.md
+- бюджет долга (доля спринта, правило бойскаута, рефакторинг внутри задачи) → modules/engineering-process/theory/TECH_DEBT.md
+- карточка осознанного долга (условия возврата) → modules/engineering-process/theory/TECH_DEBT.md
+- дежурство (ротация, эскалация, передача дел) → modules/engineering-process/theory/INCIDENTS_AND_POSTMORTEM.md
+- уровни серьёзности как шкала полномочий → modules/engineering-process/theory/INCIDENTS_AND_POSTMORTEM.md
+- ход инцидента: обнаружение → устранение последствий → первопричина → modules/engineering-process/theory/INCIDENTS_AND_POSTMORTEM.md
+- роли в инциденте (командир, коммуникатор, исполнители) → modules/engineering-process/theory/INCIDENTS_AND_POSTMORTEM.md
+- постмортем без поиска виноватых, «человеческая ошибка» как точка остановки → modules/engineering-process/theory/INCIDENTS_AND_POSTMORTEM.md
+- действия по итогам (экшены) и их судьба в бэклоге → modules/engineering-process/theory/INCIDENTS_AND_POSTMORTEM.md
+- инцидент посреди спринта → modules/engineering-process/theory/INCIDENTS_AND_POSTMORTEM.md
+- метрики DORA (пять с 2024; failed deployment recovery time вместо MTTR) → modules/engineering-process/theory/DELIVERY_METRICS.md
+- закон Гудхарта (формулировка Стратерн) → modules/engineering-process/theory/DELIVERY_METRICS.md
+- метрики потока: применение и интерпретация → modules/engineering-process/theory/DELIVERY_METRICS.md
+- метрики команде vs метрики руководству → modules/engineering-process/theory/DELIVERY_METRICS.md
+
+### Разбор ситуаций
+- рамка ответа «уточнить → критерий → размен → фиксация» → modules/engineering-process/theory/DECISION_SCENARIOS.md
+- «пять задач против двух», перегруз спринта, релиз в пятницу, два P0 → modules/engineering-process/theory/DECISION_SCENARIOS.md
+- когда правильный ответ — согласиться без разменов → modules/engineering-process/theory/DECISION_SCENARIOS.md
+
 ## Disambiguated Concepts
 
 Concepts that legitimately appear in multiple modules — canonical owner listed first:
@@ -1009,3 +1102,11 @@ Concepts that legitimately appear in multiple modules — canonical owner listed
 | Outbox / Saga / CQRS / Event Sourcing | system-design/microservice_patterns.md (distributed-systems mechanics) | ddd/INTEGRATION_PATTERNS.md (DDD modeling framing: aggregate boundary → events) |
 | Hexagonal / Ports & Adapters | ddd/ARCHITECTURE.md (ports/adapters, Composition Root) | (Onion / Clean — same idea, same file) |
 | functional core / FP basics | software-engineering/STREAM_API_FP.md (pure functions, immutability, HOF) | ddd/FUNCTIONAL_DDD.md (illegal-states-unrepresentable, ADT domain modeling, decide/evolve) |
+| feature flag | engineering-process/RELEASE_STRATEGIES.md (механизм доставки: deploy ≠ release, типы флагов, срок жизни) | system-design/RELIABILITY_PATTERNS.md (killswitch как паттерн надёжности) · engineering-process/TECH_DEBT.md (вечный флаг как долг) |
+| канареечная / blue-green раскатка | engineering-process/RELEASE_STRATEGIES.md (решение процесса: на кого и когда катим, когда откатываем) | infrastructure/KUBERNETES.md (механика rolling update, probes) · system-design/ML_SERVING.md (раскатка моделей) |
+| error budget | infrastructure/OBSERVABILITY.md (механизм: SLO, burn rate) | engineering-process/TECH_DEBT.md (рычаг приоритизации надёжности против функциональности) |
+| закон Литтла | concurrency/EXECUTORS_FUTURES.md (размер пула потоков) | engineering-process/FLOW_AND_WIP.md (поток задач в команде, WIP и сроки) |
+| Example Mapping / Event Storming | ddd/EVENT_STORMING.md (техники discovery) | engineering-process/DISCOVERY_AND_INTAKE.md (их место в приёме заявок) |
+| Strangler Fig / замена легаси | system-design/microservice_patterns.md (паттерн) | engineering-process/TECH_DEBT.md (решение «переписать или платить проценты») |
+| CI-гейт и состав тестов | software-engineering/TESTING.md (какие бывают тесты, пирамида, contract testing) | engineering-process/BRANCHING_AND_CODE_FLOW.md (что обязано стоять в гейте до слияния) |
+| Definition of Done | engineering-process/BACKLOG_MANAGEMENT.md (обязательство инкремента, единый DoD на продукт) | engineering-process/SCRUM_PROCESS.md (DoD как артефактное обязательство по гайду) |

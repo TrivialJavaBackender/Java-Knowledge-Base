@@ -155,6 +155,31 @@ Preferred terminology for this repository. Reuse these terms exactly to ensure c
 - **GraalVM Native Image** — AOT-компиляция Java → standalone executable (closed-world assumption)
 - **gadget chain** — цепочка существующих в classpath классов, чьи `readObject` дают RCE при deserialization
 
+### Engineering Process
+
+- **WSJF** — Weighted Shortest Job First: приоритет = cost of delay / длительность работы (Reinertsen, SAFe)
+- **cost of delay** — денежная цена одной недели задержки поставки; основа WSJF, не «важность»
+- **WIP limit** — верхняя граница числа одновременно взятых в работу задач на колонку или на человека
+- **Little's Law** — L = λ × W: среднее число задач в системе = поток на входе × среднее время прохождения
+- **trunk-based development** — интеграция в основную ветку не реже раза в день, ветки живут часы
+- **feature flag** — переключатель, отделяющий развёртывание кода от включения функциональности
+- **deploy ≠ release** — код в проде и функциональность, доступная пользователю, — два разных события
+- **release train** — фиксированное расписание релизов: не готово к отправлению — едет следующим
+- **release branch** — ветка, срезанная от основной под конкретный релиз; стабилизация без блокировки основной
+- **blameless postmortem** — разбор инцидента, направленный на условия отказа, а не на действия людей
+- **error budget** — допустимая доля отказов, вытекающая из SLO; владелец концепта — modules/infrastructure/theory/OBSERVABILITY.md
+- **DORA metrics** — четыре метрики доставки: deployment frequency, lead time for changes, change failure rate, failed deployment recovery time
+- **technical debt quadrant** — классификация Фаулера по осям «осознанно / неосознанно» и «разумно / безрассудно»
+- **Definition of Done (DoD)** — условия, при которых инкремент считается готовым; обязательство артефакта «инкремент»
+- **Definition of Ready (DoR)** — условия, при которых задачу можно брать в спринт; не термин Scrum Guide
+- **Sprint Goal** — единая цель спринта; обязательство артефакта «бэклог спринта»
+- **Product Goal** — долгосрочная цель продукта; обязательство артефакта «бэклог продукта»
+- **story point** — относительная мера объёма работы, сравнимая только внутри одной команды
+- **cycle time** — от начала работы над задачей до её готовности (подмножество lead time)
+- **lead time** — от появления заявки до поставки пользователю
+- **cumulative flow diagram (CFD)** — накопительная диаграмма потока: показывает рост очередей и WIP во времени
+- **Goodhart's law** — когда метрика становится целью, она перестаёт быть хорошей метрикой
+
 ## Avoid
 
 | Use instead | Do NOT use |
@@ -199,3 +224,18 @@ Preferred terminology for this repository. Reuse these terms exactly to ensure c
 | gadget chain | "deserialization chain", "exploit chain" (gadget chain — устоявшийся термин в security) |
 | GraalVM Native Image | "Graal native build", "ahead-of-time image" (use the canonical product name) |
 | pattern matching | "pattern match" (matching — gerund form) |
+| WSJF | "weighted shortest job", "WSJF score" (WSJF — уже аббревиатура модели) |
+| cost of delay | "стоимость промедления", "цена опоздания" (cost of delay — каноническая форма) |
+| WIP limit | "лимит задач", "ограничение параллелизма" (WIP-лимит — канонический термин Kanban) |
+| trunk-based development | "trunk development", "мастер-разработка", "TBD" (аббревиатура занята) |
+| deploy ≠ release | "деплой = релиз" (разделение — суть практики feature flag) |
+| blameless postmortem | "постмортем без вины", "no-blame разбор" |
+| DORA metrics | "четыре ключевые метрики DevOps", "Accelerate metrics" (DORA — канонический источник) |
+| technical debt | "костыли", "legacy" (legacy — про возраст кода, долг — про осознанный размен) |
+| Definition of Done | "определение готовности" (это список условий, а не определение) |
+| velocity | "производительность команды", "скорость разработки" (velocity — безразмерная и несравнимая между командами) |
+| Daily Scrum | "статус-митинг", "планёрка" (Scrum Guide: событие разработчиков, не отчёт менеджеру) |
+| Sprint Review | "демо" (демонстрация — часть события, а не всё событие) |
+| refinement | "груминг", "grooming" (термин выведен из Scrum Guide в 2011 году) |
+| release branch | "ветка релиза", "стабильная ветка" (release branch — каноническая форма) |
+| Little's Law | "закон очередей", "формула Литтла" (закон Литтла — каноническая русская форма) |
