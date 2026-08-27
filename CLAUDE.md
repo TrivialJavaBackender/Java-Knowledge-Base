@@ -176,7 +176,10 @@ node_modules/.bin/tsx scripts/sync.ts        # пере-импорт после 
 ### Саммари модулей
 - Каждый модуль содержит `_SUMMARY.md` в корне — семантическое сжатие для быстрого восстановления контекста
 - Читать `_SUMMARY.md` перед загрузкой полных теоретических файлов, когда нужна ориентация
-- Размер ≤ 2 КБ; структура: Core Model, Key Concepts, Important Invariants, Common Pitfalls, Related Modules
+- Структура: Core Model, Key Concepts, Important Invariants, Common Pitfalls, Related Modules
+- Размер: 3–8 КБ по факту (ddd 3.2, concurrency 4.1, databases 6.5, engineering-process 6.9,
+  system-design 7.6, microservices 7.8) — пропорционально размеру модуля. Прежний ориентир
+  «≤ 2 КБ» не выполнялся ни одним модулем: для русского текста он недостижим без потери смысла
 - Обновлять `_SUMMARY.md` при добавлении или существенном изменении теории в модуле
 
 ### Контракт качества теории

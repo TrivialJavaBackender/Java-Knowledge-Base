@@ -35,11 +35,26 @@ QPS, TPS, RPS, RPM, SLA, SLO, SLI, p50/p95/p99, TTL, TTI, TTFB, MAU, DAU, RTO, R
 CQRS, Saga, Outbox, DDD, CDC, 2PC, Two-Phase Commit, ABAC, RBAC
 
 ### Имена паттернов надёжности и механизмов исполнения
-circuit breaker, backoff, jitter, single-flight, cache stampede, dead-letter, fast path, work-stealing, token bucket, leaky bucket
+circuit breaker, bulkhead, backoff, jitter, single-flight, cache stampede, dead-letter, fast path, work-stealing, token bucket, leaky bucket, confused deputy
 
 Это имена конкретных паттернов и механизмов, а не описательные термины: перевод сделал бы их
 неузнаваемыми (ср. Saga, Outbox, Raft). Русское пояснение допустимо в скобках при первом
 упоминании — «повторы с экспоненциальной паузой (backoff)», — но основная форма латиницей.
+
+⚠️ **Переводы «предохранитель» (circuit breaker), «переборка» (bulkhead) и «смущённый заместитель»
+(confused deputy) запрещены.** Так не говорят: на собеседовании и в коде звучит английское имя.
+Термины не склоняются — «состояния circuit breaker», «поставить bulkhead», «два circuit breaker»;
+согласование по мужскому роду («circuit breaker сработал», «bulkhead не дал»).
+
+### Имена микросервисных паттернов
+Saga, Outbox, CQRS, Event Sourcing, API Gateway, BFF (Backend for Frontend), Service Discovery,
+service mesh, sidecar, ambient, Strangler Fig, tolerant reader, event-carried state transfer,
+SPIFFE, SVID, deadline propagation, xDS
+
+Имена собственные из литературы (Fowler, Newman, Richardson) и спецификаций. Русское пояснение
+при первом упоминании уместно — «вытеснение легаси под фасадом (Strangler Fig)», — дальше
+основная форма латиницей. Описательные термины вокруг них переводятся как обычно: «компенсация»,
+«проекция», «журнал событий», «удостоверение рабочей нагрузки».
 
 ### Имена механизмов JVM и конкурентности
 happens-before, deadlock, livelock, lock-free, pinning, barging, spurious wakeup, mount / unmount, false sharing

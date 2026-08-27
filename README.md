@@ -1,192 +1,121 @@
 # Interview Prep
 
-Подготовка к backend-собеседованиям. Четыре модуля — теория, упражнения, вопросы.
+Подготовка к backend-собеседованиям: теория, вопросы с ответами, упражнения с кодом.
+Шестнадцать независимых модулей в `modules/`, единая карта тем в
+[`knowledge/GLOBAL_INDEX.md`](knowledge/GLOBAL_INDEX.md), прогресс и повторение карточек —
+в web-приложении.
+
+Теория здесь — **объяснение, а не справочник**: каждый файл открывается тремя вопросами
+(какую проблему решает / кому это надо / когда НЕ надо), каждый раздел идёт по схеме
+«задача → наивное решение и где оно ломается → механизм → правило», каждое утверждение
+о поведении подпёрто исходником с номером строки, прогоном или спецификацией. Требования
+зафиксированы в [`knowledge/THEORY_CONTRACT.md`](knowledge/THEORY_CONTRACT.md).
 
 ---
 
 ## Модули
 
-| | Модуль | Роадмап | Вопросы |
-|---|--------|---------|---------|
-| ⚙️ | [Concurrency](modules/concurrency/README.md) | [ROADMAP](modules/concurrency/ROADMAP.md) | [32 вопроса](modules/concurrency/INTERVIEW_QUESTIONS.md) |
-| 🏗️ | [System Design](modules/system-design/README.md) | [ROADMAP](modules/system-design/ROADMAP.md) | [25 вопросов](modules/system-design/INTERVIEW_QUESTIONS.md) |
-| 🐳 | [Infrastructure](modules/infrastructure/README.md) | [ROADMAP](modules/infrastructure/ROADMAP.md) | [36 вопросов](modules/infrastructure/INTERVIEW_QUESTIONS.md) |
-| 🍃 | [Spring Frameworks](modules/spring-frameworks/README.md) | [ROADMAP](modules/spring-frameworks/ROADMAP.md) | [17 вопросов](modules/spring-frameworks/INTERVIEW_QUESTIONS.md) |
-| 🔗 | [Microservices](modules/microservices/README.md) | [ROADMAP](modules/microservices/ROADMAP.md) | [40 вопросов](modules/microservices/INTERVIEW_QUESTIONS.md) |
+| Модуль | Тема | Теория | Вопросы | Упражнения |
+|--------|------|:------:|:-------:|:----------:|
+| [Concurrency](modules/concurrency/README.md) | Java Concurrency: JMM, JUC, пулы, виртуальные потоки | 12 | 82 | 18 |
+| [Kotlin Coroutines](modules/kotlin-coroutines/README.md) | suspend, Flow, Channel, structured concurrency | 18 | 86 | 18 |
+| [System Design](modules/system-design/README.md) | Проектирование систем + 14 разобранных задач | 44 | 90 | — |
+| [Microservices](modules/microservices/README.md) | Границы, связь, согласованность, изоляция отказа | 12 | 40 | — |
+| [Databases](modules/databases/README.md) | Транзакции, индексы, storage engines, репликация | 6 | 21 | — |
+| [Hibernate & JPA](modules/hibernate-jpa/README.md) | Lifecycle, маппинг, N+1, кэш L1/L2, блокировки | 13 | 31 | — |
+| [Spring Frameworks](modules/spring-frameworks/README.md) | Core, Boot, MVC, Data, Security, Cloud | 6 | 17 | — |
+| [Java Core](modules/java-core/README.md) | GC, JIT, ClassLoaders, JPMS, байт-код | 15 | 30 | — |
+| [Infrastructure](modules/infrastructure/README.md) | Docker, K8s, Helm, наблюдаемость, секреты | 8 | 50 | — |
+| [Caching Deep Dive](modules/caching-deep-dive/README.md) | CPU → JVM → Caffeine → Redis → CDN | 9 | 18 | 10 |
+| [DDD](modules/ddd/README.md) | Стратегия, тактика, гексагональная архитектура | 10 | 28 | — |
+| [Design Patterns](modules/design-patterns/README.md) | GoF, UML, GRASP, антипаттерны | 8 | 28 | 1 |
+| [Software Engineering](modules/software-engineering/README.md) | SOLID, Stream API и FP, тестирование | 3 | 22 | — |
+| [Engineering Process](modules/engineering-process/README.md) | Бэклог, оценки, Scrum, релизы, инциденты | 14 | 67 | — |
+| [Go](modules/go/README.md) | Синтаксис, горутины, GMP-шедулер, GC, stdlib | 16 | 67 | — |
+| [GraphQL (Kotlin)](modules/graphql-kotlin/README.md) | graphql-kotlin, DataLoader, Federation | 4 | 14 | 6 |
 
-> Таблица неполная: в `modules/` сейчас 16 модулей. Полный список — в
-> [CLAUDE.md](CLAUDE.md#структура), карта тем — в [knowledge/GLOBAL_INDEX.md](knowledge/GLOBAL_INDEX.md).
-
----
-
-## ⚙️ Concurrency
-
-**[→ README](modules/concurrency/README.md) · [ROADMAP](modules/concurrency/ROADMAP.md) · [Вопросы](modules/concurrency/INTERVIEW_QUESTIONS.md)**
-
-### Теория
-
-| Модуль | Файл |
-|--------|------|
-| 0. Зачем конкурентность | [WHY_CONCURRENCY.md](modules/concurrency/theory/WHY_CONCURRENCY.md) |
-| 1. Основы потоков | [THREADS_BASICS.md](modules/concurrency/theory/THREADS_BASICS.md) |
-| 2. Модель памяти | [MEMORY_MODEL.md](modules/concurrency/theory/MEMORY_MODEL.md) |
-| 3. Внутренности j.u.c. | [JUC_INTERNALS.md](modules/concurrency/theory/JUC_INTERNALS.md) |
-| 4. Locks | [LOCKS.md](modules/concurrency/theory/LOCKS.md) |
-| 5. Atomic / CAS | [ATOMIC_CAS.md](modules/concurrency/theory/ATOMIC_CAS.md) |
-| 6. Concurrent Collections | [CONCURRENT_COLLECTIONS.md](modules/concurrency/theory/CONCURRENT_COLLECTIONS.md) |
-| 7. Synchronizers | [SYNCHRONIZERS.md](modules/concurrency/theory/SYNCHRONIZERS.md) |
-| 8. Пулы потоков | [EXECUTORS_FUTURES.md](modules/concurrency/theory/EXECUTORS_FUTURES.md) |
-| 9. CompletableFuture | [ASYNC_COMPOSITION.md](modules/concurrency/theory/ASYNC_COMPOSITION.md) |
-| 10. Проблемы и диагностика | [PROBLEMS.md](modules/concurrency/theory/PROBLEMS.md) |
-| 11. Virtual Threads | [VIRTUAL_THREADS.md](modules/concurrency/theory/VIRTUAL_THREADS.md) |
-
-### Упражнения (Kotlin)
-
-| # | Файл | Тема |
-|---|------|------|
-| 01 | [Ex01_ThreadBasics.kt](modules/concurrency/src/main/kotlin/exercises/Ex01_ThreadBasics.kt) | Потоки, synchronized, wait/notify |
-| 02 | [Ex02_ProducerConsumer.kt](modules/concurrency/src/main/kotlin/exercises/Ex02_ProducerConsumer.kt) | Bounded buffer, wait/notify |
-| 03 | [Ex03_ReentrantLockCache.kt](modules/concurrency/src/main/kotlin/exercises/Ex03_ReentrantLockCache.kt) | ReentrantLock, Condition, LRU-кэш |
-| 04 | [Ex04_ReadWriteLock.kt](modules/concurrency/src/main/kotlin/exercises/Ex04_ReadWriteLock.kt) | MetricsStore, lock downgrade |
-| 05 | [Ex05_AtomicCounter.kt](modules/concurrency/src/main/kotlin/exercises/Ex05_AtomicCounter.kt) | CAS, Treiber Stack, LongAdder |
-| 06 | [Ex06_ConcurrentMapWordCount.kt](modules/concurrency/src/main/kotlin/exercises/Ex06_ConcurrentMapWordCount.kt) | CHM merge, COWAL event bus |
-| 07 | [Ex07_BlockingQueuePipeline.kt](modules/concurrency/src/main/kotlin/exercises/Ex07_BlockingQueuePipeline.kt) | Pipeline, poison pill |
-| 08 | [Ex08_CompletableFutureChain.kt](modules/concurrency/src/main/kotlin/exercises/Ex08_CompletableFutureChain.kt) | CF цепочки, allOf, anyOf |
-| 09 | [Ex09_ForkJoinMergeSort.kt](modules/concurrency/src/main/kotlin/exercises/Ex09_ForkJoinMergeSort.kt) | ForkJoinPool, RecursiveTask |
-| 10 | [Ex10_Synchronizers.kt](modules/concurrency/src/main/kotlin/exercises/Ex10_Synchronizers.kt) | Latch, Barrier, Semaphore, Exchanger |
-| 11 | [Ex11_DeadlockDetection.kt](modules/concurrency/src/main/kotlin/exercises/Ex11_DeadlockDetection.kt) | Deadlock, ThreadMXBean |
-| 12 | [Ex12_VirtualThreads.kt](modules/concurrency/src/main/kotlin/exercises/Ex12_VirtualThreads.kt) | Virtual Threads, pinning |
-| 13 | [Ex13_ConcurrentHashMapAdvanced.kt](modules/concurrency/src/main/kotlin/exercises/Ex13_ConcurrentHashMapAdvanced.kt) | computeIfAbsent, merge, bulk ops |
-| 14 | [Ex14_BlockingQueuesDeep.kt](modules/concurrency/src/main/kotlin/exercises/Ex14_BlockingQueuesDeep.kt) | SynchronousQ, PriorityBQ, DelayQ |
-| 15 | [Ex15_ConcurrentSkipListAndSets.kt](modules/concurrency/src/main/kotlin/exercises/Ex15_ConcurrentSkipListAndSets.kt) | SkipListMap, newKeySet, COWAS |
-| 16 | [Ex16_ExecutorServiceDeep.kt](modules/concurrency/src/main/kotlin/exercises/Ex16_ExecutorServiceDeep.kt) | Все виды пулов, rejection policies |
-| 17 | [Ex17_CompletableFutureAdvanced.kt](modules/concurrency/src/main/kotlin/exercises/Ex17_CompletableFutureAdvanced.kt) | thenCombine, retry, timeout |
-| 18 | [Ex18_ScheduledExecutorAndForkJoin.kt](modules/concurrency/src/main/kotlin/exercises/Ex18_ScheduledExecutorAndForkJoin.kt) | Rate limiter, map-reduce |
+У каждого модуля есть `ROADMAP.md` (порядок прохождения с чеклистами),
+`INTERVIEW_QUESTIONS.md` (вопросы с ответами) и `_SUMMARY.md` (сжатие на 2–4 КБ для быстрого
+восстановления контекста).
 
 ---
 
-## 🏗️ System Design
+## Web-приложение
 
-**[→ README](modules/system-design/README.md) · [ROADMAP](modules/system-design/ROADMAP.md) · [Вопросы](modules/system-design/INTERVIEW_QUESTIONS.md)**
+Single-user Next.js: чтение теории, отметки прогресса, повторение карточек по Лейтнеру,
+поиск по всем модулям. Карточки генерируются 1:1 из `INTERVIEW_QUESTIONS.md` автоматически.
 
-### Теория
+```bash
+cd web
+pnpm dev                                     # localhost:3000
+node_modules/.bin/tsx scripts/sync.ts        # пере-импорт после правки modules/
+```
 
-| Файл | Тема |
-|------|------|
-| [database_transactions.md](modules/system-design/theory/database_transactions.md) | ACID, транзакции, изоляция, аномалии, savepoints, MVCC |
-| [database_indexes.md](modules/system-design/theory/database_indexes.md) | B-Tree, GIN, pg_trgm, EXPLAIN ANALYZE |
-| [databases_types.md](modules/system-design/theory/databases_types.md) | Типы БД, NoSQL, OLAP, Redis, ORM (Identity Map, Unit of Work) |
-| [distributed_systems.md](modules/system-design/theory/distributed_systems.md) | CAP, консистентность, шардинг, репликация |
-| [microservice_patterns.md](modules/system-design/theory/microservice_patterns.md) | Страница-указатель: темы переехали в модуль `microservices` |
-| [kafka.md](modules/system-design/theory/kafka.md) | Kafka: гарантии доставки, порядок, exactly-once, HA/ISR |
-| [solid_oop.md](modules/system-design/theory/solid_oop.md) | SOLID, DIP + Jackson Adapter, Event Sourcing schema evolution |
-| [http_networking.md](modules/system-design/theory/http_networking.md) | HTTP 1.1/2.0, кэш, REST vs WS, шифрование, IPv4/IPv6 |
-| [stream_api.md](modules/system-design/theory/stream_api.md) | Stream API, functional interfaces, Optional, parallel streams |
-| [auth_security.md](modules/system-design/theory/auth_security.md) | JWT, OAuth2 (Spring Security → см. spring-frameworks) |
-| [testing.md](modules/system-design/theory/testing.md) | Пирамида тестов, JUnit, Mockito, performance, security, chaos |
-
-### Упражнения (Java)
-
-| Пакет | Файл | Тема |
-|-------|------|------|
-| reservations | [ReservationService.java](modules/system-design/src/main/java/by/pavel/reservations/ReservationService.java) | Pessimistic locking, TOCTOU |
-| bank | [BankServiceImpl.java](modules/system-design/src/main/java/by/pavel/bank/BankServiceImpl.java) | Optimistic locking, idempotency |
-| cache | [LRUCache.java](modules/system-design/src/main/java/by/pavel/cache/LRUCache.java) | Thread-safe LRU cache |
-| orderbook | [OrderBookService.java](modules/system-design/src/main/java/by/pavel/orderbook/OrderBookService.java) | Concurrent order book |
-| scheduler | [SimpleTaskScheduler.java](modules/system-design/src/main/java/by/pavel/scheduler/SimpleTaskScheduler.java) | ScheduledExecutorService |
-| ratelimiter | [TokenBucketRateLimiter.java](modules/system-design/src/main/java/by/pavel/ratelimiter/TokenBucketRateLimiter.java) | Token bucket |
+Синхронизация идемпотентна: без изменений даёт нули. Прогресс и интервалы повторения
+сохраняются через стабильные natural keys, поэтому правка текста вопроса не сбрасывает
+статистику карточки.
 
 ---
 
-## 🐳 Infrastructure
+## Структура репозитория
 
-**[→ README](modules/infrastructure/README.md) · [ROADMAP](modules/infrastructure/ROADMAP.md) · [Вопросы](modules/infrastructure/INTERVIEW_QUESTIONS.md)**
+```
+├── modules/<slug>/
+│   ├── theory/*.md              # теория (первый # — заголовок страницы на сайте)
+│   ├── ROADMAP.md               # порядок прохождения; задаёт порядок теории на сайте
+│   ├── INTERVIEW_QUESTIONS.md   # Q&A → авто-карточки
+│   ├── _SUMMARY.md              # семантическое сжатие модуля
+│   └── src/ или exercises/      # упражнения, если в модуле есть код
+│
+├── knowledge/                   # служебные документы репозитория
+│   ├── GLOBAL_INDEX.md          # карта «концепт → файл-владелец» (single source of truth)
+│   ├── THEORY_CONTRACT.md       # что отличает объяснение от перечисления API
+│   ├── THEORY_SAMPLE.md         # образец формы на настоящих фрагментах
+│   ├── CANONICAL_TERMS.md       # каноническая терминология
+│   ├── GLOSSARY.md              # полный справочник перевода
+│   └── GLOSSARY_CORE.md         # рабочая выжимка (покрывает почти все случаи)
+│
+└── web/                         # Next.js приложение
+```
 
-### Теория
+### Правило NO OVERLAP
 
-| Файл | Тема |
-|------|------|
-| [DOCKER.md](modules/infrastructure/theory/DOCKER.md) | Dockerfile, multi-stage, compose, networking |
-| [KUBERNETES.md](modules/infrastructure/theory/KUBERNETES.md) | Pod, Deployment, Services, HPA, probes |
-| [HELM.md](modules/infrastructure/theory/HELM.md) | Charts, values, hooks, conditionals |
-| [OBSERVABILITY.md](modules/infrastructure/theory/OBSERVABILITY.md) | Logs, metrics, traces — три столпа |
-| [LOGGING.md](modules/infrastructure/theory/LOGGING.md) | Logback JSON, MDC, correlation ID |
-| [METRICS.md](modules/infrastructure/theory/METRICS.md) | Micrometer, Prometheus, PromQL, Grafana |
-| [CLOUD.md](modules/infrastructure/theory/CLOUD.md) | Regions, AZ, self-hosted vs managed DB, cloud pros/cons |
+Каждая тема принадлежит **ровно одному** модулю. Владелец разбирает механизм, остальные
+ссылаются, а не переопределяют. Карта владения — `knowledge/GLOBAL_INDEX.md`, включая секцию
+«Disambiguated Concepts» для тем, которые законно появляются в нескольких модулях под разными
+углами: JMM → `concurrency`, кэш Hibernate → `spring-frameworks`, протокол OAuth2 →
+`system-design`, механика circuit breaker → `microservices`.
 
-### Упражнения
-
-#### Docker
-| # | Задача |
-|---|--------|
-| 01 | [Базовый Dockerfile](modules/infrastructure/exercises/docker/Ex01_SimpleDockerfile/TASK.md) |
-| 02 | [Multi-stage build](modules/infrastructure/exercises/docker/Ex02_MultiStageDockerfile/TASK.md) |
-| 03 | [docker-compose](modules/infrastructure/exercises/docker/Ex03_DockerCompose/TASK.md) |
-| 04 | [Networking](modules/infrastructure/exercises/docker/Ex04_DockerNetworking/TASK.md) |
-| 05 | [Volumes](modules/infrastructure/exercises/docker/Ex05_DockerVolumes/TASK.md) |
-| 06 | [Оптимизация](modules/infrastructure/exercises/docker/Ex06_DockerOptimization/TASK.md) |
-| 07 | [Security](modules/infrastructure/exercises/docker/Ex07_DockerSecurity/TASK.md) |
-
-#### Kubernetes
-| # | Задача |
-|---|--------|
-| 08 | [Pod и Deployment](modules/infrastructure/exercises/kubernetes/Ex08_PodAndDeployment/TASK.md) |
-| 09 | [ConfigMap и Secret](modules/infrastructure/exercises/kubernetes/Ex09_ConfigMapsSecrets/TASK.md) |
-| 10 | [Probes](modules/infrastructure/exercises/kubernetes/Ex10_Probes/TASK.md) |
-| 11 | [HPA](modules/infrastructure/exercises/kubernetes/Ex11_HPA/TASK.md) |
-| 12 | [Namespaces](modules/infrastructure/exercises/kubernetes/Ex12_Namespaces/TASK.md) |
-| 13 | [Resource Limits](modules/infrastructure/exercises/kubernetes/Ex13_ResourceLimits/TASK.md) |
-| 14 | [Services](modules/infrastructure/exercises/kubernetes/Ex14_Services/TASK.md) |
-
-#### Helm
-| # | Задача |
-|---|--------|
-| 15 | [Базовый chart](modules/infrastructure/exercises/helm/Ex15_BasicChart/TASK.md) |
-| 16 | [Values и шаблоны](modules/infrastructure/exercises/helm/Ex16_ValuesAndTemplates/TASK.md) |
-| 17 | [Helm hooks](modules/infrastructure/exercises/helm/Ex17_HelmHooks/TASK.md) |
-| 18 | [Условная шаблонизация](modules/infrastructure/exercises/helm/Ex18_HelmConditionals/TASK.md) |
-
-#### Logging
-| # | Задача |
-|---|--------|
-| 19 | [Logback JSON](modules/infrastructure/exercises/logging/Ex19_LogbackJson/TASK.md) |
-| 20 | [Correlation ID](modules/infrastructure/exercises/logging/Ex20_CorrelationId/TASK.md) |
-| 21 | [Structured Logging](modules/infrastructure/exercises/logging/Ex21_StructuredLogging/TASK.md) |
-| 22 | [MDC propagation](modules/infrastructure/exercises/logging/Ex22_MDCContext/TASK.md) |
-| 23 | [Log levels](modules/infrastructure/exercises/logging/Ex23_LogLevels/TASK.md) |
-| 24 | [Loki + Grafana](modules/infrastructure/exercises/logging/Ex24_LokiIntegration/TASK.md) |
-
-#### Metrics
-| # | Задача |
-|---|--------|
-| 25 | [Counter и Gauge](modules/infrastructure/exercises/metrics/Ex25_MicrometerCounterGauge/TASK.md) |
-| 26 | [Histogram / p95 / p99](modules/infrastructure/exercises/metrics/Ex26_Histogram/TASK.md) |
-| 27 | [Custom HealthIndicator](modules/infrastructure/exercises/metrics/Ex27_CustomEndpoint/TASK.md) |
-| 28 | [Prometheus config](modules/infrastructure/exercises/metrics/Ex28_PrometheusConfig/TASK.md) |
-| 29 | [Grafana dashboard](modules/infrastructure/exercises/metrics/Ex29_GrafanaDashboard/TASK.md) |
-| 30 | [PromQL запросы](modules/infrastructure/exercises/metrics/Ex30_PromQL/TASK.md) |
+Перед добавлением теории — сверка с индексом. При перекрытии больше 30% расширяется
+существующий файл, а не создаётся новый.
 
 ---
 
-## 🍃 Spring Frameworks
+## Сборка
 
-**[→ README](modules/spring-frameworks/README.md) · [ROADMAP](modules/spring-frameworks/ROADMAP.md) · [Вопросы](modules/spring-frameworks/INTERVIEW_QUESTIONS.md)**
+Модули с `pom.xml` (`concurrency`, `kotlin-coroutines`, `caching-deep-dive`, `graphql-kotlin`,
+`design-patterns`, `infrastructure`, `spring-frameworks`) собираются независимо:
 
-### Теория
+```bash
+cd modules/<slug>
+mvn -q test-compile        # компиляция
+mvn test                   # тесты
+```
 
-| Файл | Тема |
-|------|------|
-| [SPRING_CORE_DI.md](modules/spring-frameworks/theory/SPRING_CORE_DI.md) | IoC, DI, Bean Scopes, AOP (прокси, self-invocation), GoF паттерны |
-| [SPRING_BOOT.md](modules/spring-frameworks/theory/SPRING_BOOT.md) | Starters, Auto-Configuration, @Conditional, Actuator, Profiles |
-| [SPRING_MVC_REST.md](modules/spring-frameworks/theory/SPRING_MVC_REST.md) | DispatcherServlet, REST, Validation, Filters vs Interceptors, CORS |
-| [SPRING_DATA_JPA.md](modules/spring-frameworks/theory/SPRING_DATA_JPA.md) | JPA, Hibernate кэши L1/L2/Query, N+1, @Transactional, Propagation |
-| [SPRING_SECURITY.md](modules/spring-frameworks/theory/SPRING_SECURITY.md) | Filter Chain, аутентификация изнутри, JWT, Method Security, CSRF |
-| [SPRING_CLOUD.md](modules/spring-frameworks/theory/SPRING_CLOUD.md) | Config, Eureka, Gateway, Feign, Circuit Breaker, Tracing |
+Остальные модули — чисто теоретические, сборки не имеют. Команды конкретного модуля — в его
+`README.md`, раздел «Как работать».
 
-### Смежные темы в других модулях
+---
 
-| Тема | Модуль |
-|------|--------|
-| JWT структура, OAuth2 потоки | [system-design/theory/auth_security.md](modules/system-design/theory/auth_security.md) |
-| Circuit Breaker паттерн, Saga, Outbox | [microservices/theory/FAILURE_ISOLATION.md](modules/microservices/theory/FAILURE_ISOLATION.md), [microservices/theory/DISTRIBUTED_TRANSACTIONS.md](modules/microservices/theory/DISTRIBUTED_TRANSACTIONS.md) |
-| Distributed Tracing, Observability | [infrastructure/theory/OBSERVABILITY.md](modules/infrastructure/theory/OBSERVABILITY.md) |
+## Работа с ассистентом
+
+Инструкции для Claude Code — в [`CLAUDE.md`](CLAUDE.md). Основные команды в диалоге:
+
+```
+"следующий"              — следующая тема теории по ROADMAP активного модуля
+"квиз"                   — 5 случайных вопросов из INTERVIEW_QUESTIONS.md
+"проверь <модуль> Ex01"  — code review упражнения
+"переключись на <модуль>"— смена активного модуля
+/new-module <name>       — создать новый модуль (оркестрация сабагентами)
+/check-translation <mod> — проверка терминологии по глоссарию
+```

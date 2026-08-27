@@ -11,7 +11,7 @@
 > перестанет болеть», получается ровно таким, каким его рисуют, — то есть по слоям.
 
 Что вынесено в соседние файлы: Bounded Context, Context Map, поддомены (Core / Supporting /
-Generic) и предохранительный слой (Anticorruption Layer) — доменные понятия, они принадлежат
+Generic) и Anticorruption Layer (ACL) — доменные понятия, они принадлежат
 [`ddd/STRATEGIC_DESIGN.md`](../../ddd/theory/STRATEGIC_DESIGN.md); способ найти границы совместным
 разбором событий — [`ddd/EVENT_STORMING.md`](../../ddd/theory/EVENT_STORMING.md); полный разбор
 того, что получается при неправильном разрезе, — [`ANTIPATTERNS.md`](ANTIPATTERNS.md).

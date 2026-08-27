@@ -30,7 +30,8 @@
 | Алгоритмы | Raft, Paxos, ZAB, SWIM, Gossip, Merkle tree, Bloom filter, HyperLogLog, Trie |
 | Метрики | QPS, RPS, SLA, SLO, SLI, p50/p95/p99, TTL, TTFB, RTO, RPO, MTTR |
 | Узкоспециальные | CQRS, Saga, Outbox, DDD, CDC, 2PC, RBAC, ABAC, SPIFFE, SVID |
-| Имена паттернов | circuit breaker, backoff, jitter, single-flight, cache stampede, dead-letter, token bucket, leaky bucket, service mesh, sidecar |
+| Имена паттернов надёжности | circuit breaker, bulkhead, backoff, jitter, single-flight, cache stampede, dead-letter, token bucket, leaky bucket, confused deputy |
+| Имена микросервисных паттернов | Saga, Outbox, CQRS, Event Sourcing, API Gateway, BFF, Service Discovery, service mesh, sidecar, ambient, Strangler Fig, tolerant reader, event-carried state transfer, SPIFFE, SVID, deadline propagation, xDS |
 | Механизмы JVM | happens-before, deadlock, livelock, lock-free, pinning, barging, false sharing |
 | Практики процесса | Scrum, Kanban, trunk-based development, GitFlow, blue-green, canary, semver, DORA, WSJF, error budget, cost of delay |
 
@@ -79,6 +80,20 @@ DLQ → очередь недоставленных сообщений.
 push-уведомления, fencing token (с пояснением «токен ограждения»).
 
 ## 3. Запрещено — проверяй себя по этому разделу
+
+### Переводы имён паттернов — так не говорят
+
+| ❌ | ✅ |
+|---|---|
+| предохранитель | circuit breaker |
+| переборка | bulkhead |
+| смущённый заместитель | confused deputy |
+| сага (как имя паттерна) | Saga |
+| душитель / удушающий фасад | Strangler Fig |
+| терпимый читатель | tolerant reader |
+
+Термины не склоняются: «состояния circuit breaker», «поставить bulkhead», «два circuit breaker».
+Согласование по мужскому роду: «circuit breaker сработал», «bulkhead не дал».
 
 ### Транслит-глаголы
 

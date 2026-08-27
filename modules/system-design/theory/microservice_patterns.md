@@ -15,7 +15,8 @@
 |---|---|
 | Монолит против микросервисов, цена распределённости | [`microservices/WHY_MICROSERVICES.md`](../../microservices/theory/WHY_MICROSERVICES.md) |
 | Strangler Fig, извлечение сервиса, границы | [`microservices/DECOMPOSITION.md`](../../microservices/theory/DECOMPOSITION.md) |
-| Синхронная связь, REST против gRPC, таймауты | [`microservices/SYNC_COMMUNICATION.md`](../../microservices/theory/SYNC_COMMUNICATION.md) |
+| Синхронная связь, таймауты, крайние сроки, пулы соединений | [`microservices/SYNC_COMMUNICATION.md`](../../microservices/theory/SYNC_COMMUNICATION.md) |
+| gRPC: контракт в `.proto`, модель ошибок, REST против gRPC | [`microservices/GRPC.md`](../../microservices/theory/GRPC.md) |
 | Circuit Breaker, Bulkhead, каскадный отказ | [`microservices/FAILURE_ISOLATION.md`](../../microservices/theory/FAILURE_ISOLATION.md) |
 | Асинхронная связь, очередь против журнала | [`microservices/ASYNC_MESSAGING.md`](../../microservices/theory/ASYNC_MESSAGING.md) |
 | База на сервис, запрос через границу | [`microservices/DATA_OWNERSHIP.md`](../../microservices/theory/DATA_OWNERSHIP.md) |
@@ -23,6 +24,7 @@
 | CQRS, Event Sourcing, проекции, снапшоты | [`microservices/CQRS_EVENT_SOURCING.md`](../../microservices/theory/CQRS_EVENT_SOURCING.md) |
 | Контракты, совместимость, версионирование | [`microservices/CONTRACTS_AND_TESTING.md`](../../microservices/theory/CONTRACTS_AND_TESTING.md) |
 | API Gateway, Service Discovery, service mesh | [`microservices/EDGE_AND_MESH.md`](../../microservices/theory/EDGE_AND_MESH.md) |
+| Доверие между сервисами: SPIFFE, передача контекста, авторизация | [`microservices/SERVICE_IDENTITY.md`](../../microservices/theory/SERVICE_IDENTITY.md) |
 | Распределённый монолит и прочие антипаттерны | [`microservices/ANTIPATTERNS.md`](../../microservices/theory/ANTIPATTERNS.md) |
 
 ## Темы, принадлежащие другим модулям

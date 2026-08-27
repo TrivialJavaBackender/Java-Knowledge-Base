@@ -1077,16 +1077,24 @@ Canonical concept → owner file map. One concept, one owner. Other modules must
 
 ### Синхронная связь
 - бюджет таймаутов → modules/microservices/theory/SYNC_COMMUNICATION.md
-- распространение крайнего срока (deadline propagation) → modules/microservices/theory/SYNC_COMMUNICATION.md
-- gRPC (IDL, кодогенерация, модель ошибок, метаданные, health checking) → modules/microservices/theory/SYNC_COMMUNICATION.md
-- REST против gRPC (критерий выбора) → modules/microservices/theory/SYNC_COMMUNICATION.md
+- распространение крайнего срока (deadline propagation), формат `grpc-timeout` → modules/microservices/theory/SYNC_COMMUNICATION.md
 - пул соединений и keep-alive (размер по закону Литтла) → modules/microservices/theory/SYNC_COMMUNICATION.md
-- L4-балансировка против gRPC поверх HTTP/2 → modules/microservices/theory/SYNC_COMMUNICATION.md
+- L4-балансировка против долгоживущих мультиплексированных соединений → modules/microservices/theory/SYNC_COMMUNICATION.md
+
+### gRPC
+- gRPC (транспорт и контракт) → modules/microservices/theory/GRPC.md
+- контракт в IDL / `.proto` как артефакт сборки → modules/microservices/theory/GRPC.md
+- номер поля protobuf (идентичность на проводе) → modules/microservices/theory/GRPC.md
+- модель ошибок gRPC / `grpc-status` в трейлере → modules/microservices/theory/GRPC.md
+- метаданные gRPC / суффикс `-bin` → modules/microservices/theory/GRPC.md
+- health checking (`grpc.health.v1.Health`) → modules/microservices/theory/GRPC.md
+- gRPC-Web → modules/microservices/theory/GRPC.md
+- REST против gRPC (критерий выбора) → modules/microservices/theory/GRPC.md
 
 ### Изоляция отказа
 - каскадный отказ (механика через L = λ × W) → modules/microservices/theory/FAILURE_ISOLATION.md
 - Circuit Breaker (механика: окно подсчёта, порог по доле, полуоткрытое состояние) → modules/microservices/theory/FAILURE_ISOLATION.md
-- Bulkhead / переборка (семафор против пула потоков) → modules/microservices/theory/FAILURE_ISOLATION.md
+- Bulkhead (семафор против пула потоков) → modules/microservices/theory/FAILURE_ISOLATION.md
 - деградация в микросервисной постановке → modules/microservices/theory/FAILURE_ISOLATION.md
 
 ### Асинхронная связь
@@ -1148,7 +1156,7 @@ Canonical concept → owner file map. One concept, one owner. Other modules must
 - передача пользовательского контекста (проброс токена) → modules/microservices/theory/SERVICE_IDENTITY.md
 - обмен токена (RFC 8693), делегирование против олицетворения → modules/microservices/theory/SERVICE_IDENTITY.md
 - где принимается решение об авторизации (грубая на краю, тонкая в сервисе) → modules/microservices/theory/SERVICE_IDENTITY.md
-- смущённый заместитель (confused deputy) → modules/microservices/theory/SERVICE_IDENTITY.md
+- confused deputy → modules/microservices/theory/SERVICE_IDENTITY.md
 
 ### Антипаттерны
 - распределённый монолит → modules/microservices/theory/ANTIPATTERNS.md
@@ -1217,6 +1225,7 @@ Concepts that legitimately appear in multiple modules — canonical owner listed
 | Repository | ddd/TACTICAL_PATTERNS.md (collection abstraction over aggregates) | databases/DATABASE_TYPES.md (Data Mapper / Identity Map / Unit of Work) · hibernate-jpa/JPA_VS_HIBERNATE.md (impl) |
 | Primitive Obsession | design-patterns/ANTIPATTERNS.md (Fowler code smell) | ddd/TACTICAL_PATTERNS.md (typed IDs / Value Object as the fix) |
 | Strategy vs domain Policy | design-patterns/BEHAVIORAL_1.md (GoF Strategy) | ddd/TACTICAL_PATTERNS.md (domain Policy framing) |
+| Protobuf | microservices/GRPC.md (контракт вызова: номер поля, кодогенерация, что едет по проводу) | system-design/kafka.md (эволюция схемы событий, Schema Registry) · microservices/CONTRACTS_AND_TESTING.md (совместимость контракта во времени) |
 | Outbox / Saga / CQRS / Event Sourcing | microservices/DISTRIBUTED_TRANSACTIONS.md (2PC, сага, компенсации, Outbox) · microservices/CQRS_EVENT_SOURCING.md (CQRS, проекции, ES) | ddd/INTEGRATION_PATTERNS.md (DDD modeling framing: aggregate boundary → events) · ../modules/microservices/theory/DISTRIBUTED_TRANSACTIONS.md (обзорная страница-указатель) |
 | Hexagonal / Ports & Adapters | ddd/ARCHITECTURE.md (ports/adapters, Composition Root) | (Onion / Clean — same idea, same file) |
 | functional core / FP basics | software-engineering/STREAM_API_FP.md (pure functions, immutability, HOF) | ddd/FUNCTIONAL_DDD.md (illegal-states-unrepresentable, ADT domain modeling, decide/evolve) |

@@ -7,7 +7,7 @@
 
 Модуль отвечает на вопросы, где интервьюер проверяет не знание списка паттернов, а понимание
 цены: «зачем вам микросервисы», «как откатите заказ, если платёж прошёл, а склада не хватило»,
-«почему двойная запись в базу и в брокер ломается», «где ставить предохранитель и где его ставить
+«почему двойная запись в базу и в брокер ломается», «где ставить circuit breaker и где его ставить
 нельзя», «как выкатите несовместимое изменение контракта».
 
 > Терминология зафиксирована в [`knowledge/GLOSSARY.md`](../../knowledge/GLOSSARY.md) и
@@ -17,15 +17,16 @@
 ## Структура проекта
 
 ```
-├── ROADMAP.md                          # 12 тем в порядке прохождения + чеклисты
+├── ROADMAP.md                          # 13 тем в порядке прохождения + чеклисты
 ├── INTERVIEW_QUESTIONS.md              # вопросы с ответами (формат qa-bold)
 ├── _SUMMARY.md                         # семантическое сжатие модуля
 │
 └── theory/
     ├── WHY_MICROSERVICES.md            # что покупаем и чем платим; когда это лишнее
     ├── DECOMPOSITION.md                # где резать; извлечение сервиса из монолита
-    ├── SYNC_COMMUNICATION.md           # REST и gRPC, таймауты, крайние сроки, соединения
-    ├── FAILURE_ISOLATION.md            # каскад отказов, предохранитель, переборка, деградация
+    ├── SYNC_COMMUNICATION.md           # цепочка, таймауты, крайние сроки, пулы, балансировка
+    ├── GRPC.md                         # контракт в .proto, коды исхода, REST против gRPC
+    ├── FAILURE_ISOLATION.md            # каскад отказов, circuit breaker, bulkhead, деградация
     ├── ASYNC_MESSAGING.md              # события и команды, хореография, идемпотентность
     ├── DATA_OWNERSHIP.md               # база на сервис, запрос через границу, проекции
     ├── DISTRIBUTED_TRANSACTIONS.md     # 2PC, сага, компенсации, Outbox, CDC
@@ -42,8 +43,9 @@
 |--------|------------|--------|
 | Мотивация | Цена сетевого вызова, закон Конвея, когда хватит модульного монолита | [WHY_MICROSERVICES](theory/WHY_MICROSERVICES.md) |
 | Границы | Критерии разреза, размер сервиса, Strangler Fig, перенос данных | [DECOMPOSITION](theory/DECOMPOSITION.md) |
-| Синхронная связь | REST против gRPC, бюджет таймаутов, крайний срок, балансировка | [SYNC_COMMUNICATION](theory/SYNC_COMMUNICATION.md) |
-| Изоляция отказа | Каскад, предохранитель, переборка, деградация | [FAILURE_ISOLATION](theory/FAILURE_ISOLATION.md) |
+| Синхронная связь | Перемножение доступности, бюджет таймаутов, крайний срок, пулы, балансировка | [SYNC_COMMUNICATION](theory/SYNC_COMMUNICATION.md) |
+| Транспорт вызова | Контракт в `.proto`, номера полей, коды исхода, health checking, REST против gRPC | [GRPC](theory/GRPC.md) |
+| Изоляция отказа | Каскад, circuit breaker, bulkhead, деградация | [FAILURE_ISOLATION](theory/FAILURE_ISOLATION.md) |
 | Асинхронная связь | Команда против события, хореография, порядок, идемпотентность | [ASYNC_MESSAGING](theory/ASYNC_MESSAGING.md) |
 | Данные | База на сервис, композиция через API, материализованные представления | [DATA_OWNERSHIP](theory/DATA_OWNERSHIP.md) |
 | Согласованность | 2PC, сага, компенсации, Outbox, двойная запись | [DISTRIBUTED_TRANSACTIONS](theory/DISTRIBUTED_TRANSACTIONS.md) |
@@ -66,7 +68,7 @@
 
 Из этого одного набора выводятся все решения модуля: почему цепочка из четырёх синхронных
 вызовов даёт доступность хуже каждого её звена, откуда берётся сага и что делать с уже
-списанными деньгами, почему `Order` не может джойнить таблицу склада, где ставить предохранитель
+списанными деньгами, почему `Order` не может джойнить таблицу склада, где ставить circuit breaker
 на вызов провайдера и что именно ломается, когда `Inventory` выкатывает несовместимое изменение
 контракта.
 
@@ -105,7 +107,7 @@
 - *Monolith to Microservices* — Sam Newman
 - *Microservices Patterns* — Chris Richardson
 - *Designing Data-Intensive Applications* — Martin Kleppmann
-- *Release It!*, 2-е издание — Michael Nygard (каскадные отказы, предохранитель, переборка)
+- *Release It!*, 2-е издание — Michael Nygard (каскадные отказы, circuit breaker, bulkhead)
 - *Enterprise Integration Patterns* — Gregor Hohpe, Bobby Woolf
 - *Team Topologies* — Matthew Skelton, Manuel Pais (закон Конвея, обратный манёвр)
 - Спецификации: [gRPC](https://grpc.io/docs/), [Protocol Buffers](https://protobuf.dev/programming-guides/proto3/), [RFC 8693 (Token Exchange)](https://www.rfc-editor.org/rfc/rfc8693), [SPIFFE](https://github.com/spiffe/spiffe/blob/main/standards/SPIFFE-ID.md), [Envoy xDS](https://www.envoyproxy.io/docs/envoy/latest/api-docs/xds_protocol)
