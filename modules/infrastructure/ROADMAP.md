@@ -1,97 +1,161 @@
-# Roadmap
+# infrastructure — Roadmap
 
-## Модуль 1 — Docker
+## Порядок прохождения
 
-**Теория:** [theory/DOCKER.md](theory/DOCKER.md)
+| Приоритет | Тема | Частота на собеседованиях |
+|-----------|------|---------------------------|
+| 1 | Упаковка приложения: контейнер, слои, кэш сборки, безопасность образа | ★★★★★ |
+| 2 | Оркестрация: цикл согласования, под, контроллеры, пробы, ресурсы | ★★★★★ |
+| 3 | Упаковка релиза: чарт, значения, релиз как конечный автомат, откат | ★★★ |
+| 4 | Наблюдаемость: три столпа, SLI/SLO, бюджет ошибок, трассировка | ★★★★★ |
+| 5 | Журналирование: структурированный журнал, MDC, сквозной идентификатор | ★★★★ |
+| 6 | Метрики: типы, модель опроса, PromQL, взрыв кардинальности | ★★★★★ |
+| 7 | Секреты: конвертное шифрование, задача первого секрета, Vault, mTLS | ★★★ |
+| 8 | Облако: регион и зона, модели услуг, HA против DR, RPO/RTO, IaC | ★★★ |
 
-- [ ] Прочитать теорию
-- [ ] Ex01: Базовый Dockerfile (non-root, HEALTHCHECK)
-- [ ] Ex02: Multi-stage build
-- [ ] Ex03: docker-compose (app + postgres + redis)
-- [ ] Ex04: Docker networking
-- [ ] Ex05: Docker volumes
-- [ ] Ex06: Оптимизация Dockerfile (слои, кэш)
-- [ ] Ex07: Docker security (capabilities, read-only FS)
+Порядок не случаен: каждая следующая тема опирается на предыдущую. Контейнер — единица, которой
+оперирует оркестратор; Helm упаковывает то, что описано манифестами; наблюдаемость нужна тому,
+что уже запущено; метрики и журнал — два из трёх её столпов; секреты и облако замыкают
+эксплуатационную картину.
 
----
-
-## Модуль 2 — Kubernetes
-
-**Теория:** [theory/KUBERNETES.md](theory/KUBERNETES.md)
-
-- [ ] Прочитать теорию
-- [ ] Ex08: Pod и Deployment (RollingUpdate)
-- [ ] Ex09: ConfigMap и Secret
-- [ ] Ex10: Liveness, Readiness, Startup probes
-- [ ] Ex11: HPA (Horizontal Pod Autoscaler)
-- [ ] Ex12: Namespaces и ResourceQuota
-- [ ] Ex13: Resource requests и limits
-- [ ] Ex14: Services (ClusterIP, NodePort)
+**Сквозной пример модуля** — Orders API из этого репозитория: Spring Boot backend (`/api/orders`,
+Actuator) и nginx-frontend, три экземпляра, 200 запросов в секунду, p99 не хуже 300 мс,
+управляемый PostgreSQL в облаке, пароль к нему в Vault. Все темы разбираются на нём.
 
 ---
 
-## Модуль 3 — Helm
+## Модуль 1: Docker
 
-**Теория:** [theory/HELM.md](theory/HELM.md)
+📖 Теория: [theory/DOCKER.md](theory/DOCKER.md)
 
-- [ ] Прочитать теорию
-- [ ] Ex15: Базовый Helm chart
-- [ ] Ex16: Values и шаблоны
-- [ ] Ex17: Helm hooks (pre-install, post-upgrade)
-- [ ] Ex18: Условная шаблонизация (_helpers.tpl, if/range)
-
----
-
-## Модуль 4 — Observability
-
-**Теория:** [theory/OBSERVABILITY.md](theory/OBSERVABILITY.md)
-
-- [ ] Прочитать теорию
-- [ ] Пройти квиз по теме
-
-*(Практика — через модули Logging и Metrics)*
+- [ ] Чем контейнер отличается от виртуальной машины на уровне ядра, а не «он легче»
+- [ ] Namespaces и cgroups: что изолируется и что ограничивается — это разные механизмы
+- [ ] Образ как слоистая файловая система: copy-on-write, почему `rm` в отдельном слое не уменьшает образ
+- [ ] Кэш слоёв: порядок инструкций и измеренная разница 2.64 с против 0.39 с
+- [ ] `.dockerignore` и контекст сборки: что отправляется демону и зачем
+- [ ] Multi-stage build: почему финальный образ меньше, хотя собирается всё
+- [ ] Записываемый слой смертен — где на самом деле живут данные
+- [ ] Безопасность: 14 capabilities по умолчанию, непривилегированный пользователь, distroless
+- [ ] Kubernetes 1.24 удалил `dockershim` — что это значит и что не значит
+- [ ] Упражнения Ex01–Ex07
 
 ---
 
-## Модуль 5 — Logging
+## Модуль 2: Kubernetes
 
-**Теория:** [theory/LOGGING.md](theory/LOGGING.md)
+📖 Теория: [theory/KUBERNETES.md](theory/KUBERNETES.md)
 
-- [ ] Прочитать теорию
-- [ ] Ex19: Logback JSON (logback-spring.xml)
-- [ ] Ex20: Correlation ID (X-Request-ID, MDC filter)
-- [ ] Ex21: Структурированное логирование (MDC + бизнес-контекст)
-- [ ] Ex22: MDC propagation в async (TaskDecorator)
-- [ ] Ex23: Log levels по профилям (prod/dev)
-- [ ] Ex24: Loki + Promtail + Grafana (docker-compose стек)
-
----
-
-## Модуль 6 — Metrics
-
-**Теория:** [theory/METRICS.md](theory/METRICS.md)
-
-- [ ] Прочитать теорию
-- [ ] Ex25: Counter и Gauge (Micrometer)
-- [ ] Ex26: Histogram и Timer (p95/p99)
-- [ ] Ex27: Custom HealthIndicator
-- [ ] Ex28: Prometheus config (scrape + alerting rules)
-- [ ] Ex29: Grafana dashboard (JSON)
-- [ ] Ex30: PromQL запросы (10 штук)
+- [ ] Цикл согласования: почему `kubectl apply` сто раз равен одному разу
+- [ ] Управляющий слой и слой нагрузки: кто за что отвечает
+- [ ] Под — не контейнер: общее пространство имён, pause-контейнер, init-контейнеры
+- [ ] Deployment, StatefulSet, DaemonSet, Job — что решает каждый
+- [ ] Лейблы и селекторы: как Service находит поды и что ломается при рассогласовании
+- [ ] Liveness против readiness: почему liveness с зависимостью опаснее её отсутствия
+- [ ] Ресурсы и классы QoS: класс выводится из requests/limits, а не задаётся
+- [ ] Лимит по памяти убивает, лимит по процессору троттлит — и почему это принципиально
+- [ ] HPA и метрика, отражающая то, что действительно кончается
+- [ ] ConfigMap и Secret: почему второй — не секрет
+- [ ] Упражнения Ex08–Ex14
 
 ---
 
-## Модуль 7 — Secrets & Encryption (ops side)
+## Модуль 3: Helm
 
-**Теория:** [theory/SECRETS.md](theory/SECRETS.md)
+📖 Теория: [theory/HELM.md](theory/HELM.md)
 
-- [ ] Прочитать теорию
-- [ ] Понять envelope encryption (KEK + DEK) и почему KMS делает только небольшие операции
-- [ ] Bootstrap problem: где лежит первый секрет (IAM role, K8s SA token, AppRole)
-- [ ] Vault: Seal/Unseal Shamir, auth methods, dynamic secrets, leases
-- [ ] Terraform state: encryption at rest, sensitive variables, never plain secret in state
-- [ ] K8s Secrets vs External Secrets Operator vs Sealed Secrets vs Vault Agent
-- [ ] SOPS — зашифрованные секреты в git с KMS
-- [ ] mTLS — service-to-service identity, service mesh integration
+- [ ] Задача: одно приложение, несколько окружений — и почему копии манифестов расходятся
+- [ ] Helm против Kustomize: шаблоны против наслоений, критерий выбора
+- [ ] Анатомия чарта: `Chart.yaml`, `values.yaml`, `templates/`, `_helpers.tpl`
+- [ ] Шаблонизация на Go templates: области видимости, `nindent`, значения по умолчанию
+- [ ] Релиз как конечный автомат: ревизии, история в кластере, `helm rollback`
+- [ ] Hooks и их отличие от init-контейнера
+- [ ] Sub-charts и порядок переопределения значений
+- [ ] Порядок проверки: `lint` → `template` → `--dry-run=server` → `--atomic --wait`
+- [ ] Упражнения Ex15–Ex18
 
-> Application-level auth (JWT/OAuth2/OIDC/SAML) — в [`modules/system-design/theory/identity_providers.md`](../system-design/theory/identity_providers.md). Spring Security implementation — в [`modules/spring-frameworks/theory/SPRING_SECURITY.md`](../spring-frameworks/theory/SPRING_SECURITY.md).
+---
+
+## Модуль 4: Наблюдаемость
+
+📖 Теория: [theory/OBSERVABILITY.md](theory/OBSERVABILITY.md)
+
+- [ ] Monitoring против observability: известные и неизвестные неизвестности
+- [ ] Три столпа и разница в стоимости хранения между ними
+- [ ] SLI, SLO, SLA: кто чем владеет и почему SLO строже SLA
+- [ ] Бюджет ошибок: 99.9% — это 43 минуты за 30 дней, и что происходит при исчерпании
+- [ ] Распределённая трассировка: трасса, отрезок, W3C Trace Context, OpenTelemetry
+- [ ] Correlation ID против trace ID — когда нужны оба
+- [ ] Корреляция трёх столпов: exemplars, переход из метрики в трассу и в журнал
+- [ ] Выборка по голове и по хвосту: в какой момент принимается решение
+- [ ] Wide events — на какие вопросы отвечают они, а не метрики
+
+*(Практика — через модули «Журналирование» и «Метрики»)*
+
+---
+
+## Модуль 5: Журналирование
+
+📖 Теория: [theory/LOGGING.md](theory/LOGGING.md)
+
+- [ ] Структурированный журнал: что с ним можно сделать и чего нельзя с текстовым
+- [ ] Уровни: ERROR — это неожиданное; критерий «можно ли написать алерт»
+- [ ] MDC живёт в `ThreadLocal` — и что из этого следует
+- [ ] Сквозной идентификатор запроса: фильтр на входе, проброс к соседям
+- [ ] Потеря контекста в асинхронности: `TaskDecorator`, корутины, виртуальные потоки
+- [ ] ELK против Loki: что индексируется и во что это обходится
+- [ ] Что не попадает в журнал никогда: GDPR, PCI-DSS, HIPAA
+- [ ] Производительность: асинхронный appender, ленивое форматирование `{}`
+- [ ] Упражнения Ex19–Ex24
+
+---
+
+## Модуль 6: Метрики
+
+📖 Теория: [theory/METRICS.md](theory/METRICS.md)
+
+- [ ] Опрос против отправки: что становится проще и что сложнее
+- [ ] Counter, Gauge, Histogram, Summary — и почему `rate()` к gauge неприменим
+- [ ] Percentile не аддитивен: почему нельзя усреднить p99 трёх экземпляров
+- [ ] Модель опроса Prometheus: формат выдачи, интервал, обнаружение целей
+- [ ] PromQL: `rate` против `irate`, агрегация, `histogram_quantile`
+- [ ] Micrometer в Spring Boot: фасад и что он отдаёт Actuator
+- [ ] Взрыв кардинальности: оценка числа рядов как произведения мощностей меток
+- [ ] Правила предвычисления и оповещения, Alertmanager
+- [ ] RED, USE, Four Golden Signals — к чему применяется каждая методика
+- [ ] Упражнения Ex25–Ex30
+
+---
+
+## Модуль 7: Секреты
+
+📖 Теория: [theory/SECRETS.md](theory/SECRETS.md)
+
+- [ ] Конвертное шифрование: KEK и DEK, почему KMS шифрует ключ, а не данные
+- [ ] Задача первого секрета: чем аутентифицироваться, чтобы получить пароль
+- [ ] Роль IAM, токен ServiceAccount, AppRole — три решения по возрастанию надёжности
+- [ ] Vault: распечатывание по Шамиру, методы аутентификации, динамические секреты, аренда
+- [ ] Terraform: как ключ попадает в состояние и что с этим делать
+- [ ] Kubernetes Secret — это base64, проверено одной командой
+- [ ] External Secrets Operator, Sealed Secrets, SOPS, Vault Agent — что чем отличается
+- [ ] mTLS как транспортный механизм взаимной аутентификации
+
+> Аутентификация пользователей (OAuth2, OIDC, JWT) — [`system-design/identity_providers.md`](../system-design/theory/identity_providers.md);
+> её реализация в Spring — [`spring-frameworks/SPRING_SECURITY.md`](../spring-frameworks/theory/SPRING_SECURITY.md);
+> SPIFFE и удостоверение нагрузки в service mesh — [`microservices/SERVICE_IDENTITY.md`](../microservices/theory/SERVICE_IDENTITY.md).
+
+---
+
+## Модуль 8: Облако
+
+📖 Теория: [theory/CLOUD.md](theory/CLOUD.md)
+
+- [ ] За что берут деньги: право не угадывать мощность заранее
+- [ ] Регион, зона доступности, точка присутствия — три разных вещи
+- [ ] IaaS, PaaS, SaaS, FaaS: где проходит граница ответственности
+- [ ] Своя база против управляемой: что провайдер делает за вас и что вы теряете
+- [ ] Высокая доступность против аварийного восстановления; RPO и RTO
+- [ ] Скрытая стоимость: исходящий трафик, NAT-шлюз, трафик между зонами
+- [ ] Привязка к поставщику: где она реальна, а где преувеличена
+- [ ] Когда облако дороже своего железа — три условия переезда
+- [ ] Infrastructure as Code: состояние Terraform, блокировка, расхождение
+- [ ] Развёртывание на несколько регионов и его настоящая цена
