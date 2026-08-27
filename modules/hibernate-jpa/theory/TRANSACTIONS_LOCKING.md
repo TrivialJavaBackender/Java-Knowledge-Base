@@ -7,7 +7,7 @@
 JPA различает два типа управления транзакциями, и это задаётся при создании единицы хранения (persistence unit):
 
 - **Resource-local** — транзакциями управляет само приложение через интерфейс `EntityTransaction`, полученный из `EntityManager`. Транзакция привязана к одному источнику данных (одно соединение, одна база). Это режим standalone-приложений и тестов.
-- **JTA (Java Transaction API)** — транзакциями управляет контейнер или менеджер транзакций (например, Narayana в WildFly, либо Spring через `JpaTransactionManager`/`JtaTransactionManager`). JTA нужен, когда транзакция охватывает несколько ресурсов (две базы, база + очередь) и требуется двухфазная фиксация (2PC — см. [`system-design/microservice_patterns.md`](../../system-design/theory/microservice_patterns.md)).
+- **JTA (Java Transaction API)** — транзакциями управляет контейнер или менеджер транзакций (например, Narayana в WildFly, либо Spring через `JpaTransactionManager`/`JtaTransactionManager`). JTA нужен, когда транзакция охватывает несколько ресурсов (две базы, база + очередь) и требуется двухфазная фиксация (2PC — см. [`microservices/DISTRIBUTED_TRANSACTIONS.md`](../../microservices/theory/DISTRIBUTED_TRANSACTIONS.md)).
 
 В resource-local-режиме вызов `em.getTransaction()` возвращает `EntityTransaction`; в JTA-режиме этот вызов бросает исключение, потому что границами владеет контейнер.
 
@@ -197,7 +197,7 @@ fun applyDiscountWithRetry(orderId: Long, percent: Int, maxAttempts: Int = 3) {
 - [`CACHING.md`](CACHING.md) — L2-кэш и его взаимодействие с версионированием и блокировками.
 - ACID, уровни изоляции, MVCC, аномалии (потерянное обновление, write skew), `FOR UPDATE`/`SKIP LOCKED` — [`databases/TRANSACTIONS.md`](../../databases/theory/TRANSACTIONS.md).
 - `@Transactional`, распространение транзакций, self-invocation — [`spring-frameworks/SPRING_DATA_JPA.md`](../../spring-frameworks/theory/SPRING_DATA_JPA.md).
-- Распределённые транзакции и 2PC — [`system-design/microservice_patterns.md`](../../system-design/theory/microservice_patterns.md).
+- Распределённые транзакции и 2PC — [`microservices/DISTRIBUTED_TRANSACTIONS.md`](../../microservices/theory/DISTRIBUTED_TRANSACTIONS.md).
 
 ## Источники
 

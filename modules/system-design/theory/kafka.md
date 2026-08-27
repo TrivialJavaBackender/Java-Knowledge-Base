@@ -258,7 +258,7 @@ class OrderCreatedV2 { ... }
 - `NONE` — без проверок
 - Любой из них с суффиксом `_TRANSITIVE` — проверка против **всех** прошлых версий, не только последней
 
-**Контекст использования** — schema evolution особенно критична в Event Sourcing, где события в логе живут годами. См. [microservice_patterns.md → Event Sourcing](microservice_patterns.md#event-sourcing).
+**Контекст использования** — schema evolution особенно критична в Event Sourcing, где события в логе живут годами. См. [../../microservices/theory/CQRS_EVENT_SOURCING.md → Event Sourcing](../../microservices/theory/CQRS_EVENT_SOURCING.md).
 
 ---
 

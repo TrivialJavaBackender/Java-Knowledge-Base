@@ -340,7 +340,7 @@ Joins, transactions, aggregations через shards — все «дорогие�
 1. **Avoid** — denormalize, дублировать данные внутри shard. Cassandra-way.
 2. **Application-level join** — query каждого shard, merge в коде. Подходит для маленьких N.
 3. **Pre-computed aggregates** — denormalized сводки, обновляемые через CDC.
-4. **Distributed transactions** (2PC, Saga) — для writes; redacent. См. [system-design/microservice_patterns.md](../../system-design/theory/microservice_patterns.md).
+4. **Distributed transactions** (2PC, Saga) — для writes; redacent. См. [microservices/DISTRIBUTED_TRANSACTIONS.md](../../microservices/theory/DISTRIBUTED_TRANSACTIONS.md).
 5. **Distributed SQL** (Spanner, Cockroach, Yugabyte) — DBMS делает scatter-gather прозрачно.
 
 **Антипаттерн:** наивное `SELECT ... JOIN` через shards в шардированной системе. Задержка = max per-shard + стоимость слияния.

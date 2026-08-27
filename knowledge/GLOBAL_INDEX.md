@@ -325,7 +325,7 @@ Canonical concept → owner file map. One concept, one owner. Other modules must
 - sync vs async replication → modules/databases/theory/REPLICATION.md
 - replication lag / read-your-writes / monotonic reads → modules/databases/theory/REPLICATION.md
 - failover (manual / automatic / split-brain) → modules/databases/theory/REPLICATION.md
-- CDC (Change Data Capture, Debezium) → modules/databases/theory/REPLICATION.md (canonical for DB perspective); also referenced in modules/caching-deep-dive/theory/CONSISTENCY.md (cache invalidation) and modules/system-design/theory/microservice_patterns.md (Outbox alternative)
+- CDC (Change Data Capture, Debezium) → modules/databases/theory/REPLICATION.md (canonical for DB perspective); also referenced in modules/caching-deep-dive/theory/CONSISTENCY.md (cache invalidation) and modules/microservices/theory/DISTRIBUTED_TRANSACTIONS.md (Outbox alternative)
 - range vs hash vs directory sharding → modules/databases/theory/SHARDING.md
 - consistent hashing (DB sharding context) → modules/databases/theory/SHARDING.md (cross-ref to caching-deep-dive/DISTRIBUTED_CACHING.md)
 - rendezvous hashing (HRW) → modules/databases/theory/SHARDING.md
@@ -334,20 +334,20 @@ Canonical concept → owner file map. One concept, one owner. Other modules must
 
 ## System Design
 
-- distributed transactions / 2PC → modules/system-design/theory/microservice_patterns.md
+- distributed transactions / 2PC → modules/microservices/theory/DISTRIBUTED_TRANSACTIONS.md
 - CAP theorem → modules/system-design/theory/distributed_systems.md
 - PACELC → modules/system-design/theory/distributed_systems.md
 - Lamport / vector clocks → modules/system-design/theory/distributed_systems.md
 - quorum (R + W > N) → modules/system-design/theory/distributed_systems.md
 - distributed locks → modules/system-design/theory/distributed_systems.md
 - idempotency key → modules/system-design/theory/RELIABILITY_PATTERNS.md
-- Saga pattern → modules/system-design/theory/microservice_patterns.md
-- Outbox pattern → modules/system-design/theory/microservice_patterns.md
-- Circuit Breaker pattern → modules/system-design/theory/microservice_patterns.md
-- Strangler Fig → modules/system-design/theory/microservice_patterns.md
-- API Gateway → modules/system-design/theory/microservice_patterns.md
-- Service Discovery → modules/system-design/theory/microservice_patterns.md
-- Bulkhead → modules/system-design/theory/microservice_patterns.md
+- Saga pattern → modules/microservices/theory/DISTRIBUTED_TRANSACTIONS.md
+- Outbox pattern → modules/microservices/theory/DISTRIBUTED_TRANSACTIONS.md
+- Circuit Breaker pattern → modules/microservices/theory/FAILURE_ISOLATION.md
+- Strangler Fig → modules/microservices/theory/DECOMPOSITION.md
+- API Gateway → modules/microservices/theory/EDGE_AND_MESH.md
+- Service Discovery → modules/microservices/theory/EDGE_AND_MESH.md
+- Bulkhead → modules/microservices/theory/FAILURE_ISOLATION.md
 - Kafka (topics/partitions/consumer groups) → modules/system-design/theory/kafka.md
 - Kafka replication / ISR → modules/system-design/theory/kafka.md
 - exactly-once / idempotent producer / transactional producer → modules/system-design/theory/kafka.md
@@ -357,9 +357,9 @@ Canonical concept → owner file map. One concept, one owner. Other modules must
 - upcasting → modules/system-design/theory/kafka.md
 - Schema Registry / Avro / Protobuf → modules/system-design/theory/kafka.md
 - KRaft → modules/system-design/theory/kafka.md
-- event sourcing → modules/system-design/theory/microservice_patterns.md
-- event store / snapshot (event sourcing) → modules/system-design/theory/microservice_patterns.md
-- CQRS → modules/system-design/theory/microservice_patterns.md
+- event sourcing → modules/microservices/theory/CQRS_EVENT_SOURCING.md
+- event store / snapshot (event sourcing) → modules/microservices/theory/CQRS_EVENT_SOURCING.md
+- CQRS → modules/microservices/theory/CQRS_EVENT_SOURCING.md
 - JWT → modules/system-design/theory/identity_providers.md
 - OAuth2 (protocol concepts) → modules/system-design/theory/identity_providers.md
 - OIDC (protocol concepts) → modules/system-design/theory/identity_providers.md
@@ -917,7 +917,7 @@ Canonical concept → owner file map. One concept, one owner. Other modules must
 - Domain Event vs Integration Event → modules/ddd/theory/INTEGRATION_PATTERNS.md
 - event translator (domain → contract) → modules/ddd/theory/INTEGRATION_PATTERNS.md
 - eventual consistency between contexts (DDD framing) → modules/ddd/theory/INTEGRATION_PATTERNS.md
-- (Outbox / Saga / CQRS / Event Sourcing — mechanics owned by system-design/microservice_patterns.md; DDD framing here)
+- (Outbox / Saga / CQRS / Event Sourcing — mechanics owned by microservices/DISTRIBUTED_TRANSACTIONS.md и microservices/CQRS_EVENT_SOURCING.md; DDD framing here)
 
 ### Функциональный DDD
 - make illegal states unrepresentable → modules/ddd/theory/FUNCTIONAL_DDD.md
@@ -1054,6 +1054,114 @@ Canonical concept → owner file map. One concept, one owner. Other modules must
 - изменение процесса снизу, круг без разрешения → modules/engineering-process/theory/DECISION_SCENARIOS.md
 - bus factor: передача участия, а не документации → modules/engineering-process/theory/DECISION_SCENARIOS.md
 
+## Microservices
+
+### Зачем и чем платят
+- ошибочные допущения распределённых вычислений (fallacies of distributed computing) → modules/microservices/theory/WHY_MICROSERVICES.md
+- цена сетевого вызова против вызова метода → modules/microservices/theory/WHY_MICROSERVICES.md
+- частичный отказ (partial failure), третий исход «неизвестно» → modules/microservices/theory/WHY_MICROSERVICES.md
+- перемножение доступности в цепочке → modules/microservices/theory/WHY_MICROSERVICES.md (мотивация), modules/microservices/theory/SYNC_COMMUNICATION.md (механика)
+- закон Конвея / обратный манёвр (Inverse Conway Manoeuvre) → modules/microservices/theory/WHY_MICROSERVICES.md
+- критерий «микросервисы против модульного монолита» (экономический) → modules/microservices/theory/WHY_MICROSERVICES.md
+- микросервисы против SOA → modules/microservices/theory/WHY_MICROSERVICES.md
+
+### Границы и декомпозиция
+- критерии разреза сервиса (бизнес-возможность / скорость изменения / владение данными) → modules/microservices/theory/DECOMPOSITION.md
+- размер сервиса → modules/microservices/theory/DECOMPOSITION.md
+- признак неправильного разреза (согласованный релиз) → modules/microservices/theory/DECOMPOSITION.md
+- Strangler Fig → modules/microservices/theory/DECOMPOSITION.md
+- Event Interception / Legacy Mimic / Transitional Architecture → modules/microservices/theory/DECOMPOSITION.md
+- извлечение сервиса из монолита (сначала код, потом данные) → modules/microservices/theory/DECOMPOSITION.md
+- перенос данных и точка невозврата → modules/microservices/theory/DECOMPOSITION.md
+- владение сервисом командой → modules/microservices/theory/DECOMPOSITION.md
+
+### Синхронная связь
+- бюджет таймаутов → modules/microservices/theory/SYNC_COMMUNICATION.md
+- распространение крайнего срока (deadline propagation) → modules/microservices/theory/SYNC_COMMUNICATION.md
+- gRPC (IDL, кодогенерация, модель ошибок, метаданные, health checking) → modules/microservices/theory/SYNC_COMMUNICATION.md
+- REST против gRPC (критерий выбора) → modules/microservices/theory/SYNC_COMMUNICATION.md
+- пул соединений и keep-alive (размер по закону Литтла) → modules/microservices/theory/SYNC_COMMUNICATION.md
+- L4-балансировка против gRPC поверх HTTP/2 → modules/microservices/theory/SYNC_COMMUNICATION.md
+
+### Изоляция отказа
+- каскадный отказ (механика через L = λ × W) → modules/microservices/theory/FAILURE_ISOLATION.md
+- Circuit Breaker (механика: окно подсчёта, порог по доле, полуоткрытое состояние) → modules/microservices/theory/FAILURE_ISOLATION.md
+- Bulkhead / переборка (семафор против пула потоков) → modules/microservices/theory/FAILURE_ISOLATION.md
+- деградация в микросервисной постановке → modules/microservices/theory/FAILURE_ISOLATION.md
+
+### Асинхронная связь
+- типология сообщений (команда / событие / документ) → modules/microservices/theory/ASYNC_MESSAGING.md
+- хореография против оркестрации → modules/microservices/theory/ASYNC_MESSAGING.md
+- идемпотентность потребителя, окно дедупликации → modules/microservices/theory/ASYNC_MESSAGING.md
+- гарантии порядка, ключ партиции (четыре условия) → modules/microservices/theory/ASYNC_MESSAGING.md
+- event-carried state transfer (толстое событие против тонкого) → modules/microservices/theory/ASYNC_MESSAGING.md
+- очередь против журнала (RabbitMQ против Kafka, критерий) → modules/microservices/theory/ASYNC_MESSAGING.md
+
+### Владение данными
+- база на сервис, запрет на запрос через границу → modules/microservices/theory/DATA_OWNERSHIP.md
+- композиция через API (N+1 по сети) → modules/microservices/theory/DATA_OWNERSHIP.md
+- материализованное представление (локальная копия чужих данных) → modules/microservices/theory/DATA_OWNERSHIP.md
+- справочные данные (копировать / спрашивать / фиксировать снимок) → modules/microservices/theory/DATA_OWNERSHIP.md
+- источник истины на поле, а не на таблице → modules/microservices/theory/DATA_OWNERSHIP.md
+- разрыв внешних ключей при разделении базы → modules/microservices/theory/DATA_OWNERSHIP.md
+- законная общая база (отчётность, аналитическая реплика) → modules/microservices/theory/DATA_OWNERSHIP.md
+
+### Согласованность без общей транзакции
+- distributed transactions / 2PC → modules/microservices/theory/DISTRIBUTED_TRANSACTIONS.md
+- Saga (оркестрованная и хореографическая) → modules/microservices/theory/DISTRIBUTED_TRANSACTIONS.md
+- компенсация против отката → modules/microservices/theory/DISTRIBUTED_TRANSACTIONS.md
+- семантическая блокировка (semantic lock) → modules/microservices/theory/DISTRIBUTED_TRANSACTIONS.md
+- двойная запись (dual write) → modules/microservices/theory/DISTRIBUTED_TRANSACTIONS.md
+- Outbox pattern → modules/microservices/theory/DISTRIBUTED_TRANSACTIONS.md
+- CDC как альтернатива Outbox → modules/microservices/theory/DISTRIBUTED_TRANSACTIONS.md (микросервисная рамка); механика — modules/databases/theory/REPLICATION.md
+
+### CQRS и Event Sourcing
+- CQRS → modules/microservices/theory/CQRS_EVENT_SOURCING.md
+- проекция / модель чтения / пересборка проекции → modules/microservices/theory/CQRS_EVENT_SOURCING.md
+- задержка проекции, «чтение своих записей» → modules/microservices/theory/CQRS_EVENT_SOURCING.md
+- event sourcing / event store → modules/microservices/theory/CQRS_EVENT_SOURCING.md
+- снапшот (event sourcing) → modules/microservices/theory/CQRS_EVENT_SOURCING.md
+- апкастинг (upcasting журнала событий) → modules/microservices/theory/CQRS_EVENT_SOURCING.md
+
+### Контракты и их проверка
+- владелец контракта (consumer-driven против provider-driven) → modules/microservices/theory/CONTRACTS_AND_TESTING.md
+- обратная и прямая совместимость контракта → modules/microservices/theory/CONTRACTS_AND_TESTING.md
+- tolerant reader → modules/microservices/theory/CONTRACTS_AND_TESTING.md
+- версионирование межсервисного API (путь / заголовок / поле) → modules/microservices/theory/CONTRACTS_AND_TESTING.md
+- депрекация и вывод версии из эксплуатации → modules/microservices/theory/CONTRACTS_AND_TESTING.md
+- компонентный тест сервиса → modules/microservices/theory/CONTRACTS_AND_TESTING.md
+- стратегия тестовых окружений, тестирование в эксплуатации → modules/microservices/theory/CONTRACTS_AND_TESTING.md
+
+### Инфраструктурный слой
+- API Gateway → modules/microservices/theory/EDGE_AND_MESH.md
+- BFF (Backend for Frontend) → modules/microservices/theory/EDGE_AND_MESH.md
+- Service Discovery (клиентское против серверного, время сходимости) → modules/microservices/theory/EDGE_AND_MESH.md
+- service mesh (плоскость данных и управления) → modules/microservices/theory/EDGE_AND_MESH.md
+- xDS / ADS → modules/microservices/theory/EDGE_AND_MESH.md
+- sidecar против ambient (ztunnel, waypoint) → modules/microservices/theory/EDGE_AND_MESH.md
+- критерий «библиотека против sidecar против шлюза» → modules/microservices/theory/EDGE_AND_MESH.md
+
+### Доверие между сервисами
+- SPIFFE ID → modules/microservices/theory/SERVICE_IDENTITY.md
+- SVID (X.509-SVID, JWT-SVID) → modules/microservices/theory/SERVICE_IDENTITY.md
+- аттестация узла и рабочей нагрузки (bootstrapping) → modules/microservices/theory/SERVICE_IDENTITY.md
+- передача пользовательского контекста (проброс токена) → modules/microservices/theory/SERVICE_IDENTITY.md
+- обмен токена (RFC 8693), делегирование против олицетворения → modules/microservices/theory/SERVICE_IDENTITY.md
+- где принимается решение об авторизации (грубая на краю, тонкая в сервисе) → modules/microservices/theory/SERVICE_IDENTITY.md
+- смущённый заместитель (confused deputy) → modules/microservices/theory/SERVICE_IDENTITY.md
+
+### Антипаттерны
+- распределённый монолит → modules/microservices/theory/ANTIPATTERNS.md
+- наносервисы → modules/microservices/theory/ANTIPATTERNS.md
+- общая база на несколько сервисов → modules/microservices/theory/ANTIPATTERNS.md
+- сущностные сервисы (entity services) → modules/microservices/theory/ANTIPATTERNS.md
+- синхронная цепочка на весь запрос → modules/microservices/theory/ANTIPATTERNS.md
+- лишняя сага (там, где хватило бы агрегата) → modules/microservices/theory/ANTIPATTERNS.md
+- общая доменная библиотека как скрытая связность → modules/microservices/theory/ANTIPATTERNS.md
+- окружение на сорок сервисов → modules/microservices/theory/ANTIPATTERNS.md
+
+---
+
 ## Disambiguated Concepts
 
 Concepts that legitimately appear in multiple modules — canonical owner listed first:
@@ -1069,8 +1177,8 @@ Concepts that legitimately appear in multiple modules — canonical owner listed
 | equals/hashCode | java-core/EQUALS_HASHCODE_COMPARABLE.md (general Java contract) | hibernate-jpa/ENTITY_IDENTITY_EQUALS.md (entity identity, proxy-safe, business key) · hibernate-jpa/COMPOSITE_KEYS.md (composite id class) |
 | write-behind | caching-deep-dive/CACHE_PATTERNS.md (cache write pattern) | hibernate-jpa/ENTITY_LIFECYCLE.md (Hibernate flush strategy) |
 | OAuth2 | system-design/identity_providers.md (protocol) | spring-frameworks/SPRING_SECURITY.md (implementation) |
-| Circuit Breaker | system-design/microservice_patterns.md (pattern) | spring-frameworks/SPRING_CLOUD.md (Resilience4j impl) |
-| CDC | databases/REPLICATION.md (DB perspective + Debezium) | caching-deep-dive/CONSISTENCY.md (cache invalidation) · system-design/microservice_patterns.md (Outbox alternative) |
+| Circuit Breaker | microservices/FAILURE_ISOLATION.md (механика: окно, полуоткрытое состояние) | spring-frameworks/SPRING_CLOUD.md (Resilience4j impl) · system-design/RELIABILITY_PATTERNS.md (каталог политик) |
+| CDC | databases/REPLICATION.md (DB perspective + Debezium) | caching-deep-dive/CONSISTENCY.md (cache invalidation) · microservices/DISTRIBUTED_TRANSACTIONS.md (Outbox alternative) |
 | consistent hashing | caching-deep-dive/DISTRIBUTED_CACHING.md (cache distribution) | databases/SHARDING.md (DB sharding context) |
 | Redis (deep) | caching-deep-dive/REDIS.md | databases/DATABASE_TYPES.md (high-level KV overview) |
 | CoroutineScope vs coroutineScope | kotlin-coroutines/SCOPE_CONTEXT.md (interface type) | kotlin-coroutines/STRUCTURED_CONCURRENCY.md (builder function) |
@@ -1083,7 +1191,7 @@ Concepts that legitimately appear in multiple modules — canonical owner listed
 | CompletableFuture | concurrency/ASYNC_COMPOSITION.md (устройство, цепочки, ловушки) | kotlin-coroutines/INTEROP.md (мост await/future/asDeferred) |
 | exponential backoff + jitter | system-design/RELIABILITY_PATTERNS.md (рецепт, retry budget) | kotlin-coroutines/BACKEND_PATTERNS.md (корутинная реализация) |
 | cache stampede / single-flight | caching-deep-dive/ANTI_PATTERNS.md (явление) | kotlin-coroutines/BACKEND_PATTERNS.md (single-flight на Mutex + CompletableDeferred) |
-| Circuit Breaker | system-design/microservice_patterns.md (паттерн) | spring-frameworks/SPRING_CLOUD.md (Resilience4j) · kotlin-coroutines/BACKEND_PATTERNS.md (набросок + отличие от retry) |
+| Circuit Breaker | microservices/FAILURE_ISOLATION.md (механика) | spring-frameworks/SPRING_CLOUD.md (Resilience4j) · kotlin-coroutines/BACKEND_PATTERNS.md (набросок + отличие от retry) |
 | virtual threads | concurrency/VIRTUAL_THREADS.md (устройство, pinning, StructuredTaskScope) | kotlin-coroutines/DISPATCHERS.md (VT как диспетчер через asCoroutineDispatcher) |
 | JMM | concurrency/MEMORY_MODEL.md (happens-before, volatile, публикация, гонки) | java-core/JMM_REFERENCE.md (cross-ref only) · concurrency/THREADS_BASICS.md (применение synchronized) |
 | VarHandle | java-core/REFLECTION_HANDLES.md (API + access modes) | concurrency/ATOMIC_CAS.md (atomic operations использование) |
@@ -1109,7 +1217,7 @@ Concepts that legitimately appear in multiple modules — canonical owner listed
 | Repository | ddd/TACTICAL_PATTERNS.md (collection abstraction over aggregates) | databases/DATABASE_TYPES.md (Data Mapper / Identity Map / Unit of Work) · hibernate-jpa/JPA_VS_HIBERNATE.md (impl) |
 | Primitive Obsession | design-patterns/ANTIPATTERNS.md (Fowler code smell) | ddd/TACTICAL_PATTERNS.md (typed IDs / Value Object as the fix) |
 | Strategy vs domain Policy | design-patterns/BEHAVIORAL_1.md (GoF Strategy) | ddd/TACTICAL_PATTERNS.md (domain Policy framing) |
-| Outbox / Saga / CQRS / Event Sourcing | system-design/microservice_patterns.md (distributed-systems mechanics) | ddd/INTEGRATION_PATTERNS.md (DDD modeling framing: aggregate boundary → events) |
+| Outbox / Saga / CQRS / Event Sourcing | microservices/DISTRIBUTED_TRANSACTIONS.md (2PC, сага, компенсации, Outbox) · microservices/CQRS_EVENT_SOURCING.md (CQRS, проекции, ES) | ddd/INTEGRATION_PATTERNS.md (DDD modeling framing: aggregate boundary → events) · ../modules/microservices/theory/DISTRIBUTED_TRANSACTIONS.md (обзорная страница-указатель) |
 | Hexagonal / Ports & Adapters | ddd/ARCHITECTURE.md (ports/adapters, Composition Root) | (Onion / Clean — same idea, same file) |
 | functional core / FP basics | software-engineering/STREAM_API_FP.md (pure functions, immutability, HOF) | ddd/FUNCTIONAL_DDD.md (illegal-states-unrepresentable, ADT domain modeling, decide/evolve) |
 | feature flag | engineering-process/RELEASE_STRATEGIES.md (механизм доставки: deploy ≠ release, типы флагов, срок жизни) | system-design/RELIABILITY_PATTERNS.md (killswitch как паттерн надёжности) · engineering-process/TECH_DEBT.md (вечный флаг как долг) |
@@ -1117,6 +1225,6 @@ Concepts that legitimately appear in multiple modules — canonical owner listed
 | error budget | infrastructure/OBSERVABILITY.md (механизм: SLO, burn rate) | engineering-process/TECH_DEBT.md (рычаг приоритизации надёжности против функциональности) |
 | закон Литтла | concurrency/EXECUTORS_FUTURES.md (размер пула потоков) | engineering-process/FLOW_AND_WIP.md (поток задач в команде, WIP и сроки) |
 | Example Mapping / Event Storming | ddd/EVENT_STORMING.md (техники discovery) | engineering-process/DISCOVERY_AND_INTAKE.md (их место в приёме заявок) |
-| Strangler Fig / замена легаси | system-design/microservice_patterns.md (паттерн) | engineering-process/TECH_DEBT.md (решение «переписать или платить проценты») |
+| Strangler Fig / замена легаси | microservices/DECOMPOSITION.md (механика вытеснения, точка перехвата) | engineering-process/TECH_DEBT.md (решение «переписать или платить проценты») · ddd/STRATEGIC_DESIGN.md (ACL вокруг кома грязи) |
 | CI-гейт и состав тестов | software-engineering/TESTING.md (какие бывают тесты, пирамида, contract testing) | engineering-process/BRANCHING_AND_CODE_FLOW.md (что обязано стоять в гейте до слияния) |
 | Definition of Done | engineering-process/BACKLOG_MANAGEMENT.md (обязательство инкремента, единый DoD на продукт) | engineering-process/SCRUM_PROCESS.md (DoD как артефактное обязательство по гайду) |

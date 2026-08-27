@@ -41,6 +41,7 @@
 ## Related Modules
 - **`spring-frameworks`** — Spring Data JPA, Hibernate L1/L2/Query cache, @Transactional propagation, N+1 в JPA-контексте
 - **`caching-deep-dive`** — Redis deep, consistent hashing для cache distribution, cache-DB consistency
-- **`system-design`** — Kafka (events), CAP/PACELC, distributed_systems primitives, microservice_patterns (Saga/Outbox)
+- **`system-design`** — Kafka (events), CAP/PACELC, distributed_systems primitives
+- **`microservices`** — Saga/Outbox, владение данными, CDC как альтернатива Outbox
 - **`concurrency`** — pessimistic vs optimistic locking как технические паттерны (синхронизация в памяти)
 - **`infrastructure`** — managed databases (RDS/Aurora/Cloud SQL), DBaaS, IaC для БД

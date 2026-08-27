@@ -171,7 +171,7 @@ BC — логическая граница модели; сервис — физ
 
 **Модульный монолит — валидная альтернатива.** Микросервисы не обязательны. Модульный монолит хранит те же границы контекстов как модули сборки в одном процессе (ровно как это демо): та же дисциплина зависимостей, но без сетевых вызовов, распределённых транзакций и эксплуатационной цены. Разумный дефолт — начать с модульного монолита с чёткими границами BC и выделять сервис только там, где нужна независимая масштабируемость или независимое развёртывание. Границы, поставленные по DDD, делают позднее выделение дешёвым.
 
-> Механику микросервисной декомпозиции — database-per-service, API Gateway, Service Discovery, размер сервиса, синхронная против асинхронной связи — держит `../../system-design/theory/microservice_patterns.md`. Здесь дана только **доменная рамка**: где проводить границу и почему по контексту.
+> Механику микросервисной декомпозиции — database-per-service, API Gateway, Service Discovery, размер сервиса, синхронная против асинхронной связи — держит модуль `../../microservices/` (см. `DECOMPOSITION.md`, `DATA_OWNERSHIP.md`, `EDGE_AND_MESH.md`). Здесь дана только **доменная рамка**: где проводить границу и почему по контексту.
 
 ## Где почитать дальше
 
@@ -179,7 +179,7 @@ BC — логическая граница модели; сервис — физ
 - [INTEGRATION_PATTERNS.md](INTEGRATION_PATTERNS.md) — как контексты общаются через порты и события
 - [TACTICAL_PATTERNS.md](TACTICAL_PATTERNS.md) — Repository, агрегаты, доменные события внутри кольца
 - [ANTIPATTERNS.md](ANTIPATTERNS.md) — анемичная модель, утечка домена в контракт, общая БД
-- `../../system-design/theory/microservice_patterns.md` — микросервисная декомпозиция, database-per-service, API Gateway, Service Discovery
+- `../../microservices/theory/DECOMPOSITION.md`, `../../microservices/theory/DATA_OWNERSHIP.md`, `../../microservices/theory/EDGE_AND_MESH.md` — микросервисная декомпозиция, database-per-service, API Gateway, Service Discovery
 - `../../software-engineering/theory/TESTING.md` — ArchUnit, пирамида тестирования
 
 ## Источники

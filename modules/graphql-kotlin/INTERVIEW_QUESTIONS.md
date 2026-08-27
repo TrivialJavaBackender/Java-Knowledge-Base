@@ -217,6 +217,6 @@ Federation **не нужна**, когда:
 - сервисы пишут на разных стеках, но домены не пересекаются — лучше отдельные эндпоинты;
 - большая часть данных в одной БД — стичь схемы будет искусственно.
 
-Альтернатива в этих случаях — единый graphql-kotlin сервис как **BFF** поверх REST/gRPC бэкендов (см. `system-design/theory/microservice_patterns.md`).
+Альтернатива в этих случаях — единый graphql-kotlin сервис как **BFF** поверх REST/gRPC бэкендов (см. `../microservices/theory/EDGE_AND_MESH.md`).
 
 > apollographql.com/blog «Federation 2», «Choosing a gateway»

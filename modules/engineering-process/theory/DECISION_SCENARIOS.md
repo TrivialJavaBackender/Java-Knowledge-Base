@@ -929,7 +929,7 @@ presented at the Sprint Review. Instead, it returns to the Product Backlog for f
 основная ветка уходит вперёд, слияние становится отдельным проектом с собственными багами,
 и всё это время бизнес не получает ничего. Инкрементальная замена под фасадом описана как
 отдельный шаблон — Strangler Fig, разбор в
-[`microservice_patterns.md` модуля system-design](../../system-design/theory/microservice_patterns.md).
+[`DECOMPOSITION.md` модуля microservices](../../microservices/theory/DECOMPOSITION.md).
 Джоэл Спольски в эссе *Things You Should Never Do, Part I* (2000) на примере Netscape называет
 переписывание с нуля худшей стратегической ошибкой, которую может совершить компания, — аргумент
 там в том, что старый код содержит накопленные знания об исправленных ошибках, невидимые в тексте
@@ -2792,7 +2792,7 @@ record): контекст, рассмотренные варианты, выбр
   Разбор — [`TECH_DEBT.md`](TECH_DEBT.md) (пересказ, не цитата).
 - Martin Fowler, «StranglerFigApplication» — инкрементальная замена системы под фасадом вместо
   переписывания с нуля. Разбор шаблона —
-  [`microservice_patterns.md` модуля system-design](../../system-design/theory/microservice_patterns.md)
+  [`DECOMPOSITION.md` модуля microservices](../../microservices/theory/DECOMPOSITION.md)
   (пересказ, не цитата).
 - Joel Spolsky. *Things You Should Never Do, Part I* (joelonsoftware.com, 6 апреля 2000) —
   аргумент против переписывания с нуля на примере Netscape: старый код содержит накопленные

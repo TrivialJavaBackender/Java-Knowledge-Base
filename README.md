@@ -12,6 +12,10 @@
 | 🏗️ | [System Design](modules/system-design/README.md) | [ROADMAP](modules/system-design/ROADMAP.md) | [25 вопросов](modules/system-design/INTERVIEW_QUESTIONS.md) |
 | 🐳 | [Infrastructure](modules/infrastructure/README.md) | [ROADMAP](modules/infrastructure/ROADMAP.md) | [36 вопросов](modules/infrastructure/INTERVIEW_QUESTIONS.md) |
 | 🍃 | [Spring Frameworks](modules/spring-frameworks/README.md) | [ROADMAP](modules/spring-frameworks/ROADMAP.md) | [17 вопросов](modules/spring-frameworks/INTERVIEW_QUESTIONS.md) |
+| 🔗 | [Microservices](modules/microservices/README.md) | [ROADMAP](modules/microservices/ROADMAP.md) | [40 вопросов](modules/microservices/INTERVIEW_QUESTIONS.md) |
+
+> Таблица неполная: в `modules/` сейчас 16 модулей. Полный список — в
+> [CLAUDE.md](CLAUDE.md#структура), карта тем — в [knowledge/GLOBAL_INDEX.md](knowledge/GLOBAL_INDEX.md).
 
 ---
 
@@ -73,7 +77,7 @@
 | [database_indexes.md](modules/system-design/theory/database_indexes.md) | B-Tree, GIN, pg_trgm, EXPLAIN ANALYZE |
 | [databases_types.md](modules/system-design/theory/databases_types.md) | Типы БД, NoSQL, OLAP, Redis, ORM (Identity Map, Unit of Work) |
 | [distributed_systems.md](modules/system-design/theory/distributed_systems.md) | CAP, консистентность, шардинг, репликация |
-| [microservice_patterns.md](modules/system-design/theory/microservice_patterns.md) | Saga, Outbox, Circuit Breaker, sync vs async, деплой стратегии |
+| [microservice_patterns.md](modules/system-design/theory/microservice_patterns.md) | Страница-указатель: темы переехали в модуль `microservices` |
 | [kafka.md](modules/system-design/theory/kafka.md) | Kafka: гарантии доставки, порядок, exactly-once, HA/ISR |
 | [solid_oop.md](modules/system-design/theory/solid_oop.md) | SOLID, DIP + Jackson Adapter, Event Sourcing schema evolution |
 | [http_networking.md](modules/system-design/theory/http_networking.md) | HTTP 1.1/2.0, кэш, REST vs WS, шифрование, IPv4/IPv6 |
@@ -184,5 +188,5 @@
 | Тема | Модуль |
 |------|--------|
 | JWT структура, OAuth2 потоки | [system-design/theory/auth_security.md](modules/system-design/theory/auth_security.md) |
-| Circuit Breaker паттерн, Saga, Outbox | [system-design/theory/microservice_patterns.md](modules/system-design/theory/microservice_patterns.md) |
+| Circuit Breaker паттерн, Saga, Outbox | [microservices/theory/FAILURE_ISOLATION.md](modules/microservices/theory/FAILURE_ISOLATION.md), [microservices/theory/DISTRIBUTED_TRANSACTIONS.md](modules/microservices/theory/DISTRIBUTED_TRANSACTIONS.md) |
 | Distributed Tracing, Observability | [infrastructure/theory/OBSERVABILITY.md](modules/infrastructure/theory/OBSERVABILITY.md) |

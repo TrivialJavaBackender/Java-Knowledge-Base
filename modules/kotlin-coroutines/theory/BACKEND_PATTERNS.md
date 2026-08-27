@@ -166,7 +166,7 @@ class CircuitBreaker(private val threshold: Int, private val resetAfter: Duratio
 ```
 
 > Сам паттерн (состояния closed/open/half-open, метрики, скользящее окно) — в
-> [`system-design/theory/microservice_patterns.md`](../../system-design/theory/microservice_patterns.md);
+> [`microservices/theory/FAILURE_ISOLATION.md`](../../microservices/theory/FAILURE_ISOLATION.md);
 > продакшен-реализация — Resilience4j, см.
 > [`spring-frameworks/theory/SPRING_CLOUD.md`](../../spring-frameworks/theory/SPRING_CLOUD.md).
 > В своём коде breaker обычно не пишут — берут готовый.
@@ -374,7 +374,7 @@ accepting = false; withTimeoutOrNull(t) { job.children.toList().joinAll() } ?: j
 
 **Смежные модули (механика паттернов живёт там):**
 - [`system-design/theory/RELIABILITY_PATTERNS.md`](../../system-design/theory/RELIABILITY_PATTERNS.md) — backoff + full jitter, retry budget, load shedding, hedged requests.
-- [`system-design/theory/microservice_patterns.md`](../../system-design/theory/microservice_patterns.md) — Circuit Breaker, Bulkhead.
+- [`../../microservices/theory/FAILURE_ISOLATION.md`](../../microservices/theory/FAILURE_ISOLATION.md) — Circuit Breaker, Bulkhead.
 - [`caching-deep-dive/theory/ANTI_PATTERNS.md`](../../caching-deep-dive/theory/ANTI_PATTERNS.md) — cache stampede и другие кэш-патологии.
 - [`concurrency/theory/VIRTUAL_THREADS.md`](../../concurrency/theory/VIRTUAL_THREADS.md) — виртуальные потоки как исполнитель блокирующих вызовов.
 

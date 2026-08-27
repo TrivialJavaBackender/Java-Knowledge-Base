@@ -2,7 +2,7 @@
 
 Шаблоны устойчивости к сбоям: повторы, экспоненциальная задержка, circuit breaker, bulkhead, дублирующие запросы (hedged requests), сброс нагрузки, плавная деградация. Каждый — про **управление сценариями сбоев**, а не их предотвращение.
 
-> **Область:** шаблоны. Базовое описание Circuit Breaker и Bulkhead — в [`microservice_patterns.md`](microservice_patterns.md), здесь — углубление и связанные подходы. Chaos engineering — в [`software-engineering/TESTING.md`](../../software-engineering/theory/TESTING.md).
+> **Область:** шаблоны. Базовое описание Circuit Breaker и Bulkhead — в [`../../microservices/theory/FAILURE_ISOLATION.md`](../../microservices/theory/FAILURE_ISOLATION.md), здесь — углубление и связанные подходы. Chaos engineering — в [`software-engineering/TESTING.md`](../../software-engineering/theory/TESTING.md).
 
 ---
 
@@ -64,7 +64,7 @@ delay = random.uniform(base, prev_delay * 3)  # capped
 
 ## Circuit Breaker (углубление)
 
-Базовое описание — в [`microservice_patterns.md`](microservice_patterns.md#circuit-breaker).
+Механика (окно подсчёта, порог по доле, полуоткрытое состояние) — в [`microservices/FAILURE_ISOLATION.md`](../../microservices/theory/FAILURE_ISOLATION.md).
 
 ### Состояния
 

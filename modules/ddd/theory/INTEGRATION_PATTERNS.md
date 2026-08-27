@@ -88,7 +88,7 @@ class OrderEventsTranslator {
 
 **Цена синхронной интеграции.** Вызвать чужой REST прямо в момент операции просто, но это связывает **доступность**: Billing лёг — заказы не оформляются. Асинхронное событие развязывает: заказ оформляется сразу, оплата случится, когда Billing поднимется. Где синхронный вызов неизбежен (например, актуальная цена из каталога), его на границе оборачивают таймаутом и Circuit Breaker — но домен об этом не знает, это забота адаптера за портом.
 
-> Circuit Breaker (состояния Closed/Open/Half-Open, пороги, реализации) — `../../system-design/theory/microservice_patterns.md`, углублённо — `../../system-design/theory/RELIABILITY_PATTERNS.md`.
+> Circuit Breaker (состояния Closed/Open/Half-Open, окно подсчёта, полуоткрытое состояние) — `../../microservices/theory/FAILURE_ISOLATION.md`; каталог политик надёжности — `../../system-design/theory/RELIABILITY_PATTERNS.md`.
 
 ## Transactional Outbox — проблема двойной записи
 
@@ -110,7 +110,7 @@ override fun save(order: Order) {
 
 Гарантия — доставка **как минимум один раз** (at-least-once): relay может упасть между публикацией и отметкой «отправлено», поэтому дубли возможны — отсюда следующий раздел.
 
-> Полная механика Outbox (устройство таблицы, фоновый опрос против Debezium/CDC, семантика доставки) — владелец `../../system-design/theory/microservice_patterns.md`, раздел «Outbox Pattern».
+> Полная механика Outbox (устройство таблицы, фоновый опрос против Debezium/CDC, семантика доставки) — владелец `../../microservices/theory/DISTRIBUTED_TRANSACTIONS.md`, раздел «Outbox Pattern».
 
 ## Идемпотентный консьюмер
 
@@ -152,7 +152,7 @@ if (state.step != SagaStep.AWAITING_PAYMENT) return   // не тот шаг — 
 - **Хореография**: координатора нет, контексты реагируют на события друг друга напрямую (склад сам слушал бы `OrderPlaced`). Проще для 2–3 шагов, но процесс «размазан» — его никто не видит целиком, а компенсации быстро превращаются в клубок.
 - Эвристика: линейный короткий поток — хореография; ветвления, компенсации, таймауты — оркестрация.
 
-> Механика Saga (координатор, лог саги, семантика шагов, вариант choreography против orchestration как инфраструктурный паттерн) — владелец `../../system-design/theory/microservice_patterns.md`.
+> Механика Saga (координатор, лог саги, семантика шагов, вариант choreography против orchestration как инфраструктурный паттерн) — владелец `../../microservices/theory/DISTRIBUTED_TRANSACTIONS.md`.
 
 ## CQRS — разделение записи и чтения
 
@@ -180,7 +180,7 @@ class OrderSummaryProjection(bus) : OrderQueries {
 
 Цена — итоговая согласованность: пока событие лежит в outbox, витрина отстаёт. Демо показывает это честно: сразу после оформления `findSummary` возвращает пусто, после relay №1 — `PLACED`, после relay №2 — `CONFIRMED`.
 
-> Механика CQRS как паттерна масштабирования (раздельное масштабирование чтения и записи, read replicas, физическое разделение хранилищ) — `../../system-design/theory/microservice_patterns.md`.
+> Механика CQRS как паттерна масштабирования (раздельное масштабирование чтения и записи, read replicas, физическое разделение хранилищ) — `../../microservices/theory/CQRS_EVENT_SOURCING.md`.
 
 ## Event Sourcing — состояние как журнал фактов
 
@@ -216,7 +216,7 @@ private fun applyEvent(e: AccountEvent) {         // 2. APPLY меняет со�
 
 Цена — сложность: версии, снапшоты, миграция схем событий. Поэтому ES — **точечный** инструмент: `Account` — да (история сама по себе ценность), `Order` — нет (хранится обычным способом). Смешивать оба подхода в одной системе нормально.
 
-> Механика Event Sourcing как инфраструктурного паттерна (event store, снапшоты, проекции, связь с CQRS) — владелец `../../system-design/theory/microservice_patterns.md`, раздел «Event Sourcing».
+> Механика Event Sourcing как инфраструктурного паттерна (event store, снапшоты, проекции, связь с CQRS) — владелец `../../microservices/theory/CQRS_EVENT_SOURCING.md`, раздел «Event Sourcing».
 
 ## Сводная картина одного заказа
 
@@ -240,7 +240,7 @@ private fun applyEvent(e: AccountEvent) {         // 2. APPLY меняет со�
 - [STRATEGIC_DESIGN.md](STRATEGIC_DESIGN.md) — Context Map, отношения upstream/downstream, Published Language, ACL
 - [TACTICAL_PATTERNS.md](TACTICAL_PATTERNS.md) — доменные события внутри агрегата
 - [AGGREGATE_DESIGN.md](AGGREGATE_DESIGN.md) — граница агрегата = граница транзакции = граница сильной согласованности
-- `../../system-design/theory/microservice_patterns.md` — Outbox, Saga, CQRS, Event Sourcing (механика и владелец)
+- `../../microservices/theory/DISTRIBUTED_TRANSACTIONS.md` — Outbox, Saga, CQRS, Event Sourcing (механика и владелец)
 - `../../system-design/theory/RELIABILITY_PATTERNS.md` — idempotency key, Circuit Breaker (углубление)
 
 ## Источники

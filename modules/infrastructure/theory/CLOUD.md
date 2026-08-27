@@ -338,7 +338,7 @@ State должно жить в managed service'ах, не в коде прило
 
 При невозможности обслужить request — **сразу** отвечать с error (5xx) или timeout. Не «попытаться, потом долго ждать, потом сдаться».
 
-Реализация: timeouts на каждом RPC, circuit breakers, bulkheads. См. [`system-design/theory/microservice_patterns.md`](../../system-design/theory/microservice_patterns.md).
+Реализация: timeouts на каждом RPC, circuit breakers, bulkheads. См. [`../../microservices/theory/FAILURE_ISOLATION.md`](../../microservices/theory/FAILURE_ISOLATION.md).
 
 ### 6.5. Blast radius minimization
 

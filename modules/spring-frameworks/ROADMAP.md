@@ -91,7 +91,7 @@
 
 📖 Теория: [theory/SPRING_CLOUD.md](theory/SPRING_CLOUD.md)
 
-> Circuit Breaker паттерн — см. [system-design/theory/microservice_patterns.md](../system-design/theory/microservice_patterns.md)
+> Circuit Breaker паттерн — см. [../microservices/theory/FAILURE_ISOLATION.md](../microservices/theory/FAILURE_ISOLATION.md)
 
 - [ ] Spring Cloud Config: централизованная конфигурация, @RefreshScope
 - [ ] Service Discovery: Eureka, @LoadBalanced RestTemplate

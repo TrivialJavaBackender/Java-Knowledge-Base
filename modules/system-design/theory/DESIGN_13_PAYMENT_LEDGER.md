@@ -188,7 +188,7 @@ Body: { fromAccount, toAccount, amount, currency, description }
 
 ### C. Saga (событийная)
 
-См. [`microservice_patterns.md`](microservice_patterns.md#saga-pattern).
+См. [`../../microservices/theory/DISTRIBUTED_TRANSACTIONS.md`](../../microservices/theory/DISTRIBUTED_TRANSACTIONS.md).
 
 ```
 1. Списать с Alice (Шард A): Alice -= 100. Публикация события.

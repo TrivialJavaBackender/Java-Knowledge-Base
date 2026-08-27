@@ -2,7 +2,7 @@
 
 Spring Cloud — набор библиотек для построения распределённых систем поверх Spring Boot. Решает типичные проблемы микросервисной архитектуры: как сервисы находят друг друга, как управлять конфигурацией централизованно, как защититься от каскадных сбоев.
 
-> **Паттерны микросервисов (Circuit Breaker, Saga, Outbox, API Gateway)** — теория в [`modules/system-design/theory/microservice_patterns.md`](../../system-design/theory/microservice_patterns.md). Здесь — реализация этих паттернов через Spring Cloud.
+> **Паттерны микросервисов (Circuit Breaker, Saga, Outbox, API Gateway)** — теория в [`../../microservices/theory/FAILURE_ISOLATION.md`](../../microservices/theory/FAILURE_ISOLATION.md). Здесь — реализация этих паттернов через Spring Cloud.
 
 ---
 

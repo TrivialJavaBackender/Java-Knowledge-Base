@@ -171,7 +171,7 @@ fun update(user: User) {
 3. подписчики → cache.invalidate("user:42")
 ```
 
-См. [`system-design/theory/microservice_patterns.md`](../../system-design/theory/microservice_patterns.md) — Outbox pattern.
+См. [`../../microservices/theory/DISTRIBUTED_TRANSACTIONS.md`](../../microservices/theory/DISTRIBUTED_TRANSACTIONS.md) — Outbox pattern.
 
 ---
 
@@ -206,7 +206,7 @@ fun update(user: User) {
 - Cache patterns → [CACHE_PATTERNS.md](CACHE_PATTERNS.md)
 - Anti-patterns (stampede, breakdown) → [ANTI_PATTERNS.md](ANTI_PATTERNS.md)
 - CAP и распределённые системы → [`system-design/theory/distributed_systems.md`](../../system-design/theory/distributed_systems.md)
-- Outbox / Saga → [`system-design/theory/microservice_patterns.md`](../../system-design/theory/microservice_patterns.md)
+- Outbox / Saga → [`../../microservices/theory/DISTRIBUTED_TRANSACTIONS.md`](../../microservices/theory/DISTRIBUTED_TRANSACTIONS.md)
 
 ## Источники
 

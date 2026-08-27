@@ -16,7 +16,7 @@ modules/system-design/
 │   │   ├── distributed_systems.md (CAP/PACELC/Lamport/quorum)
 │   │   ├── CONSENSUS.md, LEADER_ELECTION.md, GOSSIP_PROTOCOL.md, CRDT.md, MULTI_REGION.md
 │   ├── (Microservice patterns)
-│   │   ├── microservice_patterns.md (Saga, Outbox, Circuit Breaker, CQRS, Event Sourcing)
+│   │   ├── ../microservices/theory/DISTRIBUTED_TRANSACTIONS.md (Saga, Outbox, Circuit Breaker, CQRS, Event Sourcing)
 │   │   ├── kafka.md (Kafka deep)
 │   │   └── RELIABILITY_PATTERNS.md (retry/jitter/DLQ/hedged/load shedding)
 │   ├── (Algorithms для SD)

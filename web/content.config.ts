@@ -27,4 +27,5 @@ export const MODULES: ModuleConfig[] = [
   { slug: 'design-patterns',      title: 'Design Patterns (GoF)', order: 13, qaFormat: 'qa-bold' },
   { slug: 'ddd',                  title: 'Domain-Driven Design', order: 14, qaFormat: 'qa-bold' },
   { slug: 'engineering-process',  title: 'Engineering Process',  order: 15, qaFormat: 'qa-bold' },
+  { slug: 'microservices',        title: 'Microservices',        order: 16, qaFormat: 'qa-bold' },
 ];

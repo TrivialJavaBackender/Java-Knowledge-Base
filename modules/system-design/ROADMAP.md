@@ -45,7 +45,7 @@
 ## Модуль 4 — Microservice Patterns
 
 📖 Теория:
-- [theory/microservice_patterns.md](theory/microservice_patterns.md) — Saga, Outbox, Circuit Breaker, CQRS, Event Sourcing, deployment strategies
+- [../microservices/theory/DISTRIBUTED_TRANSACTIONS.md](../microservices/theory/DISTRIBUTED_TRANSACTIONS.md) — Saga, Outbox, Circuit Breaker, CQRS, Event Sourcing, deployment strategies
 - [theory/kafka.md](theory/kafka.md) — Kafka deep (partitions, exactly-once, ISR, KRaft)
 - [theory/RELIABILITY_PATTERNS.md](theory/RELIABILITY_PATTERNS.md) — retry/jitter/DLQ/hedged/load shedding
 

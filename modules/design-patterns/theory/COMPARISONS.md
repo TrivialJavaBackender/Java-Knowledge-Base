@@ -223,7 +223,7 @@ Prototype оправдан, когда **тип неизвестен во вре
 
 | Паттерн | Категория | Владелец |
 |---------|-----------|----------|
-| Circuit Breaker, Saga, Outbox, CQRS, Event Sourcing, API Gateway, Bulkhead, Strangler Fig | распределённые/микросервисные | [microservice_patterns.md](../../system-design/theory/microservice_patterns.md) |
+| Circuit Breaker, Saga, Outbox, CQRS, Event Sourcing, API Gateway, Bulkhead, Strangler Fig | распределённые/микросервисные | [../../microservices/theory/FAILURE_ISOLATION.md](../../microservices/theory/FAILURE_ISOLATION.md) |
 | MVC, Front Controller | архитектура веб-слоя | [SPRING_MVC_REST.md](../../spring-frameworks/theory/SPRING_MVC_REST.md) |
 | functional options | идиома Go (аналог Builder) | [IDIOMS_PATTERNS.md](../../go/theory/IDIOMS_PATTERNS.md) |
 | Dependency Injection | техника (реализует принцип DIP) | [SPRING_CORE_DI.md](../../spring-frameworks/theory/SPRING_CORE_DI.md) |
@@ -294,7 +294,7 @@ Prototype оправдан, когда **тип неизвестен во вре
 
 Смежные модули:
 
-- [microservice_patterns.md](../../system-design/theory/microservice_patterns.md) — Circuit Breaker, Saga, CQRS, Event Sourcing, API Gateway (не GoF).
+- [../../microservices/theory/FAILURE_ISOLATION.md](../../microservices/theory/FAILURE_ISOLATION.md) — Circuit Breaker, Saga, CQRS, Event Sourcing, API Gateway (не GoF).
 - [SPRING_MVC_REST.md](../../spring-frameworks/theory/SPRING_MVC_REST.md) — MVC и Front Controller.
 - [IDIOMS_PATTERNS.md](../../go/theory/IDIOMS_PATTERNS.md) — functional options как аналог Builder в Go.
 - [SOLID_OOP.md](../../software-engineering/theory/SOLID_OOP.md) — принципы SOLID за паттернами.

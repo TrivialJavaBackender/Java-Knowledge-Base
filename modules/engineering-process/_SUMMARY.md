@@ -64,6 +64,6 @@
   за «чем катим», этот модуль — за «когда и по какому решению катим».
 - `software-engineering` — состав CI-гейта: пирамида тестов, contract testing (TESTING.md).
 - `system-design` — feature flag killswitch как паттерн надёжности (RELIABILITY_PATTERNS.md),
-  Strangler Fig при замене легаси (microservice_patterns.md).
+  Strangler Fig при замене легаси (../microservices/theory/DECOMPOSITION.md).
 - `ddd` — Event Storming и Example Mapping как техники совместного разбора требования
   (EVENT_STORMING.md).

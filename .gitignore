@@ -38,6 +38,9 @@ build/
 ### Mac OS ###
 .DS_Store
 
+### Служебное: журнал проверок и отчёты сабагентов при генерации модуля ###
+modules/*/.build/
+
 ### Web app ###
 web/node_modules/
 web/.next/

@@ -1,6 +1,6 @@
 # Распределённые системы
 
-> **Область:** фундаментальная теория и примитивы координации. Архитектурные шаблоны (Outbox, CQRS, SAGA, API Gateway, Circuit Breaker, развёртывание) — см. [microservice_patterns.md](microservice_patterns.md).
+> **Область:** фундаментальная теория и примитивы координации. Архитектурные шаблоны (Outbox, CQRS, SAGA, API Gateway, Circuit Breaker, развёртывание) — см. [../../microservices/theory/DISTRIBUTED_TRANSACTIONS.md](../../microservices/theory/DISTRIBUTED_TRANSACTIONS.md).
 
 ## Распределённая блокировка (Redis / Redisson)
 
@@ -35,7 +35,7 @@ try {
 
 ## Архитектурные паттерны над этими примитивами
 
-Outbox, CQRS, Event Sourcing, SAGA, Circuit Breaker и прочие архитектурные паттерны живут в [microservice_patterns.md](microservice_patterns.md). Этот файл — про **фундаментальные свойства** распределённых систем (порядок событий, консистентность, кворумы), а не про конкретные паттерны их применения.
+Outbox, CQRS, Event Sourcing, SAGA, Circuit Breaker и прочие архитектурные паттерны живут в [../../microservices/theory/DISTRIBUTED_TRANSACTIONS.md](../../microservices/theory/DISTRIBUTED_TRANSACTIONS.md). Этот файл — про **фундаментальные свойства** распределённых систем (порядок событий, консистентность, кворумы), а не про конкретные паттерны их применения.
 
 ---
 
@@ -153,7 +153,7 @@ N=3, W=1, R=3 → быстрые записи, медленные чтения (
 
 ## SAGA — координированные транзакции между сервисами
 
-Подробнее в [`microservice_patterns.md`](microservice_patterns.md). Ключевая идея: вместо 2PC (блокирующего) — последовательность локальных транзакций с компенсирующими действиями. Choreography (события) vs Orchestration (центральный координатор).
+Подробнее в [`../../microservices/theory/DISTRIBUTED_TRANSACTIONS.md`](../../microservices/theory/DISTRIBUTED_TRANSACTIONS.md). Ключевая идея: вместо 2PC (блокирующего) — последовательность локальных транзакций с компенсирующими действиями. Choreography (события) vs Orchestration (центральный координатор).
 
 ---
 

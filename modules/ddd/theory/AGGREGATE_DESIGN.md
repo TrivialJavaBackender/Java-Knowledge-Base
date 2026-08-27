@@ -124,7 +124,7 @@ class OrderLine internal constructor(       // за пределами domain с
 
 **Когда правило нарушают.** Оно прагматичное, а не догма. `FundsTransferService` переводит деньги между **двумя** агрегатами `Account` в одной транзакции БД — потому что счета в одном контексте и одной базе, а для денег нужна строгая согласованность. Это осознанный компромисс, о котором стоит говорить вслух: в распределённой системе тот же перевод стал бы сагой. Нарушать правило «один агрегат на транзакцию» можно — но только сознательно и понимая цену.
 
-> Механику итоговой согласованности — сага (хореография против оркестрации), компенсирующие транзакции, Outbox — держит [../../system-design/theory/microservice_patterns.md](../../system-design/theory/microservice_patterns.md); как она выглядит внутри этого модуля (Domain/Integration Event, Outbox, CQRS) — в [INTEGRATION_PATTERNS.md](INTEGRATION_PATTERNS.md).
+> Механику итоговой согласованности — сага (хореография против оркестрации), компенсирующие транзакции, Outbox — держит [../../microservices/theory/DISTRIBUTED_TRANSACTIONS.md](../../microservices/theory/DISTRIBUTED_TRANSACTIONS.md); как она выглядит внутри этого модуля (Domain/Integration Event, Outbox, CQRS) — в [INTEGRATION_PATTERNS.md](INTEGRATION_PATTERNS.md).
 
 ## Проектируй по инвариантам, а не по данным
 
@@ -191,7 +191,7 @@ fun append(streamId: String, expectedVersion: Long, events: List<AccountEvent>) 
 - [INTEGRATION_PATTERNS.md](INTEGRATION_PATTERNS.md) — как события агрегата доходят до других контекстов: Outbox, сага, CQRS, Event Sourcing.
 - [STRATEGIC_DESIGN.md](STRATEGIC_DESIGN.md) — почему «остаток на складе» — другой агрегат в другом контексте.
 - [ANTIPATTERNS.md](ANTIPATTERNS.md) — дырявая инкапсуляция агрегата и анемичная модель.
-- [../../system-design/theory/microservice_patterns.md](../../system-design/theory/microservice_patterns.md) — сага, компенсирующие транзакции, итоговая согласованность в распределённой системе.
+- [../../microservices/theory/DISTRIBUTED_TRANSACTIONS.md](../../microservices/theory/DISTRIBUTED_TRANSACTIONS.md) — сага, компенсирующие транзакции, итоговая согласованность в распределённой системе.
 - [../../hibernate-jpa/theory/TRANSACTIONS_LOCKING.md](../../hibernate-jpa/theory/TRANSACTIONS_LOCKING.md) — оптимистичная/пессимистичная блокировка на JPA.
 
 ## Источники
