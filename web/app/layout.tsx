@@ -3,6 +3,7 @@ import Link from 'next/link';
 import './globals.css';
 import { prisma } from '@/lib/db';
 import { endOfDay } from '@/lib/leitner';
+import { SearchBox } from '@/components/SearchBox';
 import { ThemeToggle, themeBootScript } from '@/components/ThemeToggle';
 import { LogoutButton } from '@/app/login/logout';
 import { getSession } from '@/lib/auth';
@@ -52,6 +53,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                 )}
               </Link>
               <Link href="/flashcards/manage" className="hover:text-fg text-fg-muted">Manage</Link>
+              <SearchBox />
               <ThemeToggle />
               <LogoutButton />
             </nav>

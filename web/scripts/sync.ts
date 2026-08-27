@@ -13,11 +13,19 @@ import { readdir, readFile, stat } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { MODULES, type ModuleConfig } from '../content.config';
+import { SearchIndexCollector, readConcepts, writeSearchIndex } from './search-index';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const MODULES_ROOT = process.env.MODULES_ROOT
   ? path.resolve(process.env.MODULES_ROOT)
   : path.resolve(__dirname, '..', '..', 'modules');
+
+const KNOWLEDGE_ROOT = process.env.KNOWLEDGE_ROOT
+  ? path.resolve(process.env.KNOWLEDGE_ROOT)
+  : path.resolve(MODULES_ROOT, '..', 'knowledge');
+
+/** Served straight from the CDN edge — see middleware.ts and next.config.mjs. */
+const SEARCH_INDEX_PATH = path.resolve(__dirname, '..', 'public', 'search-index.json');
 
 const prisma = new PrismaClient();
 
@@ -70,7 +78,13 @@ async function readRoadmapTheoryOrder(moduleDir: string): Promise<Map<string, nu
   return out;
 }
 
-async function syncTheory(moduleId: number, moduleDir: string, c: Counter): Promise<Set<string>> {
+async function syncTheory(
+  moduleId: number,
+  moduleDir: string,
+  c: Counter,
+  index: SearchIndexCollector,
+  mi: number,
+): Promise<Set<string>> {
   const seen = new Set<string>();
   const dir = path.join(moduleDir, 'theory');
   if (!(await exists(dir))) return seen;
@@ -85,6 +99,7 @@ async function syncTheory(moduleId: number, moduleDir: string, c: Counter): Prom
     const hash = sha(body);
     const order = orderMap.get(slug) ?? 999;
     seen.add(slug);
+    index.theory(mi, slug, title, body);
 
     const existing = await prisma.theoryDoc.findUnique({
       where: { moduleId_slug: { moduleId, slug } },
@@ -114,7 +129,13 @@ async function syncTheory(moduleId: number, moduleDir: string, c: Counter): Prom
 
 // ─────────────────────────── Exercises ────────────────────────────
 
-async function syncExercises(moduleId: number, moduleDir: string, c: Counter): Promise<Set<string>> {
+async function syncExercises(
+  moduleId: number,
+  moduleDir: string,
+  c: Counter,
+  index: SearchIndexCollector,
+  mi: number,
+): Promise<Set<string>> {
   const seen = new Set<string>();
   const candidates = [
     path.join(moduleDir, 'src', 'main', 'kotlin', 'exercises'),
@@ -145,6 +166,7 @@ async function syncExercises(moduleId: number, moduleDir: string, c: Counter): P
     const slug = file.replace(/\.(kt|java)$/, '');
     const hash = sha(body);
     seen.add(slug);
+    index.exercise(mi, slug, title);
 
     const existing = await prisma.exercise.findUnique({
       where: { moduleId_slug: { moduleId, slug } },
@@ -354,6 +376,8 @@ async function syncQAs(
   cfg: ModuleConfig,
   qaCounter: Counter,
   cardCounter: Counter,
+  index: SearchIndexCollector,
+  mi: number,
 ): Promise<{ qaIds: Set<number> }> {
   const file = path.join(moduleDir, 'INTERVIEW_QUESTIONS.md');
   const qaIds = new Set<number>();
@@ -371,6 +395,8 @@ async function syncQAs(
     });
 
     for (const q of ps.qas) {
+      index.qa(mi, q.qNumber, q.question);
+
       const slice = `${q.question}\n\n${q.answer}\n${q.sourceRef ?? ''}`;
       const hash = sha(slice);
       const existing = await prisma.interviewQA.findUnique({
@@ -488,6 +514,34 @@ async function pruneRemoved(
   }
 }
 
+// ───────────────────────── Search index ───────────────────────────
+
+/**
+ * Writes the client-side search index collected during the walk above, after
+ * folding in the concept map from `knowledge/GLOBAL_INDEX.md`.
+ *
+ * Concepts pointing at a module or a theory file that did not turn up are
+ * reported rather than silently dropped — it is the cheapest available check
+ * that GLOBAL_INDEX.md still matches the repo.
+ */
+async function buildSearchIndex(collector: SearchIndexCollector) {
+  const concepts = await readConcepts(KNOWLEDGE_ROOT);
+  const { index, stale } = collector.finalize(concepts);
+
+  for (const entry of stale) console.warn(`! GLOBAL_INDEX stale entry: ${entry}`);
+
+  const bytes = await writeSearchIndex(SEARCH_INDEX_PATH, index);
+  const kinds = index.rows.reduce<Record<string, number>>((acc, r) => {
+    acc[r.k] = (acc[r.k] ?? 0) + 1;
+    return acc;
+  }, {});
+  const shape = ['c', 'd', 'h', 'q', 'x'].map((k) => `${k}:${kinds[k] ?? 0}`).join(' ');
+  console.log(
+    `search-index: ${index.rows.length} rows (${shape}), ${(bytes / 1024).toFixed(0)} KB` +
+      (stale.length ? ` | ${stale.length} stale GLOBAL_INDEX entries` : ''),
+  );
+}
+
 // ──────────────────────────── Driver ──────────────────────────────
 
 async function main() {
@@ -498,6 +552,7 @@ async function main() {
   }
 
   const cardCounter = newCounter();
+  const index = new SearchIndexCollector();
 
   for (const cfg of MODULES) {
     const moduleDir = path.join(MODULES_ROOT, cfg.slug);
@@ -511,13 +566,23 @@ async function main() {
       update: { title: cfg.title, order: cfg.order },
     });
 
+    const mi = index.module(cfg.slug, cfg.title);
+
     const theoryC = newCounter();
     const exercisesC = newCounter();
     const qaC = newCounter();
 
-    const seenTheory = await syncTheory(module.id, moduleDir, theoryC);
-    const seenExercises = await syncExercises(module.id, moduleDir, exercisesC);
-    const { qaIds: seenQAIds } = await syncQAs(module.id, moduleDir, cfg, qaC, cardCounter);
+    const seenTheory = await syncTheory(module.id, moduleDir, theoryC, index, mi);
+    const seenExercises = await syncExercises(module.id, moduleDir, exercisesC, index, mi);
+    const { qaIds: seenQAIds } = await syncQAs(
+      module.id,
+      moduleDir,
+      cfg,
+      qaC,
+      cardCounter,
+      index,
+      mi,
+    );
 
     await pruneRemoved(module.id, seenTheory, seenExercises, seenQAIds, {
       theory: theoryC,
@@ -533,6 +598,8 @@ async function main() {
     );
   }
   console.log(`auto-flashcards: +${cardCounter.added} ~${cardCounter.updated} -${cardCounter.removed}`);
+
+  await buildSearchIndex(index);
   await prisma.$disconnect();
 }
 

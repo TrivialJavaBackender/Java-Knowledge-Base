@@ -31,5 +31,8 @@ export async function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/((?!_next/static|_next/image|favicon.ico).*)'],
+  // `search-index.json` is excluded so it is served as a plain CDN asset from
+  // an edge near the reader instead of a function next to the database. It
+  // holds only headings and concept names — no article bodies.
+  matcher: ['/((?!_next/static|_next/image|favicon.ico|search-index.json).*)'],
 };

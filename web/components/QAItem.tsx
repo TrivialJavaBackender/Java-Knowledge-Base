@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ToggleQAKnown } from './ToggleProgress';
 
 export function QAItem({
@@ -19,8 +19,24 @@ export function QAItem({
   initialKnown: boolean;
 }) {
   const [open, setOpen] = useState(false);
+
+  // Search links here as `#qa-<qNumber>` — a natural key, so the anchor
+  // survives re-imports the way the rest of the content keys do. Next scrolls
+  // to it on navigation; expanding the answer is on us.
+  const anchor = `qa-${qNumber}`;
+  useEffect(() => {
+    function openIfTargeted() {
+      if (window.location.hash !== `#${anchor}`) return;
+      setOpen(true);
+      document.getElementById(anchor)?.scrollIntoView({ block: 'start' });
+    }
+    openIfTargeted();
+    window.addEventListener('hashchange', openIfTargeted);
+    return () => window.removeEventListener('hashchange', openIfTargeted);
+  }, [anchor]);
+
   return (
-    <div className="rounded border border-border bg-bg-card transition">
+    <div id={anchor} className="scroll-mt-24 rounded border border-border bg-bg-card transition">
       <div className="flex items-start gap-3 p-3">
         <div className="pt-0.5">
           <ToggleQAKnown id={id} initial={initialKnown} />

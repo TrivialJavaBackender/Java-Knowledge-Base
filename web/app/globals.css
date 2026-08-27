@@ -59,6 +59,10 @@ body {
   max-width: none;
 }
 
+.prose :is(h1, h2, h3, h4) {
+  scroll-margin-top: 5rem;
+}
+
 .prose pre {
   background: var(--code-bg) !important;
   border: 1px solid var(--border);

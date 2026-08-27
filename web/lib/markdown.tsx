@@ -1,4 +1,5 @@
-import { marked } from 'marked';
+import { marked, Marked } from 'marked';
+import { slugifyHeading, uniqueAnchor } from './slugify';
 import { createHighlighter, type Highlighter } from 'shiki';
 
 let highlighterPromise: Promise<Highlighter> | null = null;
@@ -25,7 +26,33 @@ async function highlight(code: string, lang: string): Promise<string> {
   return hl.codeToHtml(code, { lang: safe, theme: 'github-dark-default' });
 }
 
-marked.setOptions({ gfm: true, breaks: false });
+const MARKED_OPTIONS = { gfm: true, breaks: false };
+
+marked.setOptions(MARKED_OPTIONS);
+
+/**
+ * Parser whose heading renderer emits stable `id`s, so theory pages can be
+ * deep-linked to a section (search results, cross-file `…#anchor` links).
+ * A fresh instance per document keeps the "anchors already used here" map
+ * local: `marked.use()` is global, and Q&A answers render concurrently.
+ *
+ * Anchors must match `scripts/search-index.ts`, which slugifies the same raw
+ * heading text in the same document order.
+ */
+function anchoredMarked(): Marked {
+  const seen = new Map<string, number>();
+  const md = new Marked(MARKED_OPTIONS);
+  md.use({
+    renderer: {
+      heading(token) {
+        const id = uniqueAnchor(seen, slugifyHeading(token.text));
+        const inner = this.parser.parseInline(token.tokens);
+        return `<h${token.depth} id="${id}">${inner}</h${token.depth}>\n`;
+      },
+    },
+  });
+  return md;
+}
 
 interface CodeBlockToken {
   placeholder: string;
@@ -41,7 +68,7 @@ interface CodeBlockToken {
  *   3. Async-highlight each code block with Shiki.
  *   4. Replace placeholders in the final HTML with Shiki HTML.
  */
-async function renderMarkdownToHtml(source: string): Promise<string> {
+async function renderMarkdownToHtml(source: string, anchors = false): Promise<string> {
   const blocks: CodeBlockToken[] = [];
   const stripped = source.replace(
     /```([a-zA-Z0-9_+-]*)\r?\n([\s\S]*?)```/g,
@@ -52,7 +79,7 @@ async function renderMarkdownToHtml(source: string): Promise<string> {
     },
   );
 
-  let html = await marked.parse(stripped);
+  let html = await (anchors ? anchoredMarked() : marked).parse(stripped);
 
   for (const block of blocks) {
     const replacement =
@@ -171,7 +198,7 @@ export async function MarkdownView({
   source: string;
   moduleSlug?: string;
 }) {
-  let html = await renderMarkdownToHtml(source);
+  let html = await renderMarkdownToHtml(source, true);
   if (moduleSlug) html = rewriteInternalLinks(html, moduleSlug);
   return <div className="prose" dangerouslySetInnerHTML={{ __html: html }} />;
 }

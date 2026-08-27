@@ -45,6 +45,7 @@ modules/*/.build/
 web/node_modules/
 web/.next/
 web/out/
+web/public/search-index.json
 web/prisma/dev.db
 web/prisma/dev-1.db
 web/prisma/dev.db-journal
