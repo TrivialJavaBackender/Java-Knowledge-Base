@@ -21,12 +21,25 @@ export interface ParsedSection {
   qas: ParsedQA[];
 }
 
+/** Горизонтальная линейка: `---`, `***`, `___`. */
+const HR_RE = /^\s{0,3}(-{3,}|\*{3,}|_{3,})\s*$/;
+
 export function trimAnswer(raw: string): { answer: string; sourceRef?: string } {
   let answer = raw.trim();
   let sourceRef: string | undefined;
   // Trailing `> ...` line is a citation in qa-bold style.
   const lines = answer.split('\n');
-  while (lines.length > 0 && lines[lines.length - 1].trim() === '') lines.pop();
+  // Разделитель между секциями (`---` перед следующим `## `) попадает в конец
+  // блока ответа: границей слайса он не считается. Пока его не отбрасывали,
+  // именно он оказывался последней непустой строкой, и цитата строкой выше
+  // молча не читалась — так терялись ссылки в каждом модуле, где секции
+  // разделены линейкой.
+  while (
+    lines.length > 0 &&
+    (lines[lines.length - 1].trim() === '' || HR_RE.test(lines[lines.length - 1]))
+  ) {
+    lines.pop();
+  }
   if (lines.length > 0 && lines[lines.length - 1].trimStart().startsWith('>')) {
     sourceRef = lines.pop()!.replace(/^\s*>\s*/, '').trim();
     while (lines.length > 0 && lines[lines.length - 1].trim() === '') lines.pop();

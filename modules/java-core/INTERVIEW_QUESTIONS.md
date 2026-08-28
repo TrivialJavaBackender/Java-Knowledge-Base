@@ -12,9 +12,7 @@
 
 Выбор: G1 — default; ZGC — если pause-budget < 10 ms критичен (trading, real-time); Shenandoah — Red Hat OpenJDK / large heap.
 
-> JEP 333 (ZGC), JEP 379 (Shenandoah), JEP 439 (Generational ZGC)
-
----
+> theory/GARBAGE_COLLECTION.md §7
 
 ### Q2: Что такое safepoint и почему длинный tight loop может вызвать pause time bug?
 
@@ -27,7 +25,7 @@
 - разбить loop на chunks с явным safepoint (например, метод-вызов внутри);
 - избегать gigantic tight loops без I/O.
 
----
+> theory/GARBAGE_COLLECTION.md §8
 
 ### Q3: Зачем нужны write barriers и в чём разница между SATB и Incremental Update?
 
@@ -39,7 +37,7 @@
 
 SATB более консервативен (может оставить уже умершие объекты до next GC), но проще и быстрее. Incremental update точнее, но дороже на каждой записи.
 
----
+> theory/GARBAGE_COLLECTION.md §6
 
 ## 2. JVM Memory Areas
 
@@ -56,7 +54,7 @@ SATB более консервативен (может оставить уже �
 
 Если `-Xmx == container_limit`, любой рост non-heap → cgroup OOMKiller убьёт процесс. Правильно: `-XX:MaxRAMPercentage=75` (адаптивно к limit) с резервом 25–30% на non-heap, или явно `-Xmx = limit × 0.7`. И **`-XX:+UseContainerSupport`** (on by default since 10) — JVM читает cgroup limits.
 
----
+> theory/JVM_MEMORY_AREAS.md §8
 
 ### Q5: Что такое Metaspace и почему он может расти бесконечно?
 
@@ -70,7 +68,7 @@ Default `-XX:MaxMetaspaceSize = unlimited` → может расти, пока �
 
 Лечение: всегда ставить `-XX:MaxMetaspaceSize=256m` (или сколько нужно) — лучше явный OOM, чем медленная деградация узла.
 
----
+> theory/JVM_MEMORY_AREAS.md §3
 
 ## 3. Class Loaders
 
@@ -89,7 +87,7 @@ Default `-XX:MaxMetaspaceSize = unlimited` → может расти, пока �
 
 Цена нарушения: возможны два разных `Class` для одного FQN из разных CL → `ClassCastException: com.X cannot be cast to com.X` (любимый wtf-момент в production).
 
----
+> theory/CLASS_LOADERS.md §3
 
 ### Q7: Чем `ClassNotFoundException` отличается от `NoClassDefFoundError`?
 
@@ -104,7 +102,7 @@ Default `-XX:MaxMetaspaceSize = unlimited` → может расти, пока �
 
 Другой сценарий — class был на compile classpath, нет на runtime classpath (Maven scope mismatch).
 
----
+> theory/CLASS_LOADERS.md §5
 
 ### Q8: Как происходит классическая утечка ClassLoader (Tomcat redeploy scenario)?
 
@@ -126,7 +124,7 @@ Default `-XX:MaxMetaspaceSize = unlimited` → может расти, пока �
 - unregister всех MBean / shutdown hooks;
 - Tomcat's "Find leaks" feature использует heap dump для поиска зомби-CL.
 
----
+> theory/CLASS_LOADERS.md §7
 
 ## 4. JIT Compilation
 
@@ -146,7 +144,7 @@ Hot-метод проходит `0 → 3 → 4`. Уровни 1/2 — для к�
 
 Без tiered (`-XX:-TieredCompilation`) — сразу `0 → 4`, медленный warmup, но финальный код такой же.
 
----
+> theory/JIT_COMPILATION.md §2
 
 ### Q10: Что такое escape analysis и какие optimizations она открывает?
 
@@ -161,9 +159,7 @@ Hot-метод проходит `0 → 3 → 4`. Уровни 1/2 — для к�
 
 EA — одна из главных причин, почему «лишние объекты» в Java дёшевы для JIT.
 
-> JEP 169 (EA)
-
----
+> theory/JIT_COMPILATION.md §3
 
 ### Q11: Что такое deoptimization и какие триггеры её вызывают?
 
@@ -179,7 +175,7 @@ EA — одна из главных причин, почему «лишние о
 
 Лог: `-XX:+UnlockDiagnosticVMOptions -XX:+TraceDeoptimization`.
 
----
+> theory/JIT_COMPILATION.md §4
 
 ## 5. String Internals
 
@@ -196,7 +192,7 @@ API остаётся прежним (`charAt`, `length`), но внутри ес
 
 Эффект: в ASCII-нагруженных приложениях (логи, JSON-keys, HTTP-headers) heap сокращается на 10–30%. В UI/мультиязычных — мало. Hot loops становятся чуть медленнее из-за branch'а (можно отключить `-XX:-CompactStrings` для бенчмарка).
 
----
+> theory/STRING_INTERNALS.md §2
 
 ### Q13: Как работает `+` для строк в Java 9+ и почему это лучше StringBuilder?
 
@@ -218,9 +214,7 @@ invokedynamic makeConcatWithConstants ("Hello, \1!", ...)
 - backward-compatible — старый bytecode с `StringBuilder.append` продолжает работать;
 - стратегию можно менять в JVM без перекомпиляции пользовательского кода.
 
-> JEP 280
-
----
+> theory/STRING_INTERNALS.md §4
 
 ## 6. Bytecode & invokedynamic
 
@@ -242,7 +236,7 @@ JDK сам использует:
 
 JIT inline-ит resolved CallSite **как direct call** — нет оверхеда после bootstrap.
 
----
+> theory/BYTECODE_INVOKEDYNAMIC.md §7
 
 ### Q15: Как создаётся lambda в bytecode? Есть ли у неё .class файл на диске?
 
@@ -268,9 +262,7 @@ invokedynamic apply (LambdaMetafactory.metafactory bootstrap)
 
 Поэтому stack trace часто содержит загадочные `MyClass$$Lambda$1/0x000abc.apply` — это синтетические lambda-классы.
 
-> JEP 276 (Dynamic Linking of Language-Defined Object Models, lambda) + JEP 371 (Hidden Classes)
-
----
+> theory/BYTECODE_INVOKEDYNAMIC.md §9
 
 ## 7. Reflection, MethodHandle, VarHandle
 
@@ -291,7 +283,7 @@ invokedynamic apply (LambdaMetafactory.metafactory bootstrap)
 - **MethodHandle** — для performance в indirect calls (DI-фреймворки, language runtimes). Composable через combinators (`bindTo`, `insertArguments`, `filterArguments`).
 - **VarHandle** — для concurrency primitives: lock-free counter, CAS, replace AtomicLongFieldUpdater. Поддерживает 5 access modes: plain / opaque / acquire-release / volatile / atomic ops.
 
----
+> theory/REFLECTION_HANDLES.md §1
 
 ### Q17: Что такое access modes у VarHandle и какие гарантии они дают?
 
@@ -305,9 +297,7 @@ invokedynamic apply (LambdaMetafactory.metafactory bootstrap)
 
 Зачем уровни: позволяют lock-free алгоритмам использовать **минимальный** уровень синхронизации, не платя за volatile, когда хватает acquire/release (Disruptor LMAX, очереди с одним producer/consumer).
 
-> JEP 193 (VarHandle), JLS §17 (JMM access modes)
-
----
+> theory/REFLECTION_HANDLES.md §7
 
 ## 8. JPMS
 
@@ -329,9 +319,7 @@ Use case: модуль re-exports API другого модуля через с�
 
 Это «implementation hiding decision»: автор модуля решает, **показать ли** транзитивную зависимость в API.
 
-> JLS §7 (модули), JEP 261
-
----
+> theory/JPMS_MODULES.md §2
 
 ## 9. Generics & Type Erasure
 
@@ -350,7 +338,7 @@ Use case: модуль re-exports API другого модуля через с�
 
 Reified generics (Kotlin `reified` через `inline`) — compile-time trick, не Java solution.
 
----
+> theory/GENERICS_ERASURE.md §2
 
 ### Q20: Что такое bridge method? Зачем компилятор их генерирует?
 
@@ -376,7 +364,7 @@ Bridge помечен ACC_SYNTHETIC | ACC_BRIDGE, видим в `javap`. `Method
 
 Аналогично с возвратными типами (`@Override` `Number` → `Integer`) — covariant return types через bridge.
 
----
+> theory/GENERICS_ERASURE.md §3
 
 ## 10. equals / hashCode / Comparable
 
@@ -402,7 +390,7 @@ Bridge помечен ACC_SYNTHETIC | ACC_BRIDGE, видим в `javap`. `Method
 - **Symmetric ломается при наследовании** с `instanceof`-проверкой и subclass добавил поле → red(1,2).equals(plain(1,2)) ≠ обратно.
 - **TreeMap inconsistency с equals** — TreeMap использует `compareTo`, не equals; `BigDecimal("1.0").compareTo("1.00") == 0` но `equals == false` → keys сливаются.
 
----
+> theory/EQUALS_HASHCODE_COMPARABLE.md §2
 
 ### Q22: Чем `Comparable` отличается от `Comparator` и где появляется TreeMap pitfall с BigDecimal?
 
@@ -428,7 +416,7 @@ h.size();   // 2
 
 Это **легально по `SortedMap` контракту** — он явно говорит «может быть inconsistent с equals», но удивляет на собеседовании. Для BigDecimal — использовать HashMap или нормализовать через `stripTrailingZeros`.
 
----
+> theory/EQUALS_HASHCODE_COMPARABLE.md §5
 
 ## 11. Exception Internals
 
@@ -451,7 +439,7 @@ class FastException extends RuntimeException {
 
 Дополнительно: HotSpot оптимизация **`-XX:-OmitStackTraceInFastThrow`** — после warmup JVM кидает singleton встроенных exception (NPE, ArrayIndexOutOfBounds) **без стэка** — `null` trace. Чинится `-XX:-OmitStackTraceInFastThrow` (в dev/staging).
 
----
+> theory/EXCEPTION_INTERNALS.md §4
 
 ### Q24: Как работает try-with-resources и что такое suppressed exception?
 
@@ -486,7 +474,7 @@ IOException: from try
 
 Resource должен реализовать `AutoCloseable` (или `Closeable`). С Java 9 — `try (existingFinalVar) { ... }` без объявления (effectively final var).
 
----
+> theory/EXCEPTION_INTERNALS.md §7
 
 ## 12. Modern Java Features
 
@@ -509,9 +497,7 @@ Subclass должен быть `final`, `sealed`, или `non-sealed` (явно 
 2. **ADT (Algebraic Data Types)**: record (product) + sealed (sum) = ADT из functional languages. Чистая моделька для Domain.
 3. **API stability**: библиотека публикует sealed interface — пользователи **не могут** создать свои implementations → автор гарантирует backward compatibility.
 
-> JEP 409
-
----
+> theory/MODERN_JAVA_FEATURES.md §3
 
 ### Q26: Что такое record patterns и где они полезны?
 
@@ -542,9 +528,7 @@ double length(Line line) {
 
 Под капотом — bytecode через invokedynamic → `SwitchBootstraps.typeSwitch`. Компилятор может оптимизировать в jump table.
 
-> JEP 440
-
----
+> theory/MODERN_JAVA_FEATURES.md §4
 
 ### Q27: Что можно делать с `var` и что нельзя? Какие style guidelines?
 
@@ -571,7 +555,7 @@ double length(Line line) {
 - ❌ как сокращение для маленьких primitives: `var x = 0;` — лишний;
 - `var` — **не keyword** (reserved type name), можно иметь поле `int var`. Но `class var {}` нельзя.
 
----
+> theory/MODERN_JAVA_FEATURES.md §6
 
 ## 13. Foreign Memory & Vector API
 
@@ -614,9 +598,7 @@ MethodHandle mh = linker.downcallHandle(strlen,
 - **Foreign Linker заменяет JNI** без C-обёрток;
 - **JIT-friendly intrinsics**.
 
-> JEP 454
-
----
+> theory/FOREIGN_MEMORY_VECTOR.md §1
 
 ## 14. Serialization
 
@@ -645,9 +627,7 @@ InvokerTransformer → ChainedTransformer → LazyMap → AnnotationInvocationHa
    Или JVM-флаг `-Djdk.serialFilter="..."`.
 3. **JEP 415** (Java 17+) — context-specific filter factory для per-stream правил.
 
-> JEP 290, JEP 415
-
----
+> theory/SERIALIZATION.md §7
 
 ## 15. JMM Reference
 
@@ -662,4 +642,4 @@ InvokerTransformer → ChainedTransformer → LazyMap → AnnotationInvocationHa
 
 Файл [`JMM_REFERENCE.md`](theory/JMM_REFERENCE.md) — короткий cross-reference, указывающий на канонические locations в `concurrency`. Если на собесе спрашивают «знаешь JMM?» — отвечай через короткое определение happens-before и направляй на `concurrency/THREADS_BASICS.md` для деталей.
 
-> JLS §17 (Threads and Locks), JEP 188 (Java Memory Model Update)
+> theory/JMM_REFERENCE.md §3
