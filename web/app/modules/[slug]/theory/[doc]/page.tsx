@@ -11,14 +11,14 @@ import {
   extractContractHeader,
   stripLeadingH1,
   wrapContractMarkers,
-  injectSelfChecks,
-  type SelfCheckItem,
+  splitBySelfCheck,
 } from '@/lib/markdown';
 import { extractTheorySections } from '@/lib/theory-sections';
 import { ContractHeaderCards } from '@/components/theory/ContractHeaderCards';
 import { LeftNav, type NavDoc, type NavQaSection } from '@/components/theory/LeftNav';
 import { TocColumn, type TocSection } from '@/components/theory/TocColumn';
 import { QuestionsPanel, type QaCard } from '@/components/theory/QuestionsPanel';
+import { SelfCheckCard, type SelfCheckItem } from '@/components/theory/SelfCheckCard';
 import { ReadingProgress } from '@/components/theory/ReadingProgress';
 
 export const dynamic = 'force-dynamic';
@@ -128,11 +128,15 @@ export default async function TheoryPage({
   const itemsBySection = new Map<number, SelfCheckItem[]>();
   selfCheckCandidates.forEach((q, i) => {
     const item: SelfCheckItem = {
+      qaId: q.id,
       qNumber: q.qNumber,
       refSection: q.refSection!,
       questionHtml: questionHtmls[i],
       answerHtml: answerHtmlById.get(q.id)!,
       sourceRef: q.sourceRef,
+      flashcardId: q.flashcard?.id ?? null,
+      box: q.flashcard?.leitnerStates[0]?.box ?? null,
+      isKnown: knownQaMap.get(q.id) ?? false,
     };
     const arr = itemsBySection.get(q.refSection!) ?? [];
     arr.push(item);
@@ -160,12 +164,11 @@ export default async function TheoryPage({
     title: s.title,
     anchor: s.anchor,
     minutes: s.minutes,
-    qCount: s.number != null ? (qCountBySection.get(s.number) ?? 0) : 0,
+    qCount: s.refKey != null ? (qCountBySection.get(s.refKey) ?? 0) : 0,
   }));
 
-  let bodyHtml = await renderTheoryBodyHtml(bodyForRender, slug);
-  bodyHtml = wrapContractMarkers(bodyHtml);
-  bodyHtml = injectSelfChecks(bodyHtml, sections, itemsBySection);
+  const bodyHtml = wrapContractMarkers(await renderTheoryBodyHtml(bodyForRender, slug));
+  const bodyChunks = splitBySelfCheck(bodyHtml, sections, itemsBySection);
 
   let contractHeaderNode: React.ReactNode = null;
   if (extracted) {
@@ -226,7 +229,19 @@ export default async function TheoryPage({
 
             {contractHeaderNode}
 
-            <div className="prose mt-6 max-w-none" dangerouslySetInnerHTML={{ __html: bodyHtml }} />
+            {/* Тело статьи разрезано на куски вокруг плашек «Проверь себя» — они
+                интерактивные, поэтому не могут быть частью одной HTML-строки.
+                Обёртка `prose` остаётся одна на всё: typography работает по
+                вложенности, а не по прямому потомку. */}
+            <div className="prose mt-6 max-w-none">
+              {bodyChunks.map((chunk, i) =>
+                chunk.kind === 'html' ? (
+                  <div key={i} dangerouslySetInnerHTML={{ __html: chunk.html }} />
+                ) : (
+                  chunk.items.map((item) => <SelfCheckCard key={item.qaId} item={item} />)
+                ),
+              )}
+            </div>
             <MermaidInit />
 
             <nav className="mt-10 flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4 text-sm">

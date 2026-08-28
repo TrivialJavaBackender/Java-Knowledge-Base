@@ -193,9 +193,9 @@ export async function renderMarkdown(source: string): Promise<string> {
 
 /**
  * Same pipeline as `MarkdownView` (anchored headings + internal link rewrite),
- * but returns the raw HTML string instead of JSX. The theory reader (batch B2)
- * needs the string so it can post-process it — `wrapContractMarkers` /
- * `injectSelfChecks` below — before handing it to `dangerouslySetInnerHTML`.
+ * but returns the raw HTML string instead of JSX. The theory reader needs the
+ * string so it can post-process it — `wrapContractMarkers` — and cut it into
+ * chunks around the self-check callouts (`splitBySelfCheck` below).
  */
 export async function renderTheoryBodyHtml(source: string, moduleSlug: string): Promise<string> {
   const html = await renderMarkdownToHtml(source, true);
@@ -347,72 +347,68 @@ export function wrapContractMarkers(html: string): string {
 }
 
 /* ============================================================================
- * Self-check callouts (batch B2)
+ * Self-check callouts
  *
- * For a section number N, if the doc has an InterviewQA with refSection = N,
- * a "Проверь себя" callout is injected right before the next `##` heading (or
- * at the end of the doc for the last section). Pure HTML/CSS — the answer
- * reveal uses `<details>`, no client JS.
+ * Вопрос, привязанный к разделу (`> theory/FILE.md §N` → `InterviewQA.refSection`),
+ * показывается плашкой «Проверь себя» сразу под своим разделом — перед
+ * заголовком следующего `##`, а для последнего раздела в конце документа.
+ *
+ * Плашка интерактивная (отметка «Знал» / «Повторить» двигает карточку Leitner),
+ * поэтому она не может быть строкой HTML внутри уже отрендеренного тела: здесь
+ * тело только РЕЖЕТСЯ на куски, а сами плашки вставляет между ними страница
+ * читалки (app/modules/[slug]/theory/[doc]/page.tsx) компонентом SelfCheckCard.
  * ========================================================================= */
-
-export interface SelfCheckItem {
-  qNumber: number;
-  refSection: number;
-  /** Rendered via renderMarkdown — already `<p>…</p>`. */
-  questionHtml: string;
-  /** Rendered via renderMarkdown — already `<p>…</p>`. */
-  answerHtml: string;
-  sourceRef?: string | null;
-}
-
-function selfCheckHtml(item: SelfCheckItem): string {
-  const src = item.sourceRef
-    ? `<div class="mt-2 border-l-2 border-accent/40 pl-2.5 font-mono text-[11px] text-fg-subtle">${escapeHtml(item.sourceRef)}</div>`
-    : '';
-  return `<div class="not-prose my-4 flex items-start gap-2.5 rounded-lg border border-accent/30 bg-accent/5 p-3.5">
-<svg class="mt-0.5 h-[15px] w-[15px] flex-none text-accent" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><path d="M9.6 9.4a2.4 2.4 0 1 1 3.2 2.3c-.6.2-.8.7-.8 1.3"></path><circle cx="12" cy="17" r="0.7" fill="currentColor" stroke="none"></circle></svg>
-<div class="min-w-0 flex-1">
-<div class="mb-1.5 flex flex-wrap items-center gap-2"><span class="lbl text-accent">Проверь себя</span><span class="font-mono text-[10.5px] text-fg-subtle">Q${item.qNumber} · привязан к §${item.refSection}</span></div>
-<div class="prose prose-sm max-w-none text-fg [&>p]:font-medium">${item.questionHtml}</div>
-<details class="group mt-2.5">
-<summary class="inline-flex h-[27px] cursor-pointer list-none items-center rounded-md border border-accent bg-accent px-3 text-[12.5px] font-medium text-white [&::-webkit-details-marker]:hidden group-open:bg-bg-card group-open:text-accent"><span class="group-open:hidden">Показать ответ</span><span class="hidden group-open:inline">Скрыть ответ</span></summary>
-<div class="mt-2.5 rounded-md bg-bg-soft p-3"><div class="prose prose-sm max-w-none text-fg">${item.answerHtml}</div>${src}</div>
-</details>
-</div>
-</div>`;
-}
 
 interface SectionAnchor {
   index: number;
-  number: number | null;
+  /** Ключ, которым вопрос адресует раздел — см. lib/theory-sections.ts. */
+  refKey: number | null;
   anchor: string;
 }
 
+export type BodyChunk<T> = { kind: 'html'; html: string } | { kind: 'check'; items: T[] };
+
 /**
- * Splices self-check callouts into already-rendered body HTML. `sections`
- * must come from `extractTheorySections` run on the same body that produced
- * `html` (same anchors, same order) — see lib/theory-sections.ts.
+ * Режет отрендеренное тело статьи на куски по точкам вставки плашек.
+ * `sections` обязаны быть посчитаны `extractTheorySections` на том же теле, из
+ * которого получен `html`, — тогда якоря совпадают с `id`, которые реально
+ * выдал рендерер (lib/theory-sections.ts, тот же slugify и тот же порядок).
+ *
+ * Если якорь следующего раздела в html не нашёлся, плашка уходит в конец
+ * документа: потерять вопрос хуже, чем показать его не в том месте.
  */
-export function injectSelfChecks(
+export function splitBySelfCheck<T>(
   html: string,
   sections: SectionAnchor[],
-  itemsBySection: Map<number, SelfCheckItem[]>,
-): string {
-  if (itemsBySection.size === 0) return html;
-  let out = html;
+  itemsBySection: Map<number, T[]>,
+): BodyChunk<T>[] {
+  if (itemsBySection.size === 0) return [{ kind: 'html', html }];
+
+  const cuts: { at: number; items: T[] }[] = [];
+  const tail: T[] = [];
+
   for (let i = 0; i < sections.length; i++) {
     const sec = sections[i];
-    if (sec.number == null) continue;
-    const items = itemsBySection.get(sec.number);
+    if (sec.refKey == null) continue;
+    const items = itemsBySection.get(sec.refKey);
     if (!items || items.length === 0) continue;
-    const block = items.map(selfCheckHtml).join('');
+
     const next = sections[i + 1];
-    const marker = next ? `<h2 id="${next.anchor}">` : null;
-    if (marker && out.includes(marker)) {
-      out = out.replace(marker, block + marker);
-    } else {
-      out += block;
-    }
+    const at = next ? html.indexOf(`<h2 id="${next.anchor}">`) : -1;
+    if (at >= 0) cuts.push({ at, items });
+    else tail.push(...items);
   }
+
+  cuts.sort((a, b) => a.at - b.at);
+
+  const out: BodyChunk<T>[] = [];
+  let pos = 0;
+  for (const cut of cuts) {
+    out.push({ kind: 'html', html: html.slice(pos, cut.at) });
+    out.push({ kind: 'check', items: cut.items });
+    pos = cut.at;
+  }
+  out.push({ kind: 'html', html: html.slice(pos) });
+  if (tail.length > 0) out.push({ kind: 'check', items: tail });
   return out;
 }

@@ -13,6 +13,10 @@
  * (scripts/search-index.ts:36-62). Если считать дубли только по h2, якоря
  * разъедутся с тем, что реально отрисует MarkdownView.
  *
+ * Вопрос адресует раздел через `refKey` (см. поле): в пронумерованном документе
+ * это печатный номер, в документе без нумерации — позиция раздела. Так плашка
+ * «Проверь себя» работает и там, где заголовки не нумеруют.
+ *
  * Fenced-блоки ``` / ~~~ пропускаются при поиске заголовков (заголовок внутри
  * блока кода — не заголовок), но из подсчёта слов НЕ выбрасываются: в теории
  * внутри ``` лежат не только листинги, а схемы, прогоны и расчёты — то есть
@@ -27,9 +31,19 @@ export interface TheorySection {
   index: number;
   /** N из `## N. Заголовок`; null, если заголовок без номера. */
   number: number | null;
+  /**
+   * Ключ, которым в вопрос-ссылке `> theory/FILE.md §N` адресуется этот раздел.
+   * В документе с нумерацией это её номер; в документе, где не пронумерован ни
+   * один `##`, — позиция раздела, считая с единицы. Смешивать нельзя: если у
+   * части разделов номер есть, у остальных `refKey` = null, иначе позиция
+   * одного раздела совпала бы с печатным номером другого.
+   */
+  refKey: number | null;
   /** Заголовок без префикса `N. ` и без инлайн-markdown. */
   title: string;
   anchor: string;
+  /** Номер строки заголовка в исходнике, считая с единицы. */
+  line: number;
   /** Число слов раздела (текст до следующего `##`; код внутри ``` — с весом CODE_WEIGHT). */
   words: number;
   /** `Math.max(1, Math.round(words / WORDS_PER_MINUTE))`. */
@@ -131,17 +145,22 @@ export function extractTheorySections(body: string): TheoryAggregate {
     if (h.level === 2) h2.push({ raw: h.raw, line: h.line, anchor });
   }
 
+  const anyNumbered = h2.some((h) => LEADING_NUMBER_RE.test(h.raw));
+
   const sections: TheorySection[] = h2.map((h, i) => {
     const start = h.line + 1;
     const end = i + 1 < h2.length ? h2[i + 1].line : lines.length;
     const sectionWords = countWords(lines.slice(start, end).join('\n'));
     const numMatch = h.raw.match(LEADING_NUMBER_RE);
     const title = headingText(numMatch ? numMatch[2] : h.raw);
+    const number = numMatch ? parseInt(numMatch[1], 10) : null;
     return {
       index: i,
-      number: numMatch ? parseInt(numMatch[1], 10) : null,
+      number,
+      refKey: anyNumbered ? number : i + 1,
       title,
       anchor: h.anchor,
+      line: h.line + 1,
       words: Math.round(sectionWords),
       minutes: minutesFor(sectionWords),
     };

@@ -14,6 +14,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { MODULES, type ModuleConfig } from '../content.config';
 import { extractTheorySections } from '../lib/theory-sections';
+import { parseQA, parseTheoryRef } from './qa-parse';
 import { SearchIndexCollector, readConcepts, writeSearchIndex } from './search-index';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -79,14 +80,22 @@ async function readRoadmapTheoryOrder(moduleDir: string): Promise<Map<string, nu
   return out;
 }
 
+/**
+ * Ключи разделов каждого документа теории: `slug` → `refKey` всех его `##`.
+ * Нужны syncQAs, чтобы проверить ссылку `> theory/FILE.md §N` — без этого
+ * промах (нет файла, номер вне диапазона) просто не рендерил бы плашку, и
+ * никто бы об этом не узнал.
+ */
+type TheoryKeys = Map<string, number[]>;
+
 async function syncTheory(
   moduleId: number,
   moduleDir: string,
   c: Counter,
   index: SearchIndexCollector,
   mi: number,
-): Promise<Set<string>> {
-  const seen = new Set<string>();
+): Promise<TheoryKeys> {
+  const seen: TheoryKeys = new Map();
   const dir = path.join(moduleDir, 'theory');
   if (!(await exists(dir))) return seen;
 
@@ -99,8 +108,11 @@ async function syncTheory(
     const title = extractTitle(body, slug);
     const hash = sha(body);
     const order = orderMap.get(slug) ?? 999;
-    const { sectionCount, readingMinutes } = extractTheorySections(body);
-    seen.add(slug);
+    const { sections, sectionCount, readingMinutes } = extractTheorySections(body);
+    seen.set(
+      slug,
+      sections.map((x) => x.refKey).filter((k): k is number => k != null),
+    );
     index.theory(mi, slug, title, body);
 
     const existing = await prisma.theoryDoc.findUnique({
@@ -193,200 +205,6 @@ async function syncExercises(
   return seen;
 }
 
-// ─────────────────────────── QA Parsers ───────────────────────────
-
-interface ParsedQA {
-  qNumber: number;
-  question: string;
-  answer: string;
-  sourceRef?: string;
-}
-interface ParsedSection {
-  number: number;
-  title: string;
-  qas: ParsedQA[];
-}
-
-function trimAnswer(raw: string): { answer: string; sourceRef?: string } {
-  let answer = raw.trim();
-  let sourceRef: string | undefined;
-  // Trailing `> ...` line is a citation in qa-bold style.
-  const lines = answer.split('\n');
-  while (lines.length > 0 && lines[lines.length - 1].trim() === '') lines.pop();
-  if (lines.length > 0 && lines[lines.length - 1].trimStart().startsWith('>')) {
-    sourceRef = lines.pop()!.replace(/^\s*>\s*/, '').trim();
-    while (lines.length > 0 && lines[lines.length - 1].trim() === '') lines.pop();
-    answer = lines.join('\n');
-  }
-  return { answer: answer.trim(), sourceRef };
-}
-
-/**
- * `sourceRef` deep-links into a theory section — but only when it actually
- * names one: `theory/FILE.md §N`. Most refs cite a spec or a book (`JCP §6.3.2`,
- * `JLS §17.4.5`, `spec.graphql.org §6.2`) — those are not anchors and must not
- * parse into one. The `theory/` prefix is what tells the two apart.
- */
-const THEORY_REF_RE = /^theory\/([A-Za-z][A-Za-z0-9_-]*)\.md\s*§\s*(\d+)/;
-
-function parseTheoryRef(sourceRef: string | undefined): { refDocSlug?: string; refSection?: number } {
-  if (!sourceRef) return {};
-  const m = sourceRef.match(THEORY_REF_RE);
-  if (!m) return {};
-  return { refDocSlug: m[1], refSection: parseInt(m[2], 10) };
-}
-
-interface SectionMark { idx: number; raw: string }
-interface QAMark { idx: number; qNumber: number; question: string }
-
-function findAllSections(text: string): SectionMark[] {
-  const re = /^## (.+?)\s*$/gm;
-  const out: SectionMark[] = [];
-  for (const m of text.matchAll(re)) {
-    out.push({ idx: m.index!, raw: m[1].trim() });
-  }
-  return out;
-}
-
-function sectionNumber(raw: string, fallback: number): number {
-  const m = raw.match(/^(\d+)\./);
-  return m ? parseInt(m[1], 10) : fallback;
-}
-
-function sectionTitle(raw: string): string {
-  return raw.replace(/^\d+\.\s*/, '').trim();
-}
-
-/** Group QAs by surrounding `## ` headings (any heading style — numbered or not). */
-function groupBySections(text: string, qas: (QAMark & ParsedQA)[]): ParsedSection[] {
-  const sectionMarks = findAllSections(text);
-  const sections: ParsedSection[] = sectionMarks.map((s, i) => ({
-    number: sectionNumber(s.raw, i + 1),
-    title: sectionTitle(s.raw),
-    qas: [],
-  }));
-  if (sections.length === 0) {
-    sections.push({ number: 1, title: '(no section)', qas: [] });
-  }
-  for (const q of qas) {
-    let idx = 0;
-    for (let i = 0; i < sectionMarks.length; i++) {
-      if (sectionMarks[i].idx <= q.idx) idx = i;
-      else break;
-    }
-    sections[idx].qas.push({
-      qNumber: q.qNumber,
-      question: q.question,
-      answer: q.answer,
-      sourceRef: q.sourceRef,
-    });
-  }
-  return sections.filter((s) => s.qas.length > 0);
-}
-
-/** Format A: any `## ...` section + `### QN: ...\n**A:** ...` body. */
-function parseQABold(text: string): ParsedSection[] {
-  const headRe = /^### Q(\d+):\s*(.+?)\s*$/gm;
-  const heads: { idx: number; qNumber: number; question: string }[] = [];
-  for (const m of text.matchAll(headRe)) {
-    heads.push({ idx: m.index!, qNumber: parseInt(m[1], 10), question: m[2].trim() });
-  }
-  const sectionMarks = findAllSections(text);
-  const qas: (QAMark & ParsedQA)[] = [];
-  for (let i = 0; i < heads.length; i++) {
-    const h = heads[i];
-    const nextHead = heads[i + 1]?.idx ?? Number.MAX_SAFE_INTEGER;
-    const nextSection = sectionMarks.find((s) => s.idx > h.idx)?.idx ?? Number.MAX_SAFE_INTEGER;
-    const end = Math.min(nextHead, nextSection, text.length);
-    const slice = text.slice(h.idx, end);
-    // Drop the heading line, find **A:** marker.
-    const afterHead = slice.replace(/^### Q\d+:.+?(\r?\n)/, '');
-    const aMatch = afterHead.match(/\*\*A:\*\*\s*([\s\S]*)/);
-    const raw = aMatch ? aMatch[1] : afterHead;
-    const { answer, sourceRef } = trimAnswer(raw);
-    qas.push({ idx: h.idx, qNumber: h.qNumber, question: h.question, answer, sourceRef });
-  }
-  return groupBySections(text, qas);
-}
-
-/** Format B (spring): any `## ...` section + `**Q1. ...?**` blocks. */
-function parseQAsterisk(text: string): ParsedSection[] {
-  const headRe = /^\*\*Q(\d+)\.\s*(.+?)\*\*\s*$/gm;
-  const heads: { idx: number; qNumber: number; question: string }[] = [];
-  for (const m of text.matchAll(headRe)) {
-    heads.push({ idx: m.index!, qNumber: parseInt(m[1], 10), question: m[2].trim() });
-  }
-  const sectionMarks = findAllSections(text);
-  const qas: (QAMark & ParsedQA)[] = [];
-  for (let i = 0; i < heads.length; i++) {
-    const h = heads[i];
-    const nextHead = heads[i + 1]?.idx ?? Number.MAX_SAFE_INTEGER;
-    const nextSection = sectionMarks.find((s) => s.idx > h.idx)?.idx ?? Number.MAX_SAFE_INTEGER;
-    const end = Math.min(nextHead, nextSection, text.length);
-    const slice = text.slice(h.idx, end);
-    // Drop the heading line.
-    const afterHead = slice.replace(/^\*\*Q\d+\..+?\*\*\s*\r?\n/, '');
-    // Strip trailing `---` separators.
-    const cleaned = afterHead.replace(/\n---\s*\n?$/, '');
-    const { answer, sourceRef } = trimAnswer(cleaned);
-    qas.push({ idx: h.idx, qNumber: h.qNumber, question: h.question, answer, sourceRef });
-  }
-  return groupBySections(text, qas);
-}
-
-/** Format C (caching): `## N. Title` is both section and the only Q. */
-function parseHeadingAsQ(text: string): ParsedSection[] {
-  const sections: ParsedSection[] = [];
-  const re = /^## (\d+)\.\s*(.+?)\s*$/gm;
-  const matches: { idx: number; number: number; title: string }[] = [];
-  for (const m of text.matchAll(re)) {
-    matches.push({ idx: m.index!, number: parseInt(m[1], 10), title: m[2].trim() });
-  }
-  for (let i = 0; i < matches.length; i++) {
-    const start = matches[i].idx;
-    const end = i + 1 < matches.length ? matches[i + 1].idx : text.length;
-    const body = text.slice(start, end);
-    // Strip the heading itself
-    const after = body.replace(/^## .+?\n/, '');
-    // Strip trailing horizontal rule
-    const cleaned = after.replace(/\n---\s*\n?$/, '').trim();
-    const { answer, sourceRef } = trimAnswer(cleaned);
-    sections.push({
-      number: matches[i].number,
-      title: matches[i].title,
-      qas: [
-        {
-          qNumber: matches[i].number,
-          question: matches[i].title,
-          answer,
-          sourceRef,
-        },
-      ],
-    });
-  }
-  return sections;
-}
-
-function parseQA(text: string, cfg: ModuleConfig): ParsedSection[] {
-  switch (cfg.qaFormat) {
-    case 'q-asterisk':
-      return parseQAsterisk(text);
-    case 'heading-as-q':
-      return parseHeadingAsQ(text);
-    case 'qa-bold':
-    default: {
-      const out = parseQABold(text);
-      // Fallback: if qa-bold yields nothing useful, try the others.
-      const qaCount = out.reduce((s, x) => s + x.qas.length, 0);
-      if (qaCount > 0) return out;
-      const alt = parseQAsterisk(text);
-      const altCount = alt.reduce((s, x) => s + x.qas.length, 0);
-      if (altCount > 0) return alt;
-      return parseHeadingAsQ(text);
-    }
-  }
-}
-
 // ─────────────────────────── Q&A sync ─────────────────────────────
 
 async function syncQAs(
@@ -397,10 +215,13 @@ async function syncQAs(
   cardCounter: Counter,
   index: SearchIndexCollector,
   mi: number,
-): Promise<{ qaIds: Set<number> }> {
+  theoryKeys: TheoryKeys,
+): Promise<{ qaIds: Set<number>; linked: number; total: number }> {
   const file = path.join(moduleDir, 'INTERVIEW_QUESTIONS.md');
   const qaIds = new Set<number>();
-  if (!(await exists(file))) return { qaIds };
+  let linked = 0;
+  let total = 0;
+  if (!(await exists(file))) return { qaIds, linked, total };
 
   const text = await readFile(file, 'utf8');
   const parsed = parseQA(text, cfg);
@@ -417,6 +238,22 @@ async function syncQAs(
       index.qa(mi, q.qNumber, q.question);
 
       const { refDocSlug, refSection } = parseTheoryRef(q.sourceRef);
+      total++;
+      if (refDocSlug) {
+        const keys = theoryKeys.get(refDocSlug);
+        if (!keys) {
+          console.warn(
+            `! bad theory ref: ${cfg.slug} Q${q.qNumber} → theory/${refDocSlug}.md (нет такого файла)`,
+          );
+        } else if (refSection != null && !keys.includes(refSection)) {
+          console.warn(
+            `! bad theory ref: ${cfg.slug} Q${q.qNumber} → theory/${refDocSlug}.md §${refSection} ` +
+              `(разделы документа: ${keys.length > 0 ? keys.join(', ') : 'нет'})`,
+          );
+        } else {
+          linked++;
+        }
+      }
       const slice = `${q.question}\n\n${q.answer}\n${q.sourceRef ?? ''}\n${refDocSlug ?? ''}\n${refSection ?? ''}`;
       const hash = sha(slice);
       const existing = await prisma.interviewQA.findUnique({
@@ -488,7 +325,7 @@ async function syncQAs(
       qaIds.add(qaId);
     }
   }
-  return { qaIds };
+  return { qaIds, linked, total };
 }
 
 // ─────────────────────────── Cleanup ──────────────────────────────
@@ -598,7 +435,7 @@ async function main() {
 
     const seenTheory = await syncTheory(module.id, moduleDir, theoryC, index, mi);
     const seenExercises = await syncExercises(module.id, moduleDir, exercisesC, index, mi);
-    const { qaIds: seenQAIds } = await syncQAs(
+    const { qaIds: seenQAIds, linked, total } = await syncQAs(
       module.id,
       moduleDir,
       cfg,
@@ -606,9 +443,10 @@ async function main() {
       cardCounter,
       index,
       mi,
+      seenTheory,
     );
 
-    await pruneRemoved(module.id, seenTheory, seenExercises, seenQAIds, {
+    await pruneRemoved(module.id, new Set(seenTheory.keys()), seenExercises, seenQAIds, {
       theory: theoryC,
       exercises: exercisesC,
       qa: qaC,
@@ -618,7 +456,8 @@ async function main() {
     const fmt = (c: Counter) =>
       `+${c.added} ~${c.updated} =${c.unchanged} -${c.removed}`;
     console.log(
-      `[${cfg.slug}] theory ${fmt(theoryC)} | exercises ${fmt(exercisesC)} | qa ${fmt(qaC)}`,
+      `[${cfg.slug}] theory ${fmt(theoryC)} | exercises ${fmt(exercisesC)} | qa ${fmt(qaC)}` +
+        ` | linked ${linked}/${total}`,
     );
   }
   console.log(`auto-flashcards: +${cardCounter.added} ~${cardCounter.updated} -${cardCounter.removed}`);
