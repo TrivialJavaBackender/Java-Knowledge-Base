@@ -56,8 +56,8 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeBootScript }} />
       </head>
-      <body className="flex h-screen flex-col overflow-hidden bg-bg text-fg">
-        <header className="flex h-[52px] flex-none items-center gap-4 border-b border-border bg-bg-soft px-3.5">
+      <body className="flex h-dvh flex-col overflow-hidden bg-bg text-fg">
+        <header className="flex h-[52px] flex-none items-center gap-2 border-b border-border bg-bg-soft px-2 sm:gap-4 sm:px-3.5">
           {/* Лого — слева, ведёт на дашборд */}
           <div className="flex flex-none items-center gap-2.5">
             <Link href="/" className="flex items-center gap-2.5 text-[17px] font-semibold tracking-tight text-fg">
@@ -79,10 +79,10 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           </div>
 
           {/* Повторение / карточки / тема / профиль — справа */}
-          <div className="flex flex-none items-center gap-2">
+          <div className="flex flex-none items-center gap-1.5 sm:gap-2">
             <Link
               href="/flashcards"
-              className="flex h-[30px] items-center gap-1.5 rounded-md border border-[color-mix(in_oklab,var(--accent)_45%,var(--border))] bg-accent-soft px-2.5 text-[13px] text-accent hover:bg-accent/20"
+              className="flex h-[30px] items-center gap-1 rounded-md border border-[color-mix(in_oklab,var(--accent)_45%,var(--border))] bg-accent-soft px-2 text-[13px] text-accent hover:bg-accent/20 sm:gap-1.5 sm:px-2.5"
             >
               <svg className="flex-none" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round">
                 <rect x="3" y="6" width="13" height="14" rx="2" />

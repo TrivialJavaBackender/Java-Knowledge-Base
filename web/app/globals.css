@@ -49,7 +49,9 @@ html.dark {
 html, body {
   background: var(--bg);
   color: var(--fg);
-  min-height: 100vh;
+  /* 100vh на мобильных включает область под адресной строкой браузера —
+     100dvh пересчитывается под реально видимую высоту. */
+  min-height: 100dvh;
 }
 
 body {
@@ -68,10 +70,16 @@ body {
   --tw-prose-td-borders: var(--border);
   --tw-prose-hr: var(--border);
   max-width: none;
+  /* Перенос обычного текста по границе слова — рвётся только то, что реально
+     не влезает в колонку, целые слова не ломаются посередине. */
+  overflow-wrap: break-word;
 }
 
 .prose :is(h1, h2, h3, h4) {
   scroll-margin-top: 5rem;
+  /* В заголовках тоже встречаются длинные идентификаторы без пробелов —
+     обычного break-word может не хватить, если это единственное слово в строке. */
+  overflow-wrap: anywhere;
 }
 
 .prose pre {
@@ -83,6 +91,9 @@ body {
   line-height: 1.55;
   overflow-x: auto;
   color: #c9d1d9;
+  /* Явно отменяем перенос внутри слова, унаследованный от .prose — блок кода
+     должен скроллиться по X, а не переноситься. */
+  overflow-wrap: normal;
 }
 
 .prose :not(pre) > code {
@@ -91,6 +102,10 @@ body {
   padding: 0.1rem 0.35rem;
   border-radius: 4px;
   font-size: 0.875em;
+  /* Инлайн-код (напр. AnnotationConfigServletWebServerApplicationContext) —
+     одно "слово" без точек переноса, обычный break-word его не тронет,
+     поэтому здесь нужен разрыв в любом месте, если строка не влезает. */
+  overflow-wrap: anywhere;
 }
 html.dark .prose :not(pre) > code {
   color: #b8c8e6;
@@ -101,8 +116,20 @@ html.dark .prose :not(pre) > code {
   content: '';
 }
 
+.prose a {
+  /* Ссылки нередко показывают длинный URL/идентификатор как есть — тот же
+     разрыв "в любом месте", что и у инлайн-кода. */
+  overflow-wrap: anywhere;
+}
+
 .prose table {
   font-size: 0.85rem;
+  /* display:block — вынужденный компромисс: per CSS2.1 erratum overflow:auto
+     не действует на сам table-box (эффект как у visible), поэтому скролл
+     работает только если у элемента "блочный" display. Плата — table теряет
+     единый алгоритм ширин колонок и подстраивается под контент вместо 100%.
+     Чистое решение — обёртка <div overflow-x:auto> вокруг <table> в рендере
+     (lib/markdown.tsx), сюда это не переносим. */
   display: block;
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
@@ -120,6 +147,29 @@ html.dark .prose :not(pre) > code {
 /* Shiki tokens */
 .shiki, .shiki span {
   background: transparent !important;
+}
+
+/*
+ * Mermaid-диаграммы (lib/markdown.tsx рендерит `<div class="mermaid not-prose
+ * flex justify-center">`, MermaidInit.tsx подменяет содержимое на <svg>).
+ * Широкая диаграмма должна скроллиться по X сама, без горизонтального скролла
+ * всей читалки.
+ *
+ * justify-content:center из разметки при переполнении обрезает начало
+ * диаграммы: flex-центрирование сдвигает контент в минус, а scrollLeft не
+ * уходит в отрицательную область — левая часть становится недостижимой.
+ * Убираем центрирование через justify-content (переопределяем ниже правил
+ * @tailwind utilities по порядку каскада) и вместо этого центрируем сам
+ * <svg> через margin:auto: при переполнении auto-отступы разрешаются в 0, и
+ * диаграмма прижимается к левому краю, оставаясь полностью доскроллируемой.
+ */
+.mermaid {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  justify-content: flex-start;
+}
+.mermaid > svg {
+  margin-inline: auto;
 }
 
 .progress-bar {
