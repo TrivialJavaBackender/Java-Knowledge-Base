@@ -10,3 +10,4 @@ prisma/migrations/dev.db*
 *.log
 .DS_Store
 next-env.d.ts
+backups/

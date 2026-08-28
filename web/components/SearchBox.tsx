@@ -327,7 +327,7 @@ export function SearchBox() {
               }
               autoComplete="off"
               spellCheck={false}
-              placeholder="Поиск…  ⌘K"
+              placeholder="Поиск по теории, вопросам и концептам"
               onFocus={() => {
                 setOpen(true);
                 ensureIndex();
@@ -338,8 +338,21 @@ export function SearchBox() {
                 ensureIndex();
               }}
               onKeyDown={onInputKeyDown}
-              className="w-full rounded border border-border bg-bg-card px-2 py-1 text-sm text-fg placeholder:text-fg-subtle focus:border-accent/60 focus:outline-none sm:w-48 lg:w-64"
+              className="h-8 w-full rounded-md border border-border bg-bg-card pl-8 pr-16 text-[13.5px] text-fg placeholder:text-fg-subtle focus:border-accent/60 focus:outline-none"
             />
+
+            {/* Иконка и бейдж — поверх поля; pl-8/pr-16 выше держат под них место. */}
+            <svg
+              aria-hidden
+              className="pointer-events-none absolute left-2.5 top-1/2 h-[15px] w-[15px] -translate-y-1/2 text-fg-subtle"
+              viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"
+            >
+              <circle cx="11" cy="11" r="7" />
+              <line x1="16.5" y1="16.5" x2="21" y2="21" />
+            </svg>
+            <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 rounded border border-border bg-bg-soft px-1.5 py-0.5 font-mono text-[11px] leading-none text-fg-subtle">
+              ⌘K
+            </span>
 
             {showPanel && (
               <div className="absolute left-0 right-0 top-full z-50 mt-1 max-h-[70vh] overflow-y-auto rounded-lg border border-border bg-bg-card shadow-lg sm:left-auto sm:w-[26rem] lg:w-[32rem]">

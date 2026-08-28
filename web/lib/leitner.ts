@@ -8,6 +8,16 @@
  *    in local time.
  */
 
+/**
+ * Дата «спячки»: карточка, убранная в архив, не удаляется и не помечается флагом
+ * `Flashcard.archived` (эта колонка глобальная, общая для всех пользователей общей
+ * AUTO-карточки) — её персональный `LeitnerState.nextDueAt` уезжает сюда, далеко за
+ * любой разумный горизонт. Очередь фильтрует по `nextDueAt <= endOfDay(now)`, поэтому
+ * такая карточка просто перестаёт попадаться. Экраны, которые показывают архив или
+ * возвращают карточку из него, сравнивают именно с этой константой.
+ */
+export const DORMANT_DATE = new Date('2099-01-01');
+
 export const BOX_INTERVAL_DAYS: Record<number, number> = {
   1: 1,
   2: 3,
@@ -75,11 +85,20 @@ export function reviewCard(
 }
 
 /**
+ * Round-robin `index` across the next `horizonDays` days starting tomorrow,
+ * so a batch of cards that all became due at once gets spread into a
+ * manageable daily queue instead of landing on a single day.
+ */
+export function spreadDueDates(index: number, horizonDays: number, now: Date = new Date()): Date {
+  const tomorrow = startOfDay(addDays(now, 1));
+  return addDays(tomorrow, index % horizonDays);
+}
+
+/**
  * On first sync we have potentially hundreds of fresh cards all due
  * "today" — round-robin them across the next 7 days so the user has
- * a manageable daily queue from day 1.
+ * a manageable daily queue from day 1. Special case of spreadDueDates.
  */
 export function spreadInitialDueDate(index: number, now: Date = new Date()): Date {
-  const tomorrow = startOfDay(addDays(now, 1));
-  return addDays(tomorrow, index % 7);
+  return spreadDueDates(index, 7, now);
 }

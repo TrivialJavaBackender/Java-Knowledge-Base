@@ -1,142 +1,306 @@
-import Link from 'next/link';
 import { prisma } from '@/lib/db';
 import { requireUser } from '@/lib/auth';
-import { ProgressBar } from '@/components/ProgressBar';
 import { endOfDay } from '@/lib/leitner';
+import { TRACKS, getTrack, type TrackKey } from '@/lib/tracks';
+import { ContinueReadingCard, type ContinueReadingData } from '@/components/dashboard/ContinueReadingCard';
+import { TodayReviewCard, type DueBreakdownEntry } from '@/components/dashboard/TodayReviewCard';
+import { OverallProgress } from '@/components/dashboard/OverallProgress';
+import { ModulesBoard, type TrackGroup } from '@/components/dashboard/ModulesBoard';
+import { nextLabel } from '@/components/dashboard/format';
+import type { ModuleCardData } from '@/components/dashboard/ModuleCard';
 
 export const dynamic = 'force-dynamic';
 
-interface ModuleStats {
-  slug: string;
-  title: string;
-  order: number;
-  theory: { done: number; total: number };
-  exercises: { done: number; total: number };
-  qas: { done: number; total: number };
+interface Stat {
+  done: number;
+  total: number;
 }
 
-async function loadStats(userId: number): Promise<{ modules: ModuleStats[]; totals: { done: number; total: number }; due: number }> {
+interface DashboardData {
+  hasModules: boolean;
+  continueReading: ContinueReadingData;
+  due: number;
+  dueBreakdown: DueBreakdownEntry[];
+  totalDone: number;
+  totalAll: number;
+  theoryTotals: Stat;
+  exerciseTotals: Stat;
+  qaTotals: Stat;
+  groups: TrackGroup[];
+}
+
+function groupCountMap(rows: { moduleId: number; _count: { _all: number } }[]): Map<number, number> {
+  return new Map(rows.map((r) => [r.moduleId, r._count._all]));
+}
+
+async function loadDashboard(userId: number): Promise<DashboardData> {
+  const now = new Date();
+
   const modules = await prisma.module.findMany({
     orderBy: { order: 'asc' },
-    include: {
-      _count: { select: { theory: true, exercises: true, qas: true } },
-    },
+    select: { id: true, slug: true, title: true, track: true },
   });
+  if (modules.length === 0) {
+    return {
+      hasModules: false,
+      continueReading: { kind: 'empty' },
+      due: 0,
+      dueBreakdown: [],
+      totalDone: 0,
+      totalAll: 0,
+      theoryTotals: { done: 0, total: 0 },
+      exerciseTotals: { done: 0, total: 0 },
+      qaTotals: { done: 0, total: 0 },
+      groups: [],
+    };
+  }
+  const modulesById = new Map(modules.map((m) => [m.id, m]));
 
-  const [theoryProgress, exerciseProgress, qaProgress] = await Promise.all([
-    prisma.userTheoryProgress.findMany({ where: { userId, isRead: true }, select: { theoryDocId: true } }),
-    prisma.userExerciseProgress.findMany({ where: { userId, isRead: true }, select: { exerciseId: true } }),
-    prisma.userQAProgress.findMany({ where: { userId, isKnown: true }, select: { qaId: true } }),
-  ]);
+  // Тео́рия: лёгкая построчная выборка (без body) — нужна и для тоталов/выполненного,
+  // и для «первого непрочитанного документа» на карточке модуля и на «Продолжить чтение».
+  const [theoryDocs, theoryProgress, exerciseTotalsRaw, exerciseDoneRaw, qaTotalsRaw, qaDoneRaw, due, dueByModuleRaw] =
+    await Promise.all([
+      prisma.theoryDoc.findMany({
+        select: { id: true, moduleId: true, slug: true, title: true, order: true, sectionCount: true, readingMinutes: true },
+        orderBy: { order: 'asc' },
+      }),
+      prisma.userTheoryProgress.findMany({
+        where: { userId },
+        select: { theoryDocId: true, isRead: true, lastVisitedAt: true, lastSectionIndex: true },
+        // Порядок важен: «Продолжить чтение» берёт первый непустой lastVisitedAt
+        // линейным сканом ниже. Без сортировки при совпадении отметок победитель
+        // зависел бы от того, в каком порядке строки вернула база.
+        orderBy: { lastVisitedAt: { sort: 'desc', nulls: 'last' } },
+      }),
+      prisma.exercise.groupBy({ by: ['moduleId'], _count: { _all: true } }),
+      prisma.$queryRaw<{ moduleId: number; count: number }[]>`
+        SELECT e."moduleId" AS "moduleId", COUNT(*)::int AS count
+        FROM "UserExerciseProgress" p
+        JOIN "Exercise" e ON e.id = p."exerciseId"
+        WHERE p."userId" = ${userId} AND p."isRead" = true
+        GROUP BY e."moduleId"`,
+      prisma.interviewQA.groupBy({ by: ['moduleId'], _count: { _all: true } }),
+      prisma.$queryRaw<{ moduleId: number; count: number }[]>`
+        SELECT q."moduleId" AS "moduleId", COUNT(*)::int AS count
+        FROM "UserQAProgress" p
+        JOIN "InterviewQA" q ON q.id = p."qaId"
+        WHERE p."userId" = ${userId} AND p."isKnown" = true
+        GROUP BY q."moduleId"`,
+      prisma.leitnerState.count({
+        where: { userId, nextDueAt: { lte: endOfDay(now) }, flashcard: { archived: false } },
+      }),
+      prisma.$queryRaw<{ moduleId: number; count: number }[]>`
+        SELECT f."moduleId" AS "moduleId", COUNT(*)::int AS count
+        FROM "LeitnerState" l
+        JOIN "Flashcard" f ON f.id = l."flashcardId"
+        WHERE l."userId" = ${userId}
+          AND l."nextDueAt" <= ${endOfDay(now)}
+          AND f.archived = false
+          AND f."moduleId" IS NOT NULL
+        GROUP BY f."moduleId"`,
+    ]);
 
-  const readTheory = new Set(theoryProgress.map((p) => p.theoryDocId));
-  const readExercises = new Set(exerciseProgress.map((p) => p.exerciseId));
-  const knownQAs = new Set(qaProgress.map((p) => p.qaId));
+  const theoryProgressByDocId = new Map(theoryProgress.map((p) => [p.theoryDocId, p]));
+  const theoryDocsById = new Map(theoryDocs.map((d) => [d.id, d]));
 
-  const allTheory = await prisma.theoryDoc.findMany({ select: { id: true, moduleId: true } });
-  const allExercises = await prisma.exercise.findMany({ select: { id: true, moduleId: true } });
-  const allQAs = await prisma.interviewQA.findMany({ select: { id: true, moduleId: true } });
+  const theoryTotalByModule = new Map<number, number>();
+  const theoryDoneByModule = new Map<number, number>();
+  const firstUnreadByModule = new Map<number, (typeof theoryDocs)[number]>();
 
-  const stats: ModuleStats[] = modules.map((m) => ({
-    slug: m.slug,
-    title: m.title,
-    order: m.order,
-    theory: {
-      total: m._count.theory,
-      done: allTheory.filter((t) => t.moduleId === m.id && readTheory.has(t.id)).length,
-    },
-    exercises: {
-      total: m._count.exercises,
-      done: allExercises.filter((e) => e.moduleId === m.id && readExercises.has(e.id)).length,
-    },
-    qas: {
-      total: m._count.qas,
-      done: allQAs.filter((q) => q.moduleId === m.id && knownQAs.has(q.id)).length,
-    },
-  }));
-
-  let totalDone = 0;
-  let totalTotal = 0;
-  for (const s of stats) {
-    totalDone += s.theory.done + s.exercises.done + s.qas.done;
-    totalTotal += s.theory.total + s.exercises.total + s.qas.total;
+  for (const d of theoryDocs) {
+    theoryTotalByModule.set(d.moduleId, (theoryTotalByModule.get(d.moduleId) ?? 0) + 1);
+    const isRead = theoryProgressByDocId.get(d.id)?.isRead ?? false;
+    if (isRead) {
+      theoryDoneByModule.set(d.moduleId, (theoryDoneByModule.get(d.moduleId) ?? 0) + 1);
+    } else if (!firstUnreadByModule.has(d.moduleId)) {
+      firstUnreadByModule.set(d.moduleId, d);
+    }
   }
 
-  const due = await prisma.leitnerState.count({
-    where: { userId, nextDueAt: { lte: endOfDay(new Date()) }, flashcard: { archived: false } },
-  });
+  // «Продолжить чтение» — документ с максимальным lastVisitedAt среди всех.
+  let continueProgress: (typeof theoryProgress)[number] | null = null;
+  for (const p of theoryProgress) {
+    if (!p.lastVisitedAt) continue;
+    if (!continueProgress || !continueProgress.lastVisitedAt || p.lastVisitedAt > continueProgress.lastVisitedAt) {
+      continueProgress = p;
+    }
+  }
 
-  return { modules: stats, totals: { done: totalDone, total: totalTotal }, due };
+  let continueReading: ContinueReadingData;
+  if (continueProgress) {
+    const doc = theoryDocsById.get(continueProgress.theoryDocId)!;
+    const mod = modulesById.get(doc.moduleId)!;
+    const doneSections = (continueProgress.lastSectionIndex ?? 0) + 1;
+    const totalSections = Math.max(doc.sectionCount, doneSections);
+    const remainingMinutes =
+      totalSections > 0 ? Math.max(1, Math.round((doc.readingMinutes * (totalSections - doneSections)) / totalSections)) : 0;
+    const qaCount = await prisma.interviewQA.count({ where: { moduleId: doc.moduleId, refDocSlug: doc.slug } });
+    continueReading = {
+      kind: 'continue',
+      moduleSlug: mod.slug,
+      moduleTitle: mod.title,
+      docSlug: doc.slug,
+      docTitle: doc.title,
+      doneSections,
+      totalSections,
+      remainingMinutes,
+      qaCount,
+    };
+  } else {
+    // Никто ничего не читал — предложим первый непрочитанный документ в порядке модулей.
+    let candidate: { doc: (typeof theoryDocs)[number]; mod: (typeof modules)[number] } | null = null;
+    for (const m of modules) {
+      const doc = firstUnreadByModule.get(m.id);
+      if (doc) {
+        candidate = { doc, mod: m };
+        break;
+      }
+    }
+    continueReading = candidate
+      ? {
+          kind: 'start',
+          moduleSlug: candidate.mod.slug,
+          moduleTitle: candidate.mod.title,
+          docSlug: candidate.doc.slug,
+          docTitle: candidate.doc.title,
+          totalSections: candidate.doc.sectionCount,
+        }
+      : { kind: 'empty' };
+  }
+
+  const exerciseTotalMap = groupCountMap(exerciseTotalsRaw);
+  const exerciseDoneMap = new Map(exerciseDoneRaw.map((r) => [r.moduleId, r.count]));
+  const qaTotalMap = groupCountMap(qaTotalsRaw);
+  const qaDoneMap = new Map(qaDoneRaw.map((r) => [r.moduleId, r.count]));
+  const dueByModule = new Map(dueByModuleRaw.map((r) => [r.moduleId, r.count]));
+
+  const cardsByTrack = new Map<TrackKey, ModuleCardData[]>();
+  let totalTheoryDone = 0;
+  let totalTheoryTotal = 0;
+  let totalExDone = 0;
+  let totalExTotal = 0;
+  let totalQaDone = 0;
+  let totalQaTotal = 0;
+
+  for (const m of modules) {
+    const theoryTotal = theoryTotalByModule.get(m.id) ?? 0;
+    const theoryDone = theoryDoneByModule.get(m.id) ?? 0;
+    const exTotal = exerciseTotalMap.get(m.id) ?? 0;
+    const exDone = exerciseDoneMap.get(m.id) ?? 0;
+    const qaTotal = qaTotalMap.get(m.id) ?? 0;
+    const qaDone = qaDoneMap.get(m.id) ?? 0;
+    const due = dueByModule.get(m.id) ?? 0;
+
+    totalTheoryDone += theoryDone;
+    totalTheoryTotal += theoryTotal;
+    totalExDone += exDone;
+    totalExTotal += exTotal;
+    totalQaDone += qaDone;
+    totalQaTotal += qaTotal;
+
+    const done = theoryDone + exDone + qaDone;
+    const total = theoryTotal + exTotal + qaTotal;
+    const track = getTrack(m.track as TrackKey);
+
+    const card: ModuleCardData = {
+      slug: m.slug,
+      title: m.title,
+      trackColor: track.color,
+      theory: { done: theoryDone, total: theoryTotal },
+      exercises: { done: exDone, total: exTotal },
+      qas: { done: qaDone, total: qaTotal },
+      due,
+      done,
+      total,
+      pct: total === 0 ? 0 : Math.round((done / total) * 100),
+      started: done > 0,
+      finished: total > 0 && done === total,
+      next: nextLabel({
+        theoryDone,
+        theoryTotal,
+        qaDone,
+        qaTotal,
+        firstUnreadTitle: firstUnreadByModule.get(m.id)?.title ?? null,
+      }),
+    };
+
+    const arr = cardsByTrack.get(track.key) ?? [];
+    arr.push(card);
+    cardsByTrack.set(track.key, arr);
+  }
+
+  const groups: TrackGroup[] = TRACKS.map((t) => ({
+    key: t.key,
+    title: t.title,
+    color: t.color,
+    modules: cardsByTrack.get(t.key) ?? [],
+  })).filter((g) => g.modules.length > 0);
+
+  const dueBreakdown: DueBreakdownEntry[] = dueByModuleRaw
+    .map((r) => {
+      const m = modulesById.get(r.moduleId);
+      if (!m) return null;
+      const track = getTrack(m.track as TrackKey);
+      return { moduleSlug: m.slug, moduleTitle: m.title, trackColor: track.color, count: r.count } satisfies DueBreakdownEntry;
+    })
+    .filter((x): x is DueBreakdownEntry => x !== null)
+    .sort((a, b) => b.count - a.count);
+
+  return {
+    hasModules: true,
+    continueReading,
+    due,
+    dueBreakdown,
+    totalDone: totalTheoryDone + totalExDone + totalQaDone,
+    totalAll: totalTheoryTotal + totalExTotal + totalQaTotal,
+    theoryTotals: { done: totalTheoryDone, total: totalTheoryTotal },
+    exerciseTotals: { done: totalExDone, total: totalExTotal },
+    qaTotals: { done: totalQaDone, total: totalQaTotal },
+    groups,
+  };
 }
 
 export default async function DashboardPage() {
   const userId = await requireUser();
-  const { modules, totals, due } = await loadStats(userId);
+  const data = await loadDashboard(userId);
 
-  if (modules.length === 0) {
+  if (!data.hasModules) {
     return (
-      <div className="space-y-4">
-        <h1 className="text-2xl font-semibold text-fg">Welcome</h1>
-        <p className="text-fg">
-          База пуста. Запусти <code className="rounded bg-bg-card px-1.5 py-0.5">pnpm sync</code> чтобы
-          подтянуть теорию и Q&amp;A из <code>../modules/</code>.
-        </p>
+      <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6">
+        <div className="space-y-4">
+          <h1 className="text-2xl font-semibold text-fg">Welcome</h1>
+          <p className="text-fg">
+            База пуста. Запусти <code className="rounded bg-bg-card px-1.5 py-0.5">pnpm sync</code> чтобы
+            подтянуть теорию и Q&amp;A из <code>../modules/</code>.
+          </p>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-8">
-      <section className="space-y-3">
-        <div className="flex items-end justify-between">
-          <h1 className="text-2xl font-semibold text-fg">Прогресс</h1>
-          <Link
-            href="/flashcards"
-            className="rounded-md border border-border bg-bg-card px-3 py-2 text-sm text-fg hover:text-fg hover:border-accent/50 sm:py-1.5"
-          >
-            На повторение: <b className="tabular-nums">{due}</b>
-          </Link>
+    <div className="mx-auto max-w-6xl space-y-5 px-4 py-6 sm:px-6">
+      {/* Растягиваем обе карточки до общей высоты. Раньше здесь стоял items-start:
+          карточка повторений рисовала строку на каждый модуль с просрочкой и при
+          16 модулях уезжала втрое выше соседней. Теперь её список свёрнут до пяти
+          строк (TodayReviewCard), высоты сопоставимы, и лишнее место лучше отдать
+          внутрь карточки, чем оставить провалом между ними. */}
+      <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-3">
+        <div className="sm:col-span-2">
+          <ContinueReadingCard data={data.continueReading} />
         </div>
-        <ProgressBar done={totals.done} total={totals.total} />
-      </section>
-
-      <section>
-        <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-fg-muted">Модули</h2>
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {modules.map((m) => {
-            const done = m.theory.done + m.exercises.done + m.qas.done;
-            const total = m.theory.total + m.exercises.total + m.qas.total;
-            return (
-              <Link
-                key={m.slug}
-                href={`/modules/${m.slug}`}
-                className="group rounded-lg border border-border bg-bg-card p-4 transition hover:border-accent/50"
-              >
-                <div className="mb-2 flex items-baseline justify-between gap-2">
-                  <h3 className="font-medium text-fg group-hover:text-accent">{m.title}</h3>
-                </div>
-                <ProgressBar done={done} total={total} />
-                <div className="mt-3 grid grid-cols-3 gap-2 text-xs text-fg-muted">
-                  <Cell label="theory" stat={m.theory} />
-                  <Cell label="ex." stat={m.exercises} />
-                  <Cell label="Q&A" stat={m.qas} />
-                </div>
-              </Link>
-            );
-          })}
-        </div>
-      </section>
-    </div>
-  );
-}
-
-function Cell({ label, stat }: { label: string; stat: { done: number; total: number } }) {
-  return (
-    <div className="rounded border border-border/50 bg-bg-soft px-2 py-1 text-center">
-      <div className="text-[10px] uppercase tracking-wide text-fg-subtle">{label}</div>
-      <div className="font-mono text-fg">
-        {stat.done}/{stat.total}
+        <TodayReviewCard due={data.due} breakdown={data.dueBreakdown} />
       </div>
+
+      <OverallProgress
+        done={data.totalDone}
+        total={data.totalAll}
+        theory={data.theoryTotals}
+        exercises={data.exerciseTotals}
+        qas={data.qaTotals}
+      />
+
+      <ModulesBoard groups={data.groups} />
     </div>
   );
 }

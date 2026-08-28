@@ -38,6 +38,7 @@ export default async function QAPage({ params }: { params: Promise<{ slug: strin
   );
 
   return (
+    <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6">
     <div className="space-y-8">
       <header className="space-y-2">
         <Link href={`/modules/${slug}`} className="text-sm text-fg-muted hover:text-accent">
@@ -71,6 +72,7 @@ export default async function QAPage({ params }: { params: Promise<{ slug: strin
           </section>
         );
       })}
+    </div>
     </div>
   );
 }

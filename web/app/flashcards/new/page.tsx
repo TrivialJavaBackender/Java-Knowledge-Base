@@ -10,12 +10,14 @@ export default async function NewFlashcardPage() {
     select: { id: true, title: true },
   });
   return (
+    <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6">
     <div className="space-y-6 max-w-2xl">
       <Link href="/flashcards/manage" className="text-sm text-fg-muted hover:text-accent">
         ← Manage
       </Link>
       <h1 className="text-2xl font-semibold text-fg">Новая карточка</h1>
       <FlashcardForm modules={modules} />
+    </div>
     </div>
   );
 }

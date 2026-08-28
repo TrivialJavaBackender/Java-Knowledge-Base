@@ -28,15 +28,34 @@ Sync идемпотентен: без изменений делает 0 запи
 ## Что где
 
 ```
-/                                 общий прогресс + 7 модулей
-/modules/<slug>                   theory + exercises + Q&A
-/modules/<slug>/theory/<doc>      рендер md (порядок из ROADMAP.md)
+/                                 16 модулей по 5 трекам, «продолжить чтение», повторение на сегодня
+/modules/<slug>                   вкладки Обзор / Теория / Упражнения / Вопросы (?tab=)
+/modules/<slug>/theory/<doc>      читалка: навигация · текст 720px · оглавление, панель вопросов
 /modules/<slug>/exercises/<ex>    read-only код, Open in IDE
 /modules/<slug>/qa                раскрывающиеся Q&A с per-Q "I know this"
-/flashcards                       сегодняшняя очередь Leitner, хоткеи Space/1/2
-/flashcards/manage                таблица всех карточек, фильтры, archive/reset
+/flashcards                       очередь Leitner, колоды по модулям (?decks=), хоткеи Space/1/2
+/flashcards/triage                разбор завала: разложить / сбросить / заархивировать + дневной лимит
+/flashcards/manage                таблица карточек, фильтры, массовые операции, archive/reset
 /flashcards/new                   форма ручной карточки
 ```
+
+## Треки, разделы и привязка вопросов
+
+**Треки.** 16 модулей сгруппированы в 5 треков (`lib/tracks.ts` — единственный источник; значение
+пишется в `Module.track` из `content.config.ts` при sync): язык и рантайм, данные и хранение,
+архитектура и проектирование, платформа и API, процесс и команда.
+
+**Разделы теории.** `lib/theory-sections.ts` разбирает тело документа на разделы верхнего уровня
+(`## `) — для оглавления, скролл-спая и позиции чтения. Якоря считаются тем же `lib/slugify.ts`,
+что и рендерер с индексом поиска, иначе оглавление разъедется с текстом. Нумерацию `## N.`
+используют 113 файлов из 199, поэтому номер раздела nullable: `index` есть всегда, `number` —
+только у пронумерованных.
+
+**Привязка вопроса к разделу.** Если `sourceRef` вопроса имеет вид `theory/FILE.md §N`, sync
+раскладывает его в `refDocSlug`/`refSection`, и вопрос показывается плашкой «Проверь себя» прямо
+под разделом. Префикс `theory/` обязателен: `JCP §6.3.2` и `JLS §17.4.5` — цитаты книг, а не
+якоря. Сейчас размечены microservices (40 из 40) и engineering-process (10 из 67); в остальных
+модулях вопросы живут только в боковой панели, и она честно об этом пишет.
 
 Поиск живёт в шапке и доступен с любой страницы: `⌘K` / `Ctrl+K` или `/` — фокус,
 `↑`/`↓` — перебор, `Enter` — переход, `Esc` — закрыть.
@@ -56,7 +75,13 @@ Sync идемпотентен: без изменений делает 0 запи
 - **«Знал»**: `box = min(5, box+1)`, streak +1, `nextDueAt = startOfTomorrow + interval`.
 - **«Повторить»**: `box = 1`, lapses +1, streak = 0, `nextDueAt = startOfTomorrow`.
 
-`startOfDay` берётся в локальной TZ — очередь стабильна независимо от времени review. Сегодняшняя очередь сортируется `box ASC`, лимит 50/день.
+`startOfDay` берётся в локальной TZ — очередь стабильна независимо от времени review. Сегодняшняя
+очередь сортируется `box ASC`. Размер очереди — `User.dailyReviewLimit` (если не задан, 50);
+меняется тумблером на `/flashcards/triage`.
+
+Очередь можно собрать из выбранных модулей: `/flashcards?decks=<slug>,<slug>`. Пустой параметр —
+смешанная очередь из всех колод, `decks=none` — ничего не выбрано. Смешанная очередь остаётся
+режимом по умолчанию намеренно: чередование модулей запоминается лучше, чем прогон одного подряд.
 
 ### Когда появляются новые карточки?
 
@@ -81,10 +106,10 @@ Sync идемпотентен: без изменений делает 0 запи
 **Стек:** Next.js 15 (App Router), React 19, Prisma 5 + SQLite, Tailwind 3 + `@tailwindcss/typography`, Shiki, marked.
 
 **Модель данных:**
-- `Module` (id, slug, title, order)
-- `TheoryDoc` (moduleId, slug, title, body, order, isRead)
+- `Module` (id, slug, title, order, track)
+- `TheoryDoc` (moduleId, slug, title, body, order, isRead, sectionCount, readingMinutes)
 - `Exercise` (moduleId, slug, number, title, body, language, isRead)
-- `InterviewSection` + `InterviewQA` (moduleId, qNumber unique, isKnown)
+- `InterviewSection` + `InterviewQA` (moduleId, qNumber unique, isKnown, refDocSlug, refSection)
 - `Flashcard` (source AUTO/MANUAL, qaId? FK, front, back, archived)
 - `LeitnerState` (flashcardId unique, box, nextDueAt, streak, lapses)
 - `ReviewLog` (история отметок)
@@ -139,7 +164,7 @@ Sync печатает предупреждение на каждый конце�
 | «Open in IDE» молчит | IntelliJ Toolbox не зарегистрировал app | проверить `which idea`; используется `open -a "IntelliJ IDEA"` |
 | Поиск не находит новую теорию | индекс пересобирается только в sync | `node_modules/.bin/tsx scripts/sync.ts` |
 | Результат-заголовок ведёт в начало страницы | якоря разъехались с рендером | заголовок правился без пересборки индекса — прогони sync |
-| Карточек завал на день 1 | round-robin распределение есть только при первичном sync; massive add сейчас даст всё на сегодня | мириться или временно `archived = true` через manage |
+| Карточек завал на день 1 | massive add ставит все новые карточки на сегодня | `/flashcards/triage` → «Разложить по дням»; чтобы не собиралось снова — включить дневной лимит |
 
 ## Игнорируется в git
 

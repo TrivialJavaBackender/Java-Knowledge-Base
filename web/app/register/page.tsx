@@ -39,6 +39,7 @@ export default async function RegisterPage({
   const { error } = await searchParams;
 
   return (
+    <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6">
     <div className="flex min-h-screen items-center justify-center bg-bg px-4">
       <div className="w-full max-w-sm rounded-xl border border-border bg-bg-card p-8 shadow-sm">
         <h1 className="mb-6 text-center text-xl font-semibold text-fg">Регистрация</h1>
@@ -89,6 +90,7 @@ export default async function RegisterPage({
           <Link href="/login" className="text-accent hover:underline">Войти</Link>
         </p>
       </div>
+    </div>
     </div>
   );
 }

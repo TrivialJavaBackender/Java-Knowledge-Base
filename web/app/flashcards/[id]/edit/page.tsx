@@ -17,6 +17,7 @@ export default async function EditFlashcardPage({ params }: { params: Promise<{ 
   if (!card) notFound();
   if (card.source !== 'MANUAL') {
     return (
+      <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6">
       <div className="space-y-4">
         <Link href="/flashcards/manage" className="text-sm text-fg-muted hover:text-accent">
           ← Manage
@@ -26,10 +27,12 @@ export default async function EditFlashcardPage({ params }: { params: Promise<{ 
           <code className="rounded bg-bg-card px-1.5 py-0.5">pnpm sync</code>.
         </p>
       </div>
+      </div>
     );
   }
 
   return (
+    <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6">
     <div className="space-y-6 max-w-2xl">
       <Link href="/flashcards/manage" className="text-sm text-fg-muted hover:text-accent">
         ← Manage
@@ -45,6 +48,7 @@ export default async function EditFlashcardPage({ params }: { params: Promise<{ 
           moduleId: card.moduleId,
         }}
       />
+    </div>
     </div>
   );
 }

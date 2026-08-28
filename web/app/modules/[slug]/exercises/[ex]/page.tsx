@@ -36,6 +36,7 @@ export default async function ExercisePage({
   const next = idx < siblings.length - 1 ? siblings[idx + 1] : null;
 
   return (
+    <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6">
     <article className="space-y-6">
       <header className="space-y-2">
         <div className="flex items-center justify-between text-sm">
@@ -69,5 +70,6 @@ export default async function ExercisePage({
         )}
       </nav>
     </article>
+    </div>
   );
 }

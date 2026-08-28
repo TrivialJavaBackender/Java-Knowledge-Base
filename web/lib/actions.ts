@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { prisma } from '@/lib/db';
 import { requireUser } from '@/lib/auth';
-import { reviewCard, startOfDay, addDays } from '@/lib/leitner';
+import { reviewCard, startOfDay, addDays, DORMANT_DATE } from '@/lib/leitner';
 
 export async function toggleTheoryRead(theoryDocId: number, value: boolean) {
   const userId = await requireUser();
@@ -132,11 +132,10 @@ export async function archiveFlashcard(id: number, archived: boolean) {
   if (card.source === 'MANUAL') {
     await prisma.flashcard.update({ where: { id, userId }, data: { archived } });
   } else {
-    const dormant = new Date('2099-01-01');
     await prisma.leitnerState.upsert({
       where: { userId_flashcardId: { userId, flashcardId: id } },
-      create: { userId, flashcardId: id, box: 1, nextDueAt: archived ? dormant : new Date() },
-      update: { nextDueAt: archived ? dormant : new Date() },
+      create: { userId, flashcardId: id, box: 1, nextDueAt: archived ? DORMANT_DATE : new Date() },
+      update: { nextDueAt: archived ? DORMANT_DATE : new Date() },
     });
   }
   revalidatePath('/flashcards/manage');

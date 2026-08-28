@@ -30,6 +30,13 @@ const config: Config = {
         },
         ok: 'var(--ok)',
         warn: 'var(--warn)',
+        track: {
+          '1': 'var(--t1)',
+          '2': 'var(--t2)',
+          '3': 'var(--t3)',
+          '4': 'var(--t4)',
+          '5': 'var(--t5)',
+        },
       },
       fontFamily: {
         mono: ['ui-monospace', 'SFMono-Regular', 'Menlo', 'monospace'],

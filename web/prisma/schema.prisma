@@ -9,9 +9,10 @@ datasource db {
 }
 
 model User {
-  id           Int    @id @default(autoincrement())
-  username     String @unique
-  passwordHash String
+  id               Int    @id @default(autoincrement())
+  username         String @unique
+  passwordHash     String
+  dailyReviewLimit Int?
 
   theoryProgress   UserTheoryProgress[]
   exerciseProgress UserExerciseProgress[]
@@ -22,15 +23,18 @@ model User {
 }
 
 model UserTheoryProgress {
-  userId      Int
-  theoryDocId Int
-  isRead      Boolean   @default(false)
-  readAt      DateTime?
+  userId           Int
+  theoryDocId      Int
+  isRead           Boolean   @default(false)
+  readAt           DateTime?
+  lastSectionIndex Int?
+  lastVisitedAt    DateTime?
 
   user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   theoryDoc TheoryDoc @relation(fields: [theoryDocId], references: [id], onDelete: Cascade)
 
   @@id([userId, theoryDocId])
+  @@index([userId, lastVisitedAt])
 }
 
 model UserExerciseProgress {
@@ -62,6 +66,7 @@ model Module {
   slug  String @unique
   title String
   order Int
+  track String @default("architecture")
 
   theory     TheoryDoc[]
   exercises  Exercise[]
@@ -71,14 +76,16 @@ model Module {
 }
 
 model TheoryDoc {
-  id          Int      @id @default(autoincrement())
-  moduleId    Int
-  slug        String
-  title       String
-  filePath    String
-  contentHash String
-  body        String
-  order       Int      @default(999)
+  id             Int      @id @default(autoincrement())
+  moduleId       Int
+  slug           String
+  title          String
+  filePath       String
+  contentHash    String
+  body           String
+  order          Int      @default(999)
+  sectionCount   Int      @default(0)
+  readingMinutes Int      @default(0)
 
   module         Module               @relation(fields: [moduleId], references: [id], onDelete: Cascade)
   userProgress   UserTheoryProgress[]
@@ -124,6 +131,8 @@ model InterviewQA {
   question    String
   answer      String
   sourceRef   String?
+  refDocSlug  String?
+  refSection  Int?
   contentHash String
 
   section      InterviewSection @relation(fields: [sectionId], references: [id], onDelete: Cascade)
@@ -132,6 +141,7 @@ model InterviewQA {
   userProgress UserQAProgress[]
 
   @@unique([moduleId, qNumber])
+  @@index([moduleId, refDocSlug])
 }
 
 model Flashcard {
@@ -152,6 +162,8 @@ model Flashcard {
   user          User?         @relation(fields: [userId], references: [id], onDelete: SetNull)
   leitnerStates LeitnerState[]
   reviews       ReviewLog[]
+
+  @@index([moduleId])
 }
 
 model LeitnerState {

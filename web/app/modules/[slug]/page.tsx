@@ -1,146 +1,264 @@
-import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { prisma } from '@/lib/db';
 import { requireUser } from '@/lib/auth';
-import { ProgressBar } from '@/components/ProgressBar';
-import { ToggleTheoryRead, ToggleExerciseRead } from '@/components/ToggleProgress';
+import { getTrack, type TrackKey } from '@/lib/tracks';
+import { MODULES } from '@/content.config';
+import { MODULE_DESCRIPTIONS } from '@/components/module/module-descriptions';
+import { ModuleHeader } from '@/components/module/ModuleHeader';
+import { ModuleTabs, MODULE_TABS, type ModuleTab } from '@/components/module/ModuleTabs';
+import { OverviewTab, type RoadmapStep, type ContinueInfo, type WeakQa, type RelatedModule } from '@/components/module/OverviewTab';
+import { TheoryTab, type TheoryRow } from '@/components/module/TheoryTab';
+import { ExercisesTab, type ExerciseRow } from '@/components/module/ExercisesTab';
+import { QaTab, type QaSectionCard } from '@/components/module/QaTab';
 
 export const dynamic = 'force-dynamic';
 
-export default async function ModulePage({ params }: { params: Promise<{ slug: string }> }) {
+function normalizeTab(v: string | undefined): ModuleTab {
+  return (MODULE_TABS as string[]).includes(v ?? '') ? (v as ModuleTab) : 'overview';
+}
+
+export default async function ModulePage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ slug: string }>;
+  searchParams: Promise<{ tab?: string }>;
+}) {
   const { slug } = await params;
+  const sp = await searchParams;
+  const tab = normalizeTab(sp.tab);
   const userId = await requireUser();
 
   const module = await prisma.module.findUnique({
     where: { slug },
     include: {
-      theory: { orderBy: [{ order: 'asc' }, { slug: 'asc' }] },
-      exercises: { orderBy: { number: 'asc' } },
+      theory: {
+        orderBy: [{ order: 'asc' }, { slug: 'asc' }],
+        select: { id: true, slug: true, title: true, sectionCount: true, readingMinutes: true, filePath: true },
+      },
+      exercises: {
+        orderBy: { number: 'asc' },
+        select: { id: true, slug: true, number: true, title: true, language: true },
+      },
       sections: {
         orderBy: { order: 'asc' },
-        include: { qas: { orderBy: { qNumber: 'asc' }, select: { id: true, qNumber: true, question: true } } },
+        include: {
+          qas: {
+            orderBy: { qNumber: 'asc' },
+            select: { id: true, qNumber: true, question: true, refDocSlug: true },
+          },
+        },
       },
     },
   });
   if (!module) notFound();
 
+  const allQas = module.sections.flatMap((s) => s.qas);
+
   const [theoryProgress, exerciseProgress, qaProgress] = await Promise.all([
     prisma.userTheoryProgress.findMany({
       where: { userId, theoryDocId: { in: module.theory.map((t) => t.id) } },
-      select: { theoryDocId: true, isRead: true },
+      select: { theoryDocId: true, isRead: true, lastSectionIndex: true, lastVisitedAt: true },
     }),
     prisma.userExerciseProgress.findMany({
       where: { userId, exerciseId: { in: module.exercises.map((e) => e.id) } },
       select: { exerciseId: true, isRead: true },
     }),
     prisma.userQAProgress.findMany({
-      where: {
-        userId,
-        qaId: { in: module.sections.flatMap((s) => s.qas.map((q) => q.id)) },
-      },
+      where: { userId, qaId: { in: allQas.map((q) => q.id) } },
       select: { qaId: true, isKnown: true },
     }),
   ]);
 
-  const readTheory = new Map(theoryProgress.map((p) => [p.theoryDocId, p.isRead]));
-  const readExercises = new Map(exerciseProgress.map((p) => [p.exerciseId, p.isRead]));
-  const knownQAs = new Map(qaProgress.map((p) => [p.qaId, p.isKnown]));
+  const theoryProgMap = new Map(theoryProgress.map((p) => [p.theoryDocId, p]));
+  const exReadMap = new Map(exerciseProgress.map((p) => [p.exerciseId, p.isRead]));
+  const knownMap = new Map(qaProgress.map((p) => [p.qaId, p.isKnown]));
 
-  const theoryDone = module.theory.filter((t) => readTheory.get(t.id)).length;
-  const exDone = module.exercises.filter((e) => readExercises.get(e.id)).length;
-  const allQAs = module.sections.flatMap((s) => s.qas);
-  const qaDone = allQAs.filter((q) => knownQAs.get(q.id)).length;
-  const qaTotal = allQAs.length;
+  const theoryDone = module.theory.filter((t) => theoryProgMap.get(t.id)?.isRead).length;
+  const theoryTotal = module.theory.length;
+  const exDone = module.exercises.filter((e) => exReadMap.get(e.id)).length;
+  const exTotal = module.exercises.length;
+  const qaDone = allQas.filter((q) => knownMap.get(q.id)).length;
+  const qaTotal = allQas.length;
+
+  const track = getTrack(module.track as TrackKey);
+  const description = MODULE_DESCRIPTIONS[module.slug] ?? null;
+
+  // Первый непрочитанный документ по order — "текущий" шаг роадмапа и
+  // подсветка строки на вкладке "Теория".
+  const currentIdx = module.theory.findIndex((t) => !theoryProgMap.get(t.id)?.isRead);
+
+  // Данные, нужные только вкладке "Обзор" (включая единственный запрос
+  // тел документов для связанных модулей) — считаем только когда она активна.
+  let steps: RoadmapStep[] = [];
+  let continueInfo: ContinueInfo | null = null;
+  let weakQas: WeakQa[] = [];
+  let relatedModules: RelatedModule[] = [];
+
+  if (tab === 'overview') {
+    steps = module.theory.map((t, i) => {
+      const isRead = theoryProgMap.get(t.id)?.isRead ?? false;
+      const isCurrent = i === currentIdx;
+      const status: RoadmapStep['status'] = isRead ? 'done' : isCurrent ? 'current' : 'future';
+      let meta: string;
+      if (status === 'done') {
+        meta = 'прочитано';
+      } else if (status === 'current') {
+        const sec = (theoryProgMap.get(t.id)?.lastSectionIndex ?? 0) + 1;
+        meta = t.sectionCount > 0 ? `§${Math.min(sec, t.sectionCount)} из ${t.sectionCount}` : 'начать';
+      } else {
+        meta = `~${t.readingMinutes} мин`;
+      }
+      return { slug: t.slug, num: i + 1, title: t.title, status, meta };
+    });
+
+    const visited = theoryProgress
+      .filter((p) => p.lastVisitedAt)
+      .sort((a, b) => (b.lastVisitedAt as Date).getTime() - (a.lastVisitedAt as Date).getTime());
+    const continueRow = visited[0] ?? null;
+    const continueDoc = continueRow
+      ? (module.theory.find((t) => t.id === continueRow.theoryDocId) ?? null)
+      : currentIdx >= 0
+        ? module.theory[currentIdx]
+        : null;
+
+    if (continueDoc) {
+      const prog = theoryProgMap.get(continueDoc.id);
+      let meta: string;
+      if (prog?.lastVisitedAt) {
+        const secNum = Math.min((prog.lastSectionIndex ?? 0) + 1, continueDoc.sectionCount || 1);
+        const remaining =
+          continueDoc.sectionCount > 0
+            ? Math.max(0, Math.round(continueDoc.readingMinutes * (1 - secNum / continueDoc.sectionCount)))
+            : continueDoc.readingMinutes;
+        meta =
+          continueDoc.sectionCount > 0
+            ? `§${secNum} из ${continueDoc.sectionCount} · осталось ~${remaining} мин`
+            : `осталось ~${remaining} мин`;
+      } else {
+        meta = `~${continueDoc.readingMinutes} мин`;
+      }
+      continueInfo = { slug: continueDoc.slug, title: continueDoc.title, meta };
+    }
+
+    if (allQas.length > 0) {
+      const weakStates = await prisma.leitnerState.findMany({
+        where: { userId, lapses: { gt: 0 }, flashcard: { qaId: { in: allQas.map((q) => q.id) } } },
+        orderBy: { lapses: 'desc' },
+        take: 5,
+        select: { lapses: true, flashcard: { select: { qa: { select: { qNumber: true, question: true } } } } },
+      });
+      weakQas = weakStates
+        .filter((s): s is typeof s & { flashcard: { qa: { qNumber: number; question: string } } } => !!s.flashcard?.qa)
+        .map((s) => ({ qNumber: s.flashcard.qa.qNumber, question: s.flashcard.qa.question, lapses: s.lapses }));
+    }
+
+    // Связанные модули: единственный запрос, выбирающий только `body`
+    // документов этого модуля — тела крупные, поэтому не тянем их на
+    // других вкладках.
+    const bodies = await prisma.theoryDoc.findMany({ where: { moduleId: module.id }, select: { body: true } });
+    const freq = new Map<string, number>();
+    const linkRe = /\.\.\/\.\.\/([a-z0-9-]+)\/theory\//g;
+    for (const { body } of bodies) {
+      let m: RegExpExecArray | null;
+      while ((m = linkRe.exec(body))) {
+        const otherSlug = m[1];
+        if (otherSlug === module.slug) continue;
+        freq.set(otherSlug, (freq.get(otherSlug) ?? 0) + 1);
+      }
+    }
+    relatedModules = [...freq.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 4)
+      .map(([s]) => ({ slug: s, title: MODULES.find((m) => m.slug === s)?.title ?? s }));
+  }
+
+  let theoryRows: TheoryRow[] = [];
+  if (tab === 'theory') {
+    const qCountByDoc = new Map<string, number>();
+    for (const q of allQas) {
+      if (!q.refDocSlug) continue;
+      qCountByDoc.set(q.refDocSlug, (qCountByDoc.get(q.refDocSlug) ?? 0) + 1);
+    }
+    theoryRows = module.theory.map((t, i) => ({
+      slug: t.slug,
+      num: i + 1,
+      title: t.title,
+      sectionCount: t.sectionCount,
+      readingMinutes: t.readingMinutes,
+      qCount: qCountByDoc.get(t.slug) ?? 0,
+      isRead: theoryProgMap.get(t.id)?.isRead ?? false,
+      isCurrent: i === currentIdx,
+    }));
+  }
+
+  let exerciseRows: ExerciseRow[] = [];
+  if (tab === 'exercises') {
+    exerciseRows = module.exercises.map((e) => ({
+      slug: e.slug,
+      number: e.number,
+      title: e.title,
+      language: e.language,
+      isRead: exReadMap.get(e.id) ?? false,
+    }));
+  }
+
+  let qaSections: QaSectionCard[] = [];
+  if (tab === 'qa') {
+    const filePathBySlug = new Map(module.theory.map((t) => [t.slug, t.filePath]));
+    qaSections = module.sections.map((s) => {
+      const known = s.qas.filter((q) => knownMap.get(q.id)).length;
+      const refSlugs = new Set(s.qas.map((q) => q.refDocSlug).filter((x): x is string => !!x));
+      let fileName: string | null = null;
+      if (refSlugs.size === 1) {
+        const [only] = refSlugs;
+        const fp = filePathBySlug.get(only);
+        if (fp) fileName = fp.split('/').pop() ?? fp;
+      }
+      return { id: s.id, title: s.title, known, total: s.qas.length, fileName };
+    });
+  }
+
+  const tabCounts = {
+    theory: `${theoryDone}/${theoryTotal}`,
+    exercises: exTotal > 0 ? `${exDone}/${exTotal}` : '—',
+    qa: `${qaDone}/${qaTotal}`,
+  } as const;
 
   return (
-    <div className="space-y-8">
-      <header className="space-y-2">
-        <Link href="/" className="text-sm text-fg-muted hover:text-accent">← Dashboard</Link>
-        <h1 className="text-2xl font-semibold text-fg">{module.title}</h1>
-      </header>
+    <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6">
+      <ModuleHeader
+        trackTitle={track.title}
+        trackColor={track.color}
+        title={module.title}
+        order={module.order}
+        description={description}
+        theoryDone={theoryDone}
+        theoryTotal={theoryTotal}
+        exDone={exDone}
+        exTotal={exTotal}
+        qaDone={qaDone}
+        qaTotal={qaTotal}
+      />
 
-      <div className="grid gap-3 sm:grid-cols-3">
-        <Stat label="Theory" done={theoryDone} total={module.theory.length} />
-        <Stat label="Exercises" done={exDone} total={module.exercises.length} />
-        <Stat label="Q&A" done={qaDone} total={qaTotal} />
+      <div className="mt-4 border-b border-border">
+        <ModuleTabs slug={slug} active={tab} counts={tabCounts} />
       </div>
 
-      {module.theory.length > 0 && (
-        <Section title="Theory">
-          <div className="divide-y divide-border rounded-lg border border-border bg-bg-card">
-            {module.theory.map((t) => (
-              <div key={t.id} className="flex items-center gap-4 px-4 py-3">
-                <ToggleTheoryRead id={t.id} initial={readTheory.get(t.id) ?? false} />
-                <Link href={`/modules/${slug}/theory/${t.slug}`} className="flex-1 hover:text-accent">
-                  <div className="font-medium">{t.title}</div>
-                </Link>
-              </div>
-            ))}
-          </div>
-        </Section>
-      )}
-
-      {module.exercises.length > 0 && (
-        <Section title="Exercises">
-          <div className="divide-y divide-border rounded-lg border border-border bg-bg-card">
-            {module.exercises.map((e) => (
-              <div key={e.id} className="flex items-center gap-4 px-4 py-3">
-                <ToggleExerciseRead id={e.id} initial={readExercises.get(e.id) ?? false} />
-                <Link href={`/modules/${slug}/exercises/${e.slug}`} className="flex-1 hover:text-accent">
-                  <div className="font-medium">{e.title}</div>
-                </Link>
-              </div>
-            ))}
-          </div>
-        </Section>
-      )}
-
-      {qaTotal > 0 && (
-        <Section title="Interview Q&A" right={<Link href={`/modules/${slug}/qa`} className="text-sm text-accent hover:underline">Open browser →</Link>}>
-          <div className="grid gap-2 sm:grid-cols-2">
-            {module.sections.map((s) => {
-              const done = s.qas.filter((q) => knownQAs.get(q.id)).length;
-              return (
-                <Link
-                  key={s.id}
-                  href={`/modules/${slug}/qa#section-${s.id}`}
-                  className="rounded border border-border bg-bg-card p-3 hover:border-accent/50"
-                >
-                  <div className="mb-2 flex items-baseline justify-between gap-2">
-                    <span className="text-sm font-medium">{s.title}</span>
-                    <span className="text-xs text-fg-subtle tabular-nums">{done}/{s.qas.length}</span>
-                  </div>
-                  <ProgressBar done={done} total={s.qas.length} />
-                </Link>
-              );
-            })}
-          </div>
-        </Section>
-      )}
-    </div>
-  );
-}
-
-function Section({ title, right, children }: { title: string; right?: React.ReactNode; children: React.ReactNode }) {
-  return (
-    <section className="space-y-3">
-      <div className="flex items-end justify-between">
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-fg-muted">{title}</h2>
-        {right}
+      <div className="py-5">
+        {tab === 'overview' && (
+          <OverviewTab
+            moduleSlug={slug}
+            steps={steps}
+            continueInfo={continueInfo}
+            weakQas={weakQas}
+            relatedModules={relatedModules}
+          />
+        )}
+        {tab === 'theory' && <TheoryTab moduleSlug={slug} rows={theoryRows} />}
+        {tab === 'exercises' && <ExercisesTab moduleSlug={slug} rows={exerciseRows} />}
+        {tab === 'qa' && <QaTab moduleSlug={slug} sections={qaSections} />}
       </div>
-      {children}
-    </section>
-  );
-}
-
-function Stat({ label, done, total }: { label: string; done: number; total: number }) {
-  return (
-    <div className="rounded-lg border border-border bg-bg-card p-3">
-      <div className="mb-2 flex items-baseline justify-between">
-        <span className="text-xs uppercase tracking-wide text-fg-subtle">{label}</span>
-        <span className="text-sm font-mono tabular-nums text-fg">{done}/{total}</span>
-      </div>
-      <ProgressBar done={done} total={total} />
     </div>
   );
 }

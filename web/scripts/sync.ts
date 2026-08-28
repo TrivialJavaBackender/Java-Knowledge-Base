@@ -13,6 +13,7 @@ import { readdir, readFile, stat } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { MODULES, type ModuleConfig } from '../content.config';
+import { extractTheorySections } from '../lib/theory-sections';
 import { SearchIndexCollector, readConcepts, writeSearchIndex } from './search-index';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -98,6 +99,7 @@ async function syncTheory(
     const title = extractTitle(body, slug);
     const hash = sha(body);
     const order = orderMap.get(slug) ?? 999;
+    const { sectionCount, readingMinutes } = extractTheorySections(body);
     seen.add(slug);
     index.theory(mi, slug, title, body);
 
@@ -106,18 +108,20 @@ async function syncTheory(
     });
     if (!existing) {
       await prisma.theoryDoc.create({
-        data: { moduleId, slug, title, filePath, contentHash: hash, body, order },
+        data: { moduleId, slug, title, filePath, contentHash: hash, body, order, sectionCount, readingMinutes },
       });
       c.added++;
     } else if (
       existing.contentHash !== hash ||
       existing.title !== title ||
       existing.filePath !== filePath ||
-      existing.order !== order
+      existing.order !== order ||
+      existing.sectionCount !== sectionCount ||
+      existing.readingMinutes !== readingMinutes
     ) {
       await prisma.theoryDoc.update({
         where: { id: existing.id },
-        data: { title, filePath, contentHash: hash, body, order },
+        data: { title, filePath, contentHash: hash, body, order, sectionCount, readingMinutes },
       });
       c.updated++;
     } else {
@@ -215,6 +219,21 @@ function trimAnswer(raw: string): { answer: string; sourceRef?: string } {
     answer = lines.join('\n');
   }
   return { answer: answer.trim(), sourceRef };
+}
+
+/**
+ * `sourceRef` deep-links into a theory section — but only when it actually
+ * names one: `theory/FILE.md §N`. Most refs cite a spec or a book (`JCP §6.3.2`,
+ * `JLS §17.4.5`, `spec.graphql.org §6.2`) — those are not anchors and must not
+ * parse into one. The `theory/` prefix is what tells the two apart.
+ */
+const THEORY_REF_RE = /^theory\/([A-Za-z][A-Za-z0-9_-]*)\.md\s*§\s*(\d+)/;
+
+function parseTheoryRef(sourceRef: string | undefined): { refDocSlug?: string; refSection?: number } {
+  if (!sourceRef) return {};
+  const m = sourceRef.match(THEORY_REF_RE);
+  if (!m) return {};
+  return { refDocSlug: m[1], refSection: parseInt(m[2], 10) };
 }
 
 interface SectionMark { idx: number; raw: string }
@@ -397,7 +416,8 @@ async function syncQAs(
     for (const q of ps.qas) {
       index.qa(mi, q.qNumber, q.question);
 
-      const slice = `${q.question}\n\n${q.answer}\n${q.sourceRef ?? ''}`;
+      const { refDocSlug, refSection } = parseTheoryRef(q.sourceRef);
+      const slice = `${q.question}\n\n${q.answer}\n${q.sourceRef ?? ''}\n${refDocSlug ?? ''}\n${refSection ?? ''}`;
       const hash = sha(slice);
       const existing = await prisma.interviewQA.findUnique({
         where: { moduleId_qNumber: { moduleId, qNumber: q.qNumber } },
@@ -413,6 +433,8 @@ async function syncQAs(
             question: q.question,
             answer: q.answer,
             sourceRef: q.sourceRef,
+            refDocSlug: refDocSlug ?? null,
+            refSection: refSection ?? null,
             contentHash: hash,
           },
         });
@@ -433,6 +455,8 @@ async function syncQAs(
               question: q.question,
               answer: q.answer,
               sourceRef: q.sourceRef,
+              refDocSlug,
+              refSection,
               contentHash: hash,
             },
           });
@@ -562,8 +586,8 @@ async function main() {
     }
     const module = await prisma.module.upsert({
       where: { slug: cfg.slug },
-      create: { slug: cfg.slug, title: cfg.title, order: cfg.order },
-      update: { title: cfg.title, order: cfg.order },
+      create: { slug: cfg.slug, title: cfg.title, order: cfg.order, track: cfg.track },
+      update: { title: cfg.title, order: cfg.order, track: cfg.track },
     });
 
     const mi = index.module(cfg.slug, cfg.title);
