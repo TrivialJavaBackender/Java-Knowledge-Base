@@ -136,6 +136,7 @@ export default async function FlashcardsPage({
       trackColor: d.trackColor,
       dueLabel: d.due > 0 ? `${d.due} сегодня` : '—',
       hasDue: d.due > 0,
+      due: d.due,
       boxes: d.boxes,
       meta: `${d.total} ${pluralRu(d.total, ['карточка', 'карточки', 'карточек'])} · ${d.boxes[4]} в пятом ящике`,
       selected,
@@ -224,7 +225,9 @@ export default async function FlashcardsPage({
       <DeckSidebar decks={deckRows} selectAllLabel={selectAllLabel} selectAllHref={selectAllHref} />
 
       <div className="scroll min-h-0 min-w-0 flex-1 overflow-y-auto bg-bg">
-        <div className="mx-auto max-w-[720px] px-4 py-6 sm:px-6">
+        {/* pt на мобильном — под плавающий триггер выбора колод
+            (DeckSidebar), иначе он ложится на заголовок сессии. */}
+        <div className="mx-auto max-w-[720px] px-4 pb-6 pt-[60px] sm:px-6 lg:pt-6">
           <header className="mb-4 flex items-center gap-2.5">
             <div className="min-w-0 flex-1">
               <h1 className="truncate text-xl font-semibold tracking-tight text-fg">{sessionTitle}</h1>
