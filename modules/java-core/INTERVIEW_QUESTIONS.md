@@ -14,6 +14,8 @@
 
 > theory/GARBAGE_COLLECTION.md §7
 
+---
+
 ### Q2: Что такое safepoint и почему длинный tight loop может вызвать pause time bug?
 
 **A:** Safepoint — точка в JIT-коде, где поток может быть **безопасно** приостановлен (его stack отсканирован GC, JFR sampling, debugger). JVM ставит safepoint-полл (загрузка из safepoint-page → trap при STW request) в backward branches циклов, return из методов, не-leaf вызовах.
@@ -27,6 +29,8 @@
 
 > theory/GARBAGE_COLLECTION.md §8
 
+---
+
 ### Q3: Зачем нужны write barriers и в чём разница между SATB и Incremental Update?
 
 **A:** **Write barrier** — runtime-hook, исполняющийся на каждой записи reference-поля (`obj.field = ref`). Цель — поддерживать GC-метаданные (card table / remembered set) и **tri-color invariant** при concurrent mark (нет белой ссылки из чёрного объекта).
@@ -38,6 +42,24 @@
 SATB более консервативен (может оставить уже умершие объекты до next GC), но проще и быстрее. Incremental update точнее, но дороже на каждой записи.
 
 > theory/GARBAGE_COLLECTION.md §6
+
+---
+
+### Q31: Почему young generation собирают copying-алгоритмом, а old — mark-compact, а не одним и тем же способом?
+
+**A:** Copying (semi-space) трогает только **живые** объекты и превращает выделение в bump-the-pointer без фрагментации, но платит тем, что половина региона всегда зарезервирована под to-space. Для young это дёшево: по эмпирике «большинство объектов умирает молодыми», живых мало, copying почти не тратит время на них, а простаивающая половина региона — небольшая абсолютная цена. Для old, где живут долгоживущие объекты, тот же трюк удвоил бы требуемую память региона и заставил бы копировать огромный live-set при каждом цикле — неприемлемо. Mark-compact трогает все объекты региона (полный проход), но не резервирует лишнюю половину — то есть эффективен именно там, где живых объектов много относительно мусора. Комбинация «copying в young + mark-compact в old» — это прямое следствие разной плотности мусора в поколениях, а не произвольный выбор инженеров HotSpot.
+
+> theory/GARBAGE_COLLECTION.md §4
+
+---
+
+### Q32: Почему `WeakHashMap` не годится как предсказуемый кэш, а `SoftReference` — тоже, и что использовать вместо них?
+
+**A:** `WeakReference` собирается **на первом же** GC-цикле, который увидит объект только weakly reachable — без всякого сигнала о нехватке памяти, поэтому `WeakHashMap` может опустошиться даже при лёгкой нагрузке: это инструмент для авто-дерегистрации листенеров, а не для кэша с предсказуемым hit-rate. `SoftReference` собирается «если нужна память», но HotSpot-политика (`-XX:SoftRefLRUPolicyMSPerMB`) на практике держит soft-referenced объекты почти до самого OOM, а затем чистит **пачками и неравномерно** — задержки и hit-rate кэша становятся непредсказуемыми скачками. Оба механизма отдают решение «когда освобождать» сборщику мусора, а не приложению. Правильный инструмент — кэш с собственным ограничением по размеру/весу (Caffeine), который управляет вытеснением сам, не полагаясь на GC-эвристику.
+
+> theory/GARBAGE_COLLECTION.md §10
+
+---
 
 ## 2. JVM Memory Areas
 
@@ -56,6 +78,8 @@ SATB более консервативен (может оставить уже �
 
 > theory/JVM_MEMORY_AREAS.md §8
 
+---
+
 ### Q5: Что такое Metaspace и почему он может расти бесконечно?
 
 **A:** **Metaspace** (Java 8+) — область **native memory** (вне heap), хранящая Klass-структуры, bytecode методов, constant pool, аннотации. Заменила PermGen, у которой был фиксированный размер.
@@ -69,6 +93,16 @@ Default `-XX:MaxMetaspaceSize = unlimited` → может расти, пока �
 Лечение: всегда ставить `-XX:MaxMetaspaceSize=256m` (или сколько нужно) — лучше явный OOM, чем медленная деградация узла.
 
 > theory/JVM_MEMORY_AREAS.md §3
+
+---
+
+### Q33: Почему `-Xmx` не спасает от OOM, если приложение активно использует `ByteBuffer.allocateDirect`?
+
+**A:** Direct buffer хранит реальные данные в **native**-памяти (аллоцированной через `Unsafe`/malloc), а в heap живёт только маленький wrapper-объект (~64 байта), который на эту native-память ссылается. `-Xmx` ограничивает исключительно Java heap и вообще не видит native-аллокацию. Отдельный лимит — `-XX:MaxDirectMemorySize` (по умолчанию совпадает с `-Xmx`, но это не общий пул, а совпадение значений). Хуже того, освобождение native-памяти происходит только когда wrapper-объект становится phantom-reachable и срабатывает `Cleaner` — то есть привязано к GC маленького, дёшево собираемого объекта. Если young-GC случаются реже, чем растёт direct-аллокация, native-память переполняется раньше, чем heap вообще почувствует давление — отсюда `OutOfMemoryError: Direct buffer memory` при формально свободном heap.
+
+> theory/JVM_MEMORY_AREAS.md §6
+
+---
 
 ## 3. Class Loaders
 
@@ -89,6 +123,8 @@ Default `-XX:MaxMetaspaceSize = unlimited` → может расти, пока �
 
 > theory/CLASS_LOADERS.md §3
 
+---
+
 ### Q7: Чем `ClassNotFoundException` отличается от `NoClassDefFoundError`?
 
 **A:** Совсем разная семантика, постоянно путают:
@@ -103,6 +139,8 @@ Default `-XX:MaxMetaspaceSize = unlimited` → может расти, пока �
 Другой сценарий — class был на compile classpath, нет на runtime classpath (Maven scope mismatch).
 
 > theory/CLASS_LOADERS.md §5
+
+---
 
 ### Q8: Как происходит классическая утечка ClassLoader (Tomcat redeploy scenario)?
 
@@ -126,6 +164,16 @@ Default `-XX:MaxMetaspaceSize = unlimited` → может расти, пока �
 
 > theory/CLASS_LOADERS.md §7
 
+---
+
+### Q34: Как lazy holder idiom (вложенный static-класс) даёт thread-safe singleton вообще без `synchronized`?
+
+**A:** JVMS §5.5 гарантирует, что `<clinit>` класса исполняется **под внутренней блокировкой на этом классе ровно один раз** на classloader — эта гарантия встроена в саму семантику инициализации, а не требует ручной синхронизации. Вложенный `Holder`-класс не загружается и не инициализируется, пока не произойдёт первое реальное обращение к `Holder.INSTANCE` внутри `getInstance()` — а обращение к non-constant static-полю как раз входит в список «active use» триггеров инициализации. Первый вызывающий поток инициирует загрузку класса, JVM берёт internal init-lock, выполняет `<clinit>`, освобождает lock; конкурентные потоки в это время блокируются на том же lock и видят уже полностью инициализированное поле после его освобождения. Это даёт safe publication не слабее volatile/synchronized — и именно поэтому идиома вытеснила double-checked locking как стандартный способ ленивой инициализации синглтона.
+
+> theory/CLASS_LOADERS.md §4
+
+---
+
 ## 4. JIT Compilation
 
 ### Q9: Что такое tiered compilation и какие уровни она использует?
@@ -146,6 +194,8 @@ Hot-метод проходит `0 → 3 → 4`. Уровни 1/2 — для к�
 
 > theory/JIT_COMPILATION.md §2
 
+---
+
 ### Q10: Что такое escape analysis и какие optimizations она открывает?
 
 **A:** **Escape Analysis (EA)** — JIT-анализ, определяющий, **выходит ли объект** из метода / потока. Три категории:
@@ -160,6 +210,8 @@ Hot-метод проходит `0 → 3 → 4`. Уровни 1/2 — для к�
 EA — одна из главных причин, почему «лишние объекты» в Java дёшевы для JIT.
 
 > theory/JIT_COMPILATION.md §3
+
+---
 
 ### Q11: Что такое deoptimization и какие триггеры её вызывают?
 
@@ -177,6 +229,16 @@ EA — одна из главных причин, почему «лишние о
 
 > theory/JIT_COMPILATION.md §4
 
+---
+
+### Q35: Почему появление шестого типа-реализации в горячем цикле, где раньше был только один тип, может навсегда просадить производительность call site — даже после того, как этот шестой тип перестал встречаться?
+
+**A:** Inline cache на call site отслеживает число **различных** типов receiver, увиденных профилем: до 2 типов (monomorphic/bimorphic) C2 всё ещё инлайнит обе ветки с дешёвым type guard. На 3+ типах call site помечается **megamorphic окончательно** — JIT переходит на настоящий vtable/itable lookup (indirect jump) для **всех** последующих вызовов в этой точке, и это решение не откатывается, даже если проблемный тип больше никогда не появится: профиль уже «грязный», и C2 не сбрасывает его. Поэтому один случайный вызов от нетипичного подкласса во время warmup (плагин, тестовый дублёр, edge case) способен навсегда выключить инлайнинг в этой точке — а вместе с ним все оптимизации, которые инлайнинг открывает (constant propagation, escape analysis), на весь остаток жизни процесса.
+
+> theory/JIT_COMPILATION.md §5
+
+---
+
 ## 5. String Internals
 
 ### Q12: Как устроены compact strings (JEP 254) и какую экономию дают?
@@ -193,6 +255,8 @@ API остаётся прежним (`charAt`, `length`), но внутри ес
 Эффект: в ASCII-нагруженных приложениях (логи, JSON-keys, HTTP-headers) heap сокращается на 10–30%. В UI/мультиязычных — мало. Hot loops становятся чуть медленнее из-за branch'а (можно отключить `-XX:-CompactStrings` для бенчмарка).
 
 > theory/STRING_INTERNALS.md §2
+
+---
 
 ### Q13: Как работает `+` для строк в Java 9+ и почему это лучше StringBuilder?
 
@@ -216,6 +280,8 @@ invokedynamic makeConcatWithConstants ("Hello, \1!", ...)
 
 > theory/STRING_INTERNALS.md §4
 
+---
+
 ## 6. Bytecode & invokedynamic
 
 ### Q14: Что такое invokedynamic и зачем JVM эту инструкцию добавили?
@@ -237,6 +303,8 @@ JDK сам использует:
 JIT inline-ит resolved CallSite **как direct call** — нет оверхеда после bootstrap.
 
 > theory/BYTECODE_INVOKEDYNAMIC.md §7
+
+---
 
 ### Q15: Как создаётся lambda в bytecode? Есть ли у неё .class файл на диске?
 
@@ -264,6 +332,8 @@ invokedynamic apply (LambdaMetafactory.metafactory bootstrap)
 
 > theory/BYTECODE_INVOKEDYNAMIC.md §9
 
+---
+
 ## 7. Reflection, MethodHandle, VarHandle
 
 ### Q16: В чём разница между Reflection, MethodHandle и VarHandle? Когда что использовать?
@@ -285,6 +355,8 @@ invokedynamic apply (LambdaMetafactory.metafactory bootstrap)
 
 > theory/REFLECTION_HANDLES.md §1
 
+---
+
 ### Q17: Что такое access modes у VarHandle и какие гарантии они дают?
 
 **A:** VarHandle предоставляет 5 уровней access modes — от слабого к сильному:
@@ -298,6 +370,8 @@ invokedynamic apply (LambdaMetafactory.metafactory bootstrap)
 Зачем уровни: позволяют lock-free алгоритмам использовать **минимальный** уровень синхронизации, не платя за volatile, когда хватает acquire/release (Disruptor LMAX, очереди с одним producer/consumer).
 
 > theory/REFLECTION_HANDLES.md §7
+
+---
 
 ## 8. JPMS
 
@@ -321,6 +395,8 @@ Use case: модуль re-exports API другого модуля через с�
 
 > theory/JPMS_MODULES.md §2
 
+---
+
 ## 9. Generics & Type Erasure
 
 ### Q19: Что нельзя из-за type erasure и какие workarounds?
@@ -339,6 +415,8 @@ Use case: модуль re-exports API другого модуля через с�
 Reified generics (Kotlin `reified` через `inline`) — compile-time trick, не Java solution.
 
 > theory/GENERICS_ERASURE.md §2
+
+---
 
 ### Q20: Что такое bridge method? Зачем компилятор их генерирует?
 
@@ -366,6 +444,8 @@ Bridge помечен ACC_SYNTHETIC | ACC_BRIDGE, видим в `javap`. `Method
 
 > theory/GENERICS_ERASURE.md §3
 
+---
+
 ## 10. equals / hashCode / Comparable
 
 ### Q21: Какие контракты у equals и hashCode и какие их нарушения опасны?
@@ -391,6 +471,8 @@ Bridge помечен ACC_SYNTHETIC | ACC_BRIDGE, видим в `javap`. `Method
 - **TreeMap inconsistency с equals** — TreeMap использует `compareTo`, не equals; `BigDecimal("1.0").compareTo("1.00") == 0` но `equals == false` → keys сливаются.
 
 > theory/EQUALS_HASHCODE_COMPARABLE.md §2
+
+---
 
 ### Q22: Чем `Comparable` отличается от `Comparator` и где появляется TreeMap pitfall с BigDecimal?
 
@@ -418,6 +500,8 @@ h.size();   // 2
 
 > theory/EQUALS_HASHCODE_COMPARABLE.md §5
 
+---
+
 ## 11. Exception Internals
 
 ### Q23: Почему создание Exception дорого и как сделать «дешёвый» exception?
@@ -440,6 +524,8 @@ class FastException extends RuntimeException {
 Дополнительно: HotSpot оптимизация **`-XX:-OmitStackTraceInFastThrow`** — после warmup JVM кидает singleton встроенных exception (NPE, ArrayIndexOutOfBounds) **без стэка** — `null` trace. Чинится `-XX:-OmitStackTraceInFastThrow` (в dev/staging).
 
 > theory/EXCEPTION_INTERNALS.md §4
+
+---
 
 ### Q24: Как работает try-with-resources и что такое suppressed exception?
 
@@ -476,6 +562,8 @@ Resource должен реализовать `AutoCloseable` (или `Closeable`
 
 > theory/EXCEPTION_INTERNALS.md §7
 
+---
+
 ## 12. Modern Java Features
 
 ### Q25: Что такое sealed классы и зачем они нужны?
@@ -498,6 +586,8 @@ Subclass должен быть `final`, `sealed`, или `non-sealed` (явно 
 3. **API stability**: библиотека публикует sealed interface — пользователи **не могут** создать свои implementations → автор гарантирует backward compatibility.
 
 > theory/MODERN_JAVA_FEATURES.md §3
+
+---
 
 ### Q26: Что такое record patterns и где они полезны?
 
@@ -530,6 +620,8 @@ double length(Line line) {
 
 > theory/MODERN_JAVA_FEATURES.md §4
 
+---
+
 ### Q27: Что можно делать с `var` и что нельзя? Какие style guidelines?
 
 **A:** `var` (JEP 286, Java 10+) — **local variable type inference**.
@@ -556,6 +648,8 @@ double length(Line line) {
 - `var` — **не keyword** (reserved type name), можно иметь поле `int var`. Но `class var {}` нельзя.
 
 > theory/MODERN_JAVA_FEATURES.md §6
+
+---
 
 ## 13. Foreign Memory & Vector API
 
@@ -600,6 +694,8 @@ MethodHandle mh = linker.downcallHandle(strlen,
 
 > theory/FOREIGN_MEMORY_VECTOR.md §1
 
+---
+
 ## 14. Serialization
 
 ### Q29: Почему Java Serialization считается «security-уязвимым» и что такое gadget chain?
@@ -628,6 +724,8 @@ InvokerTransformer → ChainedTransformer → LazyMap → AnnotationInvocationHa
 3. **JEP 415** (Java 17+) — context-specific filter factory для per-stream правил.
 
 > theory/SERIALIZATION.md §7
+
+---
 
 ## 15. JMM Reference
 
