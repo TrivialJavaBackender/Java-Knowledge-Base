@@ -2,7 +2,7 @@
 
 Вводный файл модуля. Здесь разбираемся, чем спецификация JPA (Jakarta Persistence) отличается от провайдера Hibernate ORM, как устроены фабрики и контексты (`EntityManagerFactory`/`SessionFactory`, `EntityManager`/`Session`), как происходит инициализация (bootstrap), что такое dialect и какие бывают режимы DDL-auto.
 
-## Спецификация против реализации
+## 1. Спецификация против реализации
 
 JPA (Jakarta Persistence, до Jakarta EE 9 — Java Persistence API, пакет `javax.persistence`, сейчас `jakarta.persistence`) — это **стандарт**: набор интерфейсов, аннотаций (`@Entity`, `@OneToMany`, `@Id`) и язык запросов JPQL. Сама спецификация не выполняет ни одного SQL-запроса — она лишь описывает контракт.
 
@@ -18,7 +18,7 @@ Hibernate ORM — самая популярная **реализация** (пр
 
 **Практическое следствие.** Если писать код только против интерфейсов JPA (`EntityManager`, JPQL), приложение теоретически переносимо между провайдерами. На практике переносимость почти всегда теряется: используются специфичные для Hibernate возможности (`@BatchSize`, `@Formula`, `@Filter`, типы соединений), а поведение dialect и DDL-auto отличается между провайдерами. Для senior-интервью важна формулировка: «JPA — это контракт, Hibernate — реализация, которая этот контракт расширяет своими возможностями».
 
-## Фабрики и контексты
+## 2. Фабрики и контексты
 
 JPA-интерфейсы и их «родные» аналоги в Hibernate соотносятся напрямую — более того, в Hibernate `SessionFactory` реализует `EntityManagerFactory`, а `Session` реализует `EntityManager`. Это позволяет при необходимости «спуститься» с уровня JPA на уровень Hibernate через `unwrap`.
 
@@ -44,7 +44,7 @@ Session session = em.unwrap(Session.class);
 
 Контекст хранения (persistence context) и состояния сущностей (transient / managed / detached / removed) подробно разбираются в [ENTITY_LIFECYCLE.md](ENTITY_LIFECYCLE.md).
 
-## Единица хранения (persistence unit)
+## 3. Единица хранения (persistence unit)
 
 Единица хранения (persistence unit) — это именованная конфигурация: набор управляемых классов, источник данных, провайдер и его свойства. Из неё строится `EntityManagerFactory`. Определяется либо декларативно в `persistence.xml`, либо программно.
 
@@ -88,7 +88,7 @@ SessionFactory sf = new MetadataSources(registry)
 
 В Spring Boot ни `persistence.xml`, ни ручная сборка `SessionFactory` обычно не нужны: стартер `spring-boot-starter-data-jpa` через auto-configuration сам создаёт `EntityManagerFactory` (`LocalContainerEntityManagerFactoryBean`), сканирует пакеты на `@Entity`, читает настройки из `application.yml` (`spring.datasource.*`, `spring.jpa.*`) и подключает менеджер транзакций. Управление транзакциями через `@Transactional`, репозитории Spring Data и тонкости интеграции описаны в [SPRING_DATA_JPA.md](../../spring-frameworks/theory/SPRING_DATA_JPA.md) — здесь не дублируем.
 
-## Dialect
+## 4. Dialect
 
 Dialect — это Hibernate-абстракция над диалектом SQL конкретной СУБД. Он определяет, как генерировать пагинацию (`LIMIT/OFFSET` против `FETCH FIRST` против `ROWNUM`), какие типы столбцов сопоставлять Java-типам, какие функции и стратегии генерации идентификаторов поддерживаются, как звучит синтаксис блокировок (`FOR UPDATE`).
 
@@ -98,7 +98,7 @@ hibernate.dialect = org.hibernate.dialect.PostgreSQLDialect
 
 Начиная с Hibernate 6, dialect в большинстве случаев **определяется автоматически** по метаданным JDBC-соединения, поэтому явно указывать его обычно не требуется. Версионные диалекты вроде `PostgreSQL10Dialect` объявлены устаревшими — современный `PostgreSQLDialect` сам учитывает версию сервера. Указывать dialect вручную стоит, когда автоопределение недоступно (нет живого соединения на старте) или нужно зафиксировать конкретное поведение.
 
-## DDL-auto (hbm2ddl)
+## 5. DDL-auto (hbm2ddl)
 
 Свойство `hibernate.hbm2ddl.auto` (в Spring Boot — `spring.jpa.hibernate.ddl-auto`) управляет тем, что Hibernate делает со схемой БД при старте, сверяя её с маппингом сущностей.
 
@@ -112,7 +112,7 @@ hibernate.dialect = org.hibernate.dialect.PostgreSQLDialect
 
 **Рекомендации для интервью.** В продакшене используют `none` или `validate`, а саму схему ведут миграциями (Flyway/Liquibase). `update` опасен: он накапливает дрейф схемы, не выполняет деструктивные изменения и легко даёт расхождение между средами. `create`/`create-drop` пригодны только для тестов и быстрых прототипов. Типичный ответ на вопрос «какой ddl-auto в проде» — «`validate` плюс версионируемые миграции, никогда `update`».
 
-## Архитектура слоёв
+## 6. Архитектура слоёв
 
 Сверху вниз — от прикладного кода до базы данных:
 
@@ -135,7 +135,7 @@ JDBC (java.sql) — PreparedStatement, ResultSet, пул соединений (H
 
 Каждый слой опирается только на нижележащий. Прикладной код в идеале знает лишь о JPA-контракте; Hibernate транслирует вызовы в JDBC; пул соединений (обычно HikariCP) переиспользует физические соединения с СУБД. Понимание этого слоения помогает локализовать проблему: N+1 и lazy loading — это уровень Hibernate, а долгие запросы и блокировки — уже уровень СУБД.
 
-## Где почитать дальше
+## 7. Где почитать дальше
 
 - [ENTITY_LIFECYCLE.md](ENTITY_LIFECYCLE.md) — контекст хранения, состояния сущности, dirty checking, flush, каскады.
 - [MAPPINGS_ASSOCIATIONS.md](MAPPINGS_ASSOCIATIONS.md) — `@OneToMany`/`@ManyToOne`/`@ManyToMany`, владелец связи, embeddable.

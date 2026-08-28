@@ -4,7 +4,7 @@
 
 ---
 
-## FetchType: LAZY vs EAGER
+## 1. FetchType: LAZY vs EAGER
 
 JPA задаёт два режима загрузки ассоциаций. По умолчанию:
 
@@ -34,7 +34,7 @@ List<Order> orders = em.createQuery("FROM Order", Order.class).getResultList();
 
 ---
 
-## Устройство proxy и инициализация lazy-ассоциаций
+## 2. Устройство proxy и инициализация lazy-ассоциаций
 
 Чтобы `LAZY` работал, Hibernate должен подсунуть на место незагруженной ассоциации объект-заместитель (proxy), который при первом обращении сходит в БД. Есть два механизма.
 
@@ -72,7 +72,7 @@ User real = (User) Hibernate.unproxy(order.getUser());  // развернуть 
 
 ---
 
-## Решения N+1 в Hibernate
+## 3. Решения N+1 в Hibernate
 
 Ниже — то, во что эти приёмы превращаются на уровне SQL, и их ловушки.
 
@@ -171,7 +171,7 @@ private List<Item> items;
 
 ---
 
-## Обнаружение N+1
+## 4. Обнаружение N+1
 
 N+1 не виден в коде — `order.getUser()` это обычный геттер. Поэтому его ловят инструментами.
 
@@ -190,7 +190,7 @@ assertThat(stats.getPrepareStatementCount() - before).isLessThanOrEqualTo(2);
 
 ---
 
-## LazyInitializationException
+## 5. LazyInitializationException
 
 Это **обратная сторона** lazy-загрузки: попытка инициализировать proxy/коллекцию **после закрытия** persistence context (сессии). Hibernate proxy умеет догрузить данные только пока сессия открыта; после закрытия идти в БД не через что.
 
@@ -218,7 +218,7 @@ o.getItems().size();   // LazyInitializationException: could not initialize prox
 
 ---
 
-## Где почитать дальше
+## 6. Где почитать дальше
 
 - [`databases/DATABASE_TYPES.md`](../../databases/theory/DATABASE_TYPES.md) — каноническая теория N+1 и `LazyInitializationException` (что это и почему ORM не решает автоматически).
 - [`graphql-kotlin/DATALOADER_NPLUS1.md`](../../graphql-kotlin/theory/DATALOADER_NPLUS1.md) — N+1 в GraphQL и его решение через DataLoader (batching + deduplication).

@@ -15,7 +15,7 @@ Hibernate отображает Java-коллекции на ассоциации
 
 ---
 
-## Три семантики: bag vs set vs list
+## 1. Три семантики: bag vs set vs list
 
 Тип поля в Java определяет, какую обёртку (persistent collection) подставит Hibernate и какую
 реляционную семантику он гарантирует.
@@ -86,7 +86,7 @@ em.flush();
 
 ---
 
-## MultipleBagFetchException — battle-story
+## 2. MultipleBagFetchException — battle-story
 
 Классическая боль. Сущность с двумя bag-коллекциями, и кто-то пытается догрузить обе одним запросом:
 
@@ -158,7 +158,7 @@ Hibernate отказывается выполнять запрос вообще,
 
 ---
 
-## Упорядоченные (ordered) vs отсортированные (sorted) коллекции
+## 3. Упорядоченные (ordered) vs отсортированные (sorted) коллекции
 
 Две разные стратегии задать порядок, которые легко перепутать. Различие — **где** происходит
 сортировка: в SQL при загрузке или в памяти JVM.
@@ -206,7 +206,7 @@ private SortedSet<Comment> comments = new TreeSet<>();
 
 ---
 
-## PersistentBag / PersistentSet / PersistentList — обёртки
+## 4. PersistentBag / PersistentSet / PersistentList — обёртки
 
 Когда сущность становится управляемой, Hibernate **подменяет** ваш `ArrayList`/`HashSet` на собственную
 обёртку — `PersistentBag`, `PersistentSet`, `PersistentList` (или `PersistentSortedSet` и т. д.).
@@ -231,7 +231,7 @@ em.flush();                                          // сравнение со 
 
 ---
 
-## Отслеживание изменений коллекций (dirty checking) — как и почём
+## 5. Отслеживание изменений коллекций (dirty checking) — как и почём
 
 Dirty checking сущностей (полей) и dirty checking коллекций — два разных механизма. Для коллекции
 Hibernate при flush сравнивает **текущий состав с снапшотом**, снятым при инициализации.
@@ -249,7 +249,7 @@ Hibernate при flush сравнивает **текущий состав с с�
 
 ---
 
-## Сверхленивые коллекции (Extra lazy)
+## 6. Сверхленивые коллекции (Extra lazy)
 
 Обычная lazy-коллекция при первом же `size()` или `contains()` грузит **всё** содержимое. Для очень
 больших коллекций это расточительно: чтобы узнать количество, не нужно тянуть 10 000 строк.
@@ -275,7 +275,7 @@ post.getComments().get(5);        // точечная выборка элеме�
 
 ---
 
-## @ElementCollection — коллекции value-типов
+## 7. @ElementCollection — коллекции value-типов
 
 `@ElementCollection` хранит коллекцию **не сущностей**, а value-типов (базовых или `@Embeddable`).
 У элементов нет собственного `@Id` и жизненного цикла — они полностью принадлежат владельцу и живут в
@@ -323,7 +323,7 @@ private Map<String, String> attributes = new HashMap<>();
 
 ---
 
-## @OrderBy vs @OrderColumn — частый вопрос
+## 8. @OrderBy vs @OrderColumn — частый вопрос
 
 Главная путаница раздела. Названия похожи, семантика — противоположная.
 
@@ -361,7 +361,7 @@ slides.add(2, newSlide);   // вставка в середину
 
 ---
 
-## Где почитать дальше
+## 9. Где почитать дальше
 
 - [`MAPPINGS_ASSOCIATIONS.md`](MAPPINGS_ASSOCIATIONS.md) — owning vs inverse side, `mappedBy`,
   cascade, `orphanRemoval`, `equals`/`hashCode` для элементов set.

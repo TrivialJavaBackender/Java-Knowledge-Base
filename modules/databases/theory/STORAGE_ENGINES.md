@@ -6,7 +6,7 @@ Storage engine — слой БД, который превращает SQL/API-о
 
 ---
 
-## B-tree storage engines
+## 1. B-tree storage engines
 
 **Принцип:** данные хранятся в сбалансированных страницах фиксированного размера (обычно 8KB/16KB). UPDATE — in-place перезапись страницы (с WAL логированием для recovery). Поиск — O(log n) с малой константой.
 
@@ -33,7 +33,7 @@ Storage engine — слой БД, который превращает SQL/API-о
 
 ---
 
-## LSM-tree storage engines
+## 2. LSM-tree storage engines
 
 **Принцип** (Log-Structured Merge-tree, O'Neil 1996): все записи идут в **memtable** (in-memory sorted structure, обычно red-black tree или skip list); при заполнении memtable сбрасывается на диск как **SSTable** (Sorted String Table — immutable отсортированный файл). Background **compaction** сливает SSTables для удаления дубликатов и tombstones.
 
@@ -73,7 +73,7 @@ COMPACTION (background):
 
 ---
 
-## Compaction strategies (LSM)
+## 3. Compaction strategies (LSM)
 
 Compaction — главный tuning knob LSM-trees. Компромисс между **write amplification**, **read amplification**, **space amplification**.
 
@@ -122,7 +122,7 @@ L3:  ...                  ← total ~ 100GB
 
 ---
 
-## Bloom filter — оптимизация LSM-read
+## 4. Bloom filter — оптимизация LSM-read
 
 **Проблема:** point lookup `GET key` в LSM требует проверить memtable + все SSTable. Большинство ключей нет в большинстве SSTable → лишние I/O.
 
@@ -138,7 +138,7 @@ L3:  ...                  ← total ~ 100GB
 
 ---
 
-## Write-Ahead Log (WAL)
+## 5. Write-Ahead Log (WAL)
 
 **Принцип:** изменения сначала пишутся в append-only лог на диск (`fsync`), потом применяются к данным (heap pages / memtable). Гарантирует:
 - **Atomicity**: при crash в середине транзакции — лог говорит «было COMMIT или нет?»; если нет — undo через лог (или просто не apply)
@@ -189,7 +189,7 @@ synchronous_commit = remote_apply # ждать пока replica применил
 
 ---
 
-## InnoDB vs PostgreSQL — storage layouts
+## 6. InnoDB vs PostgreSQL — storage layouts
 
 | | InnoDB (MySQL) | PostgreSQL (heap + index) |
 |---|---|---|
@@ -204,7 +204,7 @@ synchronous_commit = remote_apply # ждать пока replica применил
 
 ---
 
-## RocksDB как embedded engine
+## 7. RocksDB как embedded engine
 
 RocksDB — не самостоятельная БД, а **embedded library** (как SQLite). Хранит данные локально на одном узле. Транзакции и репликация — выше по стеку.
 
@@ -225,7 +225,7 @@ RocksDB — не самостоятельная БД, а **embedded library** (�
 
 ---
 
-## Сравнительная таблица
+## 8. Сравнительная таблица
 
 | | B-tree (InnoDB/PG) | LSM-tree (RocksDB/Cass) |
 |---|---|---|

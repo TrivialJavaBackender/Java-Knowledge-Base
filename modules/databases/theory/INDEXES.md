@@ -1,6 +1,6 @@
 # Индексы в PostgreSQL
 
-## Почему нет кластерных индексов
+## 1. Почему нет кластерных индексов
 
 В SQL Server / MySQL InnoDB кластерный индекс — физическое хранение строк в порядке ключа. В PostgreSQL это невозможно из-за MVCC: UPDATE пишет новый tuple туда, где есть место — физический порядок немедленно нарушается. Команда `CLUSTER` существует, но одноразовая, требует `ACCESS EXCLUSIVE` lock и деградирует после первого же UPDATE.
 
@@ -8,7 +8,7 @@ PostgreSQL компенсирует через **Index-Only Scan** и **covering
 
 ---
 
-## B-tree (по умолчанию)
+## 2. B-tree (по умолчанию)
 
 `CREATE INDEX` без указания типа создаёт B-tree. Сбалансированное дерево, все листовые узлы на одной глубине.
 
@@ -38,7 +38,7 @@ SELECT total_amount FROM orders WHERE user_id = 42; -- Index-Only Scan
 
 ---
 
-## Hash
+## 3. Hash
 
 Поддерживает **только `=`**. Компактнее B-tree при длинных ключах (UUID, токены).
 
@@ -50,7 +50,7 @@ CREATE INDEX ON sessions USING hash(session_token);
 
 ---
 
-## GIN (Generalized Inverted Index)
+## 4. GIN (Generalized Inverted Index)
 
 Для каждого **элемента** составного значения хранит список строк, где он встречается. Применение: `jsonb`, массивы, полнотекстовый поиск.
 
@@ -73,7 +73,7 @@ SELECT * FROM articles WHERE to_tsvector('english', body) @@ to_tsquery('postgre
 
 ---
 
-## GiST (Generalized Search Tree)
+## 5. GiST (Generalized Search Tree)
 
 Для нестандартных типов: близость, пересечение, вхождение. Extensible framework.
 
@@ -102,7 +102,7 @@ GiST может возвращать false positives — PostgreSQL дополн
 
 ---
 
-## BRIN (Block Range INdex)
+## 6. BRIN (Block Range INdex)
 
 Хранит **min/max** для диапазонов физических страниц. Размер индекса в сотни раз меньше B-tree.
 
@@ -119,7 +119,7 @@ SELECT correlation FROM pg_stats WHERE tablename='events' AND attname='created_a
 
 ---
 
-## Partial Index
+## 7. Partial Index
 
 Строится только по **подмножеству строк** — тех, что удовлетворяют WHERE.
 
@@ -135,7 +135,7 @@ CREATE UNIQUE INDEX ON users(email) WHERE deleted_at IS NULL;
 
 ---
 
-## Expression Index
+## 8. Expression Index
 
 Строится по **результату выражения**.
 
@@ -156,7 +156,7 @@ PostgreSQL использует expression index только если запр�
 
 ---
 
-## pg_trgm — нечёткий поиск по подстроке
+## 9. pg_trgm — нечёткий поиск по подстроке
 
 **pg_trgm** (trigram) — расширение для нечёткого и substring-поиска. Trigram — тройка последовательных символов. `"hello"` → `"  h"`, `" he"`, `"hel"`, `"ell"`, `"llo"`, `"lo "`.
 
@@ -190,7 +190,7 @@ SELECT levenshtein('kitten', 'sitting'); -- 3
 
 ---
 
-## EXPLAIN и EXPLAIN ANALYZE
+## 10. EXPLAIN и EXPLAIN ANALYZE
 
 `EXPLAIN` — план запроса без выполнения. `EXPLAIN ANALYZE` — выполняет запрос, показывает реальное время.
 
@@ -249,7 +249,7 @@ Nested Loop — хорош при маленьком outer, Hash Join — при
 
 ---
 
-## Шпаргалка
+## 11. Шпаргалка
 
 | Тип данных / запрос | Индекс |
 |---|---|

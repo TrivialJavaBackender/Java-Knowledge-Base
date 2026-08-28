@@ -1,6 +1,6 @@
 # Database Transactions — PostgreSQL
 
-## ACID
+## 1. ACID
 
 **ACID** — свойства транзакций, гарантирующие надёжность даже при сбоях.
 
@@ -56,7 +56,7 @@ synchronous_commit=on  → полная гарантия (дефолт)
 
 ---
 
-## Аномалии
+## 2. Аномалии
 
 **Dirty Read** — чтение незакоммиченных данных другой транзакции.
 ```
@@ -98,7 +98,7 @@ Write Skew не предотвращается REPEATABLE READ.
 
 ---
 
-## Уровни изоляции
+## 3. Уровни изоляции
 
 | Уровень | Dirty Read | Non-Repeatable Read | Phantom Read | Write Skew |
 |---|---|---|---|---|
@@ -113,7 +113,7 @@ Write Skew не предотвращается REPEATABLE READ.
 
 ---
 
-## READ COMMITTED (default)
+## 4. READ COMMITTED (default)
 
 Каждый SQL-запрос видит снимок на момент **своего** старта, не транзакции.
 
@@ -147,7 +147,7 @@ RETURNING qty;
 
 ---
 
-## REPEATABLE READ
+## 5. REPEATABLE READ
 
 Транзакция видит снимок на момент **старта транзакции**. Все запросы видят одинаковую картину.
 
@@ -173,7 +173,7 @@ T2 COMMIT   → T1 получает ERROR: could not serialize access due to con
 
 ---
 
-## SERIALIZABLE (SSI)
+## 6. SERIALIZABLE (SSI)
 
 PostgreSQL использует **SSI (Serializable Snapshot Isolation)** — не классические 2PL-локи.
 
@@ -196,7 +196,7 @@ COMMIT;
 
 ---
 
-## SELECT FOR UPDATE — пессимистичная блокировка
+## 7. SELECT FOR UPDATE — пессимистичная блокировка
 
 Явная блокировка строк внутри любого уровня изоляции.
 
@@ -225,7 +225,7 @@ SELECT * FROM tasks WHERE status='pending' FOR UPDATE SKIP LOCKED LIMIT 1;
 
 ---
 
-## EXCLUDE constraint — атомарная проверка пересечений
+## 8. EXCLUDE constraint — атомарная проверка пересечений
 
 Для временных диапазонов ни UNIQUE, ни FOR UPDATE не защищают от пересечений. Решение — constraint с range-типами:
 
@@ -252,7 +252,7 @@ INSERT INTO reservations VALUES (gen_random_uuid(), 1, '2026-04-05', '[12:00, 13
 
 ---
 
-## MVCC — Multi-Version Concurrency Control
+## 9. MVCC — Multi-Version Concurrency Control
 
 При каждом UPDATE PostgreSQL **не перезаписывает строку**, а создаёт новую версию — **tuple**.
 
@@ -290,7 +290,7 @@ UPDATE accounts SET balance = 500 WHERE id = 1;
 
 ---
 
-## Retry-логика в приложении
+## 10. Retry-логика в приложении
 
 | Ошибка | SQLSTATE | Когда |
 |---|---|---|
@@ -329,7 +329,7 @@ long backoff = (long) (100 * Math.pow(2, attempt) + Math.random() * 100);
 
 ---
 
-## Savepoints — вложенные транзакции
+## 11. Savepoints — вложенные транзакции
 
 PostgreSQL не поддерживает вложенные транзакции в классическом смысле, но поддерживает **savepoints** — точки отката внутри транзакции.
 
@@ -365,7 +365,7 @@ public void innerMethod() { ... }
 
 ---
 
-## Практическая стратегия для резерваций
+## 12. Практическая стратегия для резерваций
 
 | Операция | Уровень | Дополнительно |
 |---|---|---|

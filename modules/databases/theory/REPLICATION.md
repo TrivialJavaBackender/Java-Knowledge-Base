@@ -6,7 +6,7 @@
 
 ---
 
-## Зачем репликация нужна
+## 1. Зачем репликация нужна
 
 Четыре цели, часто пересекаются:
 
@@ -19,7 +19,7 @@
 
 ---
 
-## Single-leader (Primary-Replica)
+## 2. Single-leader (Primary-Replica)
 
 **Принцип:** один узел принимает writes (leader/primary/master), остальные — read-only реплики, синхронизирующиеся с лидером.
 
@@ -47,7 +47,7 @@ Client reads  → Leader (для consistency) или → Replicas (eventual)
 
 ---
 
-## Sync vs Async replication
+## 3. Sync vs Async replication
 
 Когда write считается успешным?
 
@@ -92,7 +92,7 @@ Leader → Client: OK
 
 ---
 
-## Replication lag и его последствия
+## 4. Replication lag и его последствия
 
 Async replication — replica всегда отстаёт. Lag измеряется в **секундах** или **байтах WAL**. При больших нагрузках может расти до минут.
 
@@ -128,7 +128,7 @@ Async replication — replica всегда отстаёт. Lag измеряет�
 
 ---
 
-## Multi-leader replication
+## 5. Multi-leader replication
 
 Несколько узлов принимают writes одновременно. Используется для:
 - **Cross-DC active-active** — каждый DC имеет свой leader, синхронизация peer-to-peer
@@ -181,7 +181,7 @@ DC1 Leader ↔ DC2 Leader ↔ DC3 Leader
 
 ---
 
-## Leaderless replication (Dynamo-style)
+## 6. Leaderless replication (Dynamo-style)
 
 Любой узел принимает writes; клиент или координатор шлёт N реплик, ждёт W подтверждений. Чтение — с R реплик, выбирает свежайшую версию.
 
@@ -222,7 +222,7 @@ Client read → Coordinator → R nodes
 
 ---
 
-## Failover
+## 7. Failover
 
 Что происходит при падении leader.
 
@@ -272,7 +272,7 @@ DBA вручную:
 
 ---
 
-## CDC (Change Data Capture)
+## 8. CDC (Change Data Capture)
 
 **Цель:** превратить БД в источник событий для downstream систем (cache invalidation, search index, data lake, microservice integration), не привязываясь к dual-write проблеме.
 
@@ -321,7 +321,7 @@ DB-trigger на INSERT/UPDATE/DELETE пишет в audit-таблицу, worker 
 
 ---
 
-## Logical vs Physical replication
+## 9. Logical vs Physical replication
 
 ### Physical (binary)
 
@@ -347,7 +347,7 @@ MySQL: binlog в `ROW` format — обычно используется как �
 
 ---
 
-## Практическая стратегия
+## 10. Практическая стратегия
 
 | Сценарий | Топология |
 |----------|-----------|

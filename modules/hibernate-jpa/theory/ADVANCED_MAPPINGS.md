@@ -8,7 +8,7 @@
 
 ---
 
-## `@Column` — детальная настройка столбца
+## 1. `@Column` — детальная настройка столбца
 
 ```java
 @Column(
@@ -36,7 +36,7 @@ private BigDecimal unitPrice;
 
 ---
 
-## `@Table` — таблица, ограничения, индексы
+## 2. `@Table` — таблица, ограничения, индексы
 
 ```java
 @Entity
@@ -59,7 +59,7 @@ public class Product { /* ... */ }
 
 ---
 
-## `@JoinColumn` / `@JoinTable` — продвинутое
+## 3. `@JoinColumn` / `@JoinTable` — продвинутое
 
 Базовое назначение — в [MAPPINGS_ASSOCIATIONS.md](MAPPINGS_ASSOCIATIONS.md). Дополнительно:
 
@@ -80,7 +80,7 @@ private Vendor vendor;
 
 ---
 
-## `@Enumerated` — ORDINAL против STRING
+## 4. `@Enumerated` — ORDINAL против STRING
 
 `@Enumerated(EnumType.ORDINAL)` хранит порядковый номер константы (0, 1, 2…). `EnumType.STRING` хранит
 имя константы.
@@ -106,7 +106,7 @@ Enum `Status { NEW, PAID, SHIPPED }`. В БД лежат заказы: `NEW=0`, 
 
 ---
 
-## `@Temporal` — legacy против java.time
+## 5. `@Temporal` — legacy против java.time
 
 `@Temporal` нужен **только** для старых типов `java.util.Date` и `java.util.Calendar`, чтобы указать,
 отображать ли их как `DATE`, `TIME` или `TIMESTAMP`:
@@ -129,7 +129,7 @@ private LocalDate birthDate;        // на DATE
 
 ---
 
-## `@Lob` — большие объекты
+## 6. `@Lob` — большие объекты
 
 `@Lob` отображает поле на `BLOB` (бинарные данные) или `CLOB` (символьные):
 
@@ -148,7 +148,7 @@ LOB-столбцы тяжёлые: их почти всегда делают л�
 
 ---
 
-## `@Transient` и `@Access`
+## 7. `@Transient` и `@Access`
 
 `@Transient` исключает поле из персистентности (вычисляемое в памяти, кэш, флаг). Не путать с
 `transient` Java — это разные механизмы (одно про JPA, другое про сериализацию).
@@ -166,7 +166,7 @@ LOB-столбцы тяжёлые: их почти всегда делают л�
 
 ---
 
-## `@AttributeOverride` / `@AssociationOverride`
+## 8. `@AttributeOverride` / `@AssociationOverride`
 
 Переопределяют маппинг столбцов/ассоциаций встраиваемого типа (`@Embeddable`) в конкретном владельце —
 например, когда один тип встроен дважды:
@@ -192,7 +192,7 @@ private Address billingAddress;
 
 ---
 
-## `@Convert` + `@AttributeConverter` — кастомные конвертеры типов
+## 9. `@Convert` + `@AttributeConverter` — кастомные конвертеры типов
 
 Конвертер описывает двунаправленное преобразование «атрибут сущности ↔ значение столбца». Это
 стандартный (не Hibernate-специфичный) механизм JPA для типов, которые провайдер не умеет отображать сам.
@@ -237,7 +237,7 @@ ORDINAL-ловушку, сохраняя компактный целочисле
 
 ---
 
-## `@SecondaryTable` — одна сущность на нескольких таблицах
+## 10. `@SecondaryTable` — одна сущность на нескольких таблицах
 
 Поля одной сущности раскладываются по основной и дополнительной таблицам, связанным по первичному ключу:
 
@@ -262,7 +262,7 @@ public class Employee {
 
 ---
 
-## Hibernate-специфичные: `@Formula`, `@Where`, `@Filter`
+## 11. Hibernate-специфичные: `@Formula`, `@Where`, `@Filter`
 
 Это аннотации Hibernate (не часть JPA-спецификации), привязывающие сущность к фрагментам SQL.
 
@@ -316,7 +316,7 @@ session.enableFilter("tenantFilter").setParameter("tenantId", currentTenant());
 
 ---
 
-## Значения, генерируемые базой данных
+## 12. Значения, генерируемые базой данных
 
 ### `@CreationTimestamp` / `@UpdateTimestamp` (Hibernate)
 
@@ -367,7 +367,7 @@ private Instant dbCreatedAt;
 
 ---
 
-## Где почитать дальше
+## 13. Где почитать дальше
 
 - [MAPPINGS_ASSOCIATIONS.md](MAPPINGS_ASSOCIATIONS.md) — базовые аннотации, `@Embeddable`, ассоциации,
   owning/inverse, cascade, `orphanRemoval`, `equals`/`hashCode`.

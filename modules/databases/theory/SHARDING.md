@@ -6,7 +6,7 @@
 
 ---
 
-## Когда шардирование нужно
+## 1. Когда шардирование нужно
 
 Шардирование решает три проблемы, которые **не решает** репликация:
 
@@ -20,7 +20,7 @@
 
 ---
 
-## Стратегии шардирования
+## 2. Стратегии шардирования
 
 ### Диапазонное шардирование (Range sharding)
 
@@ -90,7 +90,7 @@ Lookup service: { user:123 → shard5, user:456 → shard2, ... }
 
 ---
 
-## Consistent Hashing (согласованное хэширование)
+## 3. Consistent Hashing (согласованное хэширование)
 
 **Проблема naive hash sharding:** `shard = hash(key) % N`. При изменении N (добавление/удаление узла) — пересчёт всех ключей. Если N был 4, стал 5, ключ с `hash(k) = 7` уходил на shard 3, теперь — на shard 2. Перетасовка **K × (N-1) / N** ключей → весь датасет фактически нужно мигрировать.
 
@@ -139,7 +139,7 @@ node_c: 100 vnodes
 
 ---
 
-## Rendezvous Hashing (HRW — хэширование по наибольшему весу)
+## 4. Rendezvous Hashing (HRW — хэширование по наибольшему весу)
 
 Альтернатива consistent hashing, проще в реализации. Для каждого ключа:
 
@@ -162,7 +162,7 @@ def shard_for(key, nodes):
 
 ---
 
-## Горячий ключ / Celebrity user problem
+## 5. Горячий ключ / Celebrity user problem
 
 **Сценарий:** один shard получает непропорционально много трафика. Twitter — Justin Bieber tweets; видео — viral on TikTok; e-commerce — flash sale на один товар.
 
@@ -218,7 +218,7 @@ Hot tenants выделяются на dedicated shards (через directory sha
 
 ---
 
-## Решардинг (Resharding)
+## 6. Решардинг (Resharding)
 
 Самая сложная операция в шардированной системе. Сценарии:
 
@@ -299,7 +299,7 @@ Vitess (Google → CNCF) — middleware для MySQL sharding. Координи�
 
 ---
 
-## Вторичные индексы на шардированных данных
+## 7. Вторичные индексы на шардированных данных
 
 Что делать с `WHERE email = 'x@y.com'`, если shard key — `user_id`?
 
@@ -331,7 +331,7 @@ Sync через CDC → Elasticsearch. Search идёт в ES, fetch full row —
 
 ---
 
-## Межшардовые запросы (Cross-shard queries)
+## 8. Межшардовые запросы (Cross-shard queries)
 
 Joins, transactions, aggregations через shards — все «дорогие».
 
@@ -347,7 +347,7 @@ Joins, transactions, aggregations через shards — все «дорогие�
 
 ---
 
-## Шардирование на практике
+## 9. Шардирование на практике
 
 ### Twitter timeline (упрощённо)
 

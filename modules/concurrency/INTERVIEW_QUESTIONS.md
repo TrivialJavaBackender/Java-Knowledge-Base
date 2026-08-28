@@ -280,7 +280,7 @@
 
 ### Q38: Когда использовать ReadWriteLock вместо synchronized?
 **A:** Когда операций чтения **существенно** больше, чем записи, и критические секции длинные. `ReadWriteLock` позволяет нескольким читателям работать одновременно, блокируя только при записи. Бесполезен при коротких критических секциях (overhead acquire/release выше выгоды) и при balance 50/50 (write-lock starves читателей). Для read-heavy с очень короткими секциями — `StampedLock` с `tryOptimisticRead()` ещё быстрее: читаем без блокировки, валидируем stamp в конце.
-> JCP §13.3
+> theory/LOCKS.md §4
 
 ### Q39: Как сделать thread-safe LRU-кэш?
 **A:** Два подхода: (1) `synchronized` оборачивает весь кэш — просто, но не масштабируется при высокой нагрузке; (2) `ReentrantReadWriteLock` — read lock на `get` (только если get не обновляет порядок!), write lock на `put` и eviction. Проблема: классический LRU обновляет порядок при `get` — значит нужен write lock даже для чтения, и преимущество ReadWriteLock теряется. Альтернатива: использовать готовый Caffeine (W-TinyLFU) или `ConcurrentLinkedDeque` + `ConcurrentHashMap` с дополнительной синхронизацией для составных операций.
@@ -314,7 +314,7 @@
 
 ### Q47: Почему `size()` у ConcurrentLinkedQueue — O(n)?
 **A:** CLQ — non-blocking lock-free очередь на CAS, она **не хранит** счётчик размера. Поддерживать атомарный счётчик потребовало бы CAS на каждый enqueue/dequeue — дополнительная contention-точка, обнуляющая преимущество lock-free. Поэтому `size()` итерирует всю очередь, что O(n) и даёт лишь приблизительный результат под нагрузкой. Если нужен O(1) размер — храните `AtomicInteger` отдельно или используйте `LinkedBlockingQueue` (у неё `size()` = O(1) ценой блокировки на push/pop).
-> JD ConcurrentLinkedQueue
+> theory/CONCURRENT_COLLECTIONS.md §8
 
 ---
 

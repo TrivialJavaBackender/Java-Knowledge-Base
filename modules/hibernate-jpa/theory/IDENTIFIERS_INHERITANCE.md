@@ -6,7 +6,7 @@
 
 ---
 
-## Генерация идентификаторов: `GenerationType`
+## 1. Генерация идентификаторов: `GenerationType`
 
 `@GeneratedValue(strategy = …)` выбирает источник значения первичного ключа.
 
@@ -39,7 +39,7 @@ Hibernate обязан знать id сразу при `persist()` (id — кл�
 
 ---
 
-## Оптимизаторы последовательностей: hi/lo, pooled, pooled-lo
+## 2. Оптимизаторы последовательностей: hi/lo, pooled, pooled-lo
 
 Чтобы не дёргать `nextval` на каждую вставку, Hibernate резервирует диапазон значений за один
 запрос и раздаёт id из него в памяти.
@@ -69,7 +69,7 @@ private Long id;
 
 ---
 
-## UUID как идентификатор
+## 3. UUID как идентификатор
 
 ```java
 @Id
@@ -87,7 +87,7 @@ private UUID id;
 
 ---
 
-## Естественные идентификаторы (`@NaturalId`)
+## 4. Естественные идентификаторы (`@NaturalId`)
 
 Первичный ключ сущности часто синтетический — суррогатный `id` (последовательность, UUID), не несущий
 смысла предметной области. Но у сущности почти всегда есть и **естественный (бизнес-) ключ**: ISBN у
@@ -198,7 +198,7 @@ Book book = session
 
 ---
 
-## Наследование сущностей
+## 5. Наследование сущностей
 
 JPA отображает иерархию классов на таблицы тремя стратегиями через `@Inheritance(strategy = …)`.
 
@@ -245,7 +245,7 @@ public class WirePayment extends Payment { String iban; }
 
 ---
 
-## `@MappedSuperclass` vs `@Embeddable` vs наследование сущностей
+## 6. `@MappedSuperclass` vs `@Embeddable` vs наследование сущностей
 
 Три способа переиспользовать общие поля — выбираются по тому, нужен ли полиморфизм и есть ли у части
 собственная идентичность.
@@ -278,7 +278,7 @@ public class Invoice extends Auditable {   // столбцы createdAt/updatedAt
 
 ---
 
-## Полиморфные запросы
+## 7. Полиморфные запросы
 
 Запрос по базовому типу возвращает экземпляры всех подтипов; форма SQL зависит от стратегии
 наследования.
@@ -299,7 +299,7 @@ List<Payment> all = em.createQuery("select p from Payment p", Payment.class)
 
 ---
 
-## Где почитать дальше
+## 8. Где почитать дальше
 
 - [MAPPINGS_ASSOCIATIONS.md](MAPPINGS_ASSOCIATIONS.md) — `@Entity`/`@Embeddable`, ассоциации, cascade, `equals`/`hashCode`.
 - [JPA_VS_HIBERNATE.md](JPA_VS_HIBERNATE.md) — спецификация JPA vs провайдер Hibernate.

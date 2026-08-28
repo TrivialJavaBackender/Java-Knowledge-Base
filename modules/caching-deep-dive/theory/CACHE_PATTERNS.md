@@ -136,7 +136,7 @@ val cache = Caffeine.newBuilder()
 
 ---
 
-## Сравнение
+## 6. Сравнение
 
 | Паттерн | Read latency | Write latency | Консистентность | Сложность | Real-world example |
 |---------|--------------|---------------|-----------------|-----------|--------------------|
@@ -148,11 +148,11 @@ val cache = Caffeine.newBuilder()
 
 В реальности паттерны комбинируются: read = **cache-aside + refresh-ahead** (Caffeine), write = **D → invalidate C** (тривиальный вариант write-through без записи в кэш).
 
-## Anti-pattern: write только в кэш
+## 7. Anti-pattern: write только в кэш
 
 Кэш != БД. Без write-through или write-behind в БД при перезагрузке узла данные теряются. Всегда определяй источник истины.
 
-## См. также
+## 8. См. также
 
 - Грабли при инвалидации → [CONSISTENCY.md](CONSISTENCY.md), [ANTI_PATTERNS.md](ANTI_PATTERNS.md)
 - Реализация в Caffeine → [CAFFEINE.md](CAFFEINE.md)

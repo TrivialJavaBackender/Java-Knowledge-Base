@@ -277,7 +277,7 @@ Best practices от Prometheus: [Prometheus alerting](https://prometheus.io/docs
 
 ---
 
-## Чеклист перед добавлением кэша
+## 13. Чеклист перед добавлением кэша
 
 1. **Какова частота чтения?** Если < 10 RPS на ключ — не кэшируй (overhead больше выгоды).
 2. **Какова частота изменения?** Если ≈ частоте чтения — не кэшируй.
@@ -288,7 +288,7 @@ Best practices от Prometheus: [Prometheus alerting](https://prometheus.io/docs
 7. **TTL с jitter?** Всегда, для bulk-данных.
 8. **Защита от stampede?** `LoadingCache` или single-flight на уровне приложения.
 
-## См. также
+## 14. См. также
 
 - Patterns → [CACHE_PATTERNS.md](CACHE_PATTERNS.md)
 - Eviction → [EVICTION_POLICIES.md](EVICTION_POLICIES.md)
