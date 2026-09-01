@@ -13,6 +13,8 @@ export interface NotificationSettingsData {
   activeSubscriptions: number;
   /** Заданы ли VAPID-ключи на сервере. Без них подписываться бессмысленно. */
   pushConfigured: boolean;
+  /** Совпадают ли серверный и браузерный публичные ключи; null — сравнить нечем. */
+  vapidKeysMatch: boolean | null;
   vapidPublicKey: string;
 }
 
@@ -244,6 +246,16 @@ export function NotificationSettings({ data }: { data: NotificationSettingsData 
           <code className="font-mono text-[12px]">VAPID_PUBLIC_KEY</code>,{' '}
           <code className="font-mono text-[12px]">VAPID_PRIVATE_KEY</code> и{' '}
           <code className="font-mono text-[12px]">VAPID_SUBJECT</code> — см. README.
+        </Notice>
+      )}
+      {data.pushConfigured && data.vapidKeysMatch === false && (
+        <Notice>
+          <code className="font-mono text-[12px]">VAPID_PUBLIC_KEY</code> и{' '}
+          <code className="font-mono text-[12px]">NEXT_PUBLIC_VAPID_PUBLIC_KEY</code> не совпадают:
+          браузер подпишется одним ключом, а сервер будет подписывать запрос другим — push-сервис
+          ответит 403. Обе переменные должны содержать <b>публичный</b> ключ одной и той же пары.
+          После правки нужен пересбор: <code className="font-mono text-[12px]">NEXT_PUBLIC_*</code>{' '}
+          вшивается в бандл на сборке.
         </Notice>
       )}
       {support === 'no-push' && (

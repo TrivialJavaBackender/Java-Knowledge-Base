@@ -22,12 +22,26 @@ export interface StoredSubscription {
 /** Отправитель одной нотификации. Реальный — web-push, в тестах — заглушка. */
 export type PushSender = (sub: StoredSubscription, payload: string) => Promise<void>;
 
+/**
+ * Подробности провала — то, что позволяет отличить «ключи VAPID не совпадают»
+ * (403 от провайдера) от «сеть легла». Без них наружу выходило только
+ * `failed: [1]`, и настоящая причина оставалась в логах функции.
+ */
+export interface DeliveryFailure {
+  id: number;
+  /** HTTP-код провайдера; null — ошибка не дошла до него (сеть, кривой VAPID_SUBJECT). */
+  statusCode: number | null;
+  message: string;
+}
+
 export interface DeliveryResult {
   sent: number;
   /** id подписок, которых больше нет у push-сервиса (404/410) — их надо погасить. */
   gone: number[];
   /** id подписок с прочими ошибками: сеть, 5xx у провайдера. Подписку не трогаем. */
   failed: number[];
+  /** Те же провалы, но с причиной. Параллельно `failed`, чтобы не ломать вызывающих. */
+  failures: DeliveryFailure[];
 }
 
 let vapidConfigured = false;
@@ -70,6 +84,32 @@ function statusCodeOf(err: unknown): number | null {
   return null;
 }
 
+/** Текст ошибки вместе с телом ответа провайдера, если оно есть. */
+function providerMessage(err: unknown): string {
+  const base = err instanceof Error ? err.message : String(err);
+  if (typeof err === 'object' && err !== null && 'body' in err) {
+    const body = (err as { body: unknown }).body;
+    if (typeof body === 'string' && body.trim()) return `${base} — ${body.trim().slice(0, 300)}`;
+  }
+  return base;
+}
+
+/**
+ * Публичный ключ, которым браузер подписался, должен совпадать с тем, которым
+ * сервер подписывает запрос. Развести их легко: это две разные переменные
+ * окружения (`NEXT_PUBLIC_VAPID_PUBLIC_KEY` уезжает в бандл на сборке,
+ * `VAPID_PUBLIC_KEY` читается в рантайме), и при рассинхроне провайдер отвечает
+ * 403 — по которому догадаться о причине почти невозможно.
+ *
+ * `null` — проверить нечем (публичный ключ для браузера не задан).
+ */
+export function vapidKeysMatch(): boolean | null {
+  const server = process.env.VAPID_PUBLIC_KEY?.trim();
+  const browser = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY?.trim();
+  if (!server || !browser) return null;
+  return server === browser;
+}
+
 const webPushSender: PushSender = async (sub, payload) => {
   configureVapid();
   await webpush.sendNotification(
@@ -98,7 +138,7 @@ export async function deliverToSubscriptions(
   send: PushSender = webPushSender,
 ): Promise<DeliveryResult> {
   const body = JSON.stringify(payload);
-  const result: DeliveryResult = { sent: 0, gone: [], failed: [] };
+  const result: DeliveryResult = { sent: 0, gone: [], failed: [], failures: [] };
 
   for (const sub of subs) {
     try {
@@ -111,12 +151,59 @@ export async function deliverToSubscriptions(
         console.warn(`push: подписка ${sub.id} протухла (${status}), гасим`);
       } else {
         result.failed.push(sub.id);
+        result.failures.push({
+          id: sub.id,
+          statusCode: status,
+          // `body` ошибки web-push несёт текст ответа провайдера — там и лежит
+          // объяснение вроде «the key in the authorization header does not
+          // correspond to the sender ID».
+          message: providerMessage(err),
+        });
         console.error(`push: подписка ${sub.id} не доставлена`, err);
       }
     }
   }
 
   return result;
+}
+
+/**
+ * Человеческое объяснение провала доставки.
+ *
+ * Каждая ветка соответствует своей починке, поэтому текст называет её прямо.
+ * Иначе единственный способ понять, что происходит, — лезть в логи функции:
+ * 403 от FCM при рассинхроне ключей выглядит снаружи ровно так же, как любая
+ * другая неудача.
+ *
+ * `keysMatch` передаётся аргументом, а не читается из окружения, чтобы функция
+ * осталась чистой и проверяемой.
+ */
+export function describeDeliveryFailure(
+  result: DeliveryResult,
+  keysMatch: boolean | null,
+): string {
+  if (result.gone.length > 0 && result.failures.length === 0) {
+    return 'Подписка устарела — выключите и снова включите напоминания';
+  }
+
+  const first = result.failures[0];
+  if (!first) return 'Ни одно устройство не получило уведомление';
+
+  if (first.statusCode === 403 || first.statusCode === 401) {
+    const hint =
+      keysMatch === false
+        ? 'VAPID_PUBLIC_KEY и NEXT_PUBLIC_VAPID_PUBLIC_KEY не совпадают — браузер подписался одним ключом, сервер подписывает другим'
+        : keysMatch === null
+          ? 'не задан NEXT_PUBLIC_VAPID_PUBLIC_KEY — проверьте переменные окружения'
+          : 'ключи совпадают между собой, но подписка выдана под другой парой — выключите и снова включите напоминания';
+    return `Push-сервис отклонил подпись (${first.statusCode}): ${hint}. ${first.message}`;
+  }
+
+  if (first.statusCode === null) {
+    return `Запрос не дошёл до push-сервиса: ${first.message}`;
+  }
+
+  return `Push-сервис ответил ${first.statusCode}: ${first.message}`;
 }
 
 /**

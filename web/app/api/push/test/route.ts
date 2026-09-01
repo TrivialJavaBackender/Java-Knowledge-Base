@@ -12,9 +12,10 @@
  */
 
 import { NextResponse } from 'next/server';
+import { prisma } from '@/lib/db';
 import { getSession } from '@/lib/auth';
 import { countDue } from '@/lib/review-queue';
-import { isPushConfigured, sendToUser } from '@/lib/push';
+import { describeDeliveryFailure, isPushConfigured, sendToUser, vapidKeysMatch } from '@/lib/push';
 import { buildReminderPayload } from '@/lib/reminders';
 
 export const runtime = 'nodejs';
@@ -37,15 +38,30 @@ export async function POST() {
   const due = await countDue(session.userId);
   const payload = buildReminderPayload(Math.max(1, due));
 
+  // Подписок может не быть вовсе — это отдельный случай, и путать его с
+  // провалом доставки нельзя: «включите напоминания» и «не сходятся ключи» —
+  // разные починки.
+  const activeSubscriptions = await prisma.pushSubscription.count({
+    where: { userId: session.userId, active: true },
+  });
+  if (activeSubscriptions === 0) {
+    return NextResponse.json(
+      {
+        error: 'На этом аккаунте нет активных подписок — включите напоминания в этом браузере',
+        activeSubscriptions: 0,
+      },
+      { status: 409 },
+    );
+  }
+
   try {
     const result = await sendToUser(session.userId, payload);
     if (result.sent === 0) {
       return NextResponse.json(
         {
-          error:
-            result.gone.length > 0
-              ? 'Подписка устарела — выключите и снова включите напоминания'
-              : 'Нет активных подписок на этом аккаунте',
+          error: describeDeliveryFailure(result, vapidKeysMatch()),
+          vapidKeysMatch: vapidKeysMatch(),
+          activeSubscriptions,
           ...result,
         },
         { status: 409 },
