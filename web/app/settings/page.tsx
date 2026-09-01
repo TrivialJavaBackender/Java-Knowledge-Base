@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { prisma } from '@/lib/db';
 import { requireUser } from '@/lib/auth';
-import { isPushConfigured } from '@/lib/push';
+import { isPushConfigured, vapidKeysMatch } from '@/lib/push';
 import { NotificationSettings } from '@/components/settings/NotificationSettings';
 
 export const dynamic = 'force-dynamic';
@@ -38,6 +38,9 @@ export default async function SettingsPage() {
           lastReminderSentAt: user.lastReminderSentAt?.toISOString() ?? null,
           activeSubscriptions,
           pushConfigured: isPushConfigured(),
+          // Рассинхрон двух публичных ключей проявляется только как 403 от
+          // push-сервиса в момент отправки — предупредить о нём стоит раньше.
+          vapidKeysMatch: vapidKeysMatch(),
           // Публичный ключ — он и должен быть в браузере: им подписывается
           // запрос к push-сервису. Приватный живёт только в lib/push.ts.
           vapidPublicKey: process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ?? '',
