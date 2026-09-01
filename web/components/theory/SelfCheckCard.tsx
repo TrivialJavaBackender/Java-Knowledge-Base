@@ -3,6 +3,7 @@
 import { useState, useTransition } from 'react';
 import { reviewFlashcard, toggleQAKnown } from '@/lib/actions';
 import { BOX_INTERVAL_DAYS, reviewCard } from '@/lib/leitner';
+import { countOf } from '@/lib/plural';
 
 export interface SelfCheckItem {
   qaId: number;
@@ -135,16 +136,9 @@ export function SelfCheckCard({ item }: { item: SelfCheckItem }) {
 /** «Повтор через N дн.» — интервал того бокса, в который карточка только что уехала. */
 function dueLabel(box: number): string {
   const days = BOX_INTERVAL_DAYS[box] ?? 1;
-  return `повтор через ${days} ${pluralizeDays(days)}`;
+  return `повтор через ${countOf(days, 'day')}`;
 }
 
-function pluralizeDays(n: number): string {
-  const mod10 = n % 10;
-  const mod100 = n % 100;
-  if (mod10 === 1 && mod100 !== 11) return 'день';
-  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 10 || mod100 >= 20)) return 'дня';
-  return 'дней';
-}
 
 function QuestionMarkIcon() {
   return (

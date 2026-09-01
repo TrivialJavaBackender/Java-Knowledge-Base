@@ -1,16 +1,5 @@
-/**
- * Чистые форматтеры для зоны flashcards/. `pluralRu` — своя копия (см.
- * components/dashboard/format.ts, чужая зона, импортировать нельзя).
- */
-
-/** Стандартный выбор формы по числу: [1, 2, 5] → одна/две/пять. */
-export function pluralRu(n: number, forms: [string, string, string]): string {
-  const mod10 = n % 10;
-  const mod100 = n % 100;
-  if (mod10 === 1 && mod100 !== 11) return forms[0];
-  if (mod10 >= 2 && mod10 <= 4 && !(mod100 >= 12 && mod100 <= 14)) return forms[1];
-  return forms[2];
-}
+/** Форматтеры сроков и интервалов Leitner. Плюрализация — из lib/plural.ts. */
+import { plural, pluralRu } from '@/lib/plural';
 
 /**
  * Подпись интервала ящика из значения `BOX_INTERVAL_DAYS[box]` (lib/leitner.ts) —
@@ -18,7 +7,7 @@ export function pluralRu(n: number, forms: [string, string, string]): string {
  */
 export function intervalLabel(days: number): string {
   if (days === 1) return 'каждый день';
-  return `через ${days} ${pluralRu(days, ['день', 'дня', 'дней'])}`;
+  return `через ${days} ${plural(days, 'day')}`;
 }
 
 /**
@@ -35,8 +24,10 @@ export function dueLabel(nextDueAt: Date | null, now: Date): string {
     return r;
   };
   const diff = Math.round((startOf(nextDueAt).getTime() - startOf(now).getTime()) / 86_400_000);
-  if (diff < 0) return `просрочено на ${-diff} ${pluralRu(-diff, ['день', 'дня', 'дней'])}`;
+  if (diff < 0) return `просрочено на ${diff * -1} ${plural(-diff, 'day')}`;
   if (diff === 0) return 'сегодня';
   if (diff === 1) return 'завтра';
-  return `через ${diff} ${pluralRu(diff, ['день', 'дня', 'дней'])}`;
+  return `через ${diff} ${plural(diff, 'day')}`;
 }
+
+export { pluralRu };

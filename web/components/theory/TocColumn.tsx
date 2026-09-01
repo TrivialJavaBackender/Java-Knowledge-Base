@@ -3,6 +3,8 @@
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { setTheoryPosition } from '@/lib/theory-actions';
+import { countOf } from '@/lib/plural';
+import { InlineMd } from '@/lib/inline-md';
 
 export interface TocSection {
   index: number;
@@ -108,9 +110,10 @@ export function TocColumn({ containerId, theoryDocId, sections, initialActiveInd
                       i <= activeIndex ? 'bg-accent' : 'bg-border'
                     }`}
                   />
-                  <span className={`min-w-0 flex-1 text-[12.5px] leading-[1.4] ${active ? 'font-semibold text-fg' : 'text-fg-muted'}`}>
-                    {s.title}
-                  </span>
+                  <InlineMd
+                    className={`min-w-0 flex-1 text-[12.5px] leading-[1.4] ${active ? 'font-semibold text-fg' : 'text-fg-muted'}`}
+                    text={s.title}
+                  />
                   {s.qCount > 0 && (
                     <span className="mt-px flex-none rounded bg-accent-soft px-1 font-mono text-[10px] text-accent">
                       {s.qCount}
@@ -130,9 +133,9 @@ export function TocColumn({ containerId, theoryDocId, sections, initialActiveInd
             href={`/modules/${moduleSlug}/theory/${nextDoc.slug}`}
             className="block rounded-lg border border-border bg-bg-card p-2.5 hover:border-accent/50"
           >
-            <div className="text-[12.5px] font-medium leading-[1.35] text-fg">{nextDoc.title}</div>
+            <div className="text-[12.5px] font-medium leading-[1.35] text-fg"><InlineMd text={nextDoc.title} /></div>
             <div className="mt-1 text-[11px] text-fg-subtle">
-              {nextDoc.sectionCount} {pluralizeSections(nextDoc.sectionCount)} · ~{nextDoc.readingMinutes} мин
+              {countOf(nextDoc.sectionCount, 'section')} · ~{nextDoc.readingMinutes} мин
             </div>
           </Link>
         </div>
@@ -141,10 +144,3 @@ export function TocColumn({ containerId, theoryDocId, sections, initialActiveInd
   );
 }
 
-function pluralizeSections(n: number): string {
-  const mod10 = n % 10;
-  const mod100 = n % 100;
-  if (mod10 === 1 && mod100 !== 11) return 'раздел';
-  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 10 || mod100 >= 20)) return 'раздела';
-  return 'разделов';
-}

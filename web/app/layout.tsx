@@ -94,7 +94,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
 
             <Link
               href="/flashcards/manage"
-              className="hidden h-[30px] items-center rounded-md border border-border bg-bg-card px-2.5 text-[13px] text-fg-muted hover:border-accent/50 hover:text-fg sm:flex"
+              className="hidden h-[30px] items-center rounded-md border border-border bg-bg-card px-2.5 text-[13px] text-fg-muted transition hover:border-accent/50 hover:text-fg lg:flex"
             >
               Управление
             </Link>

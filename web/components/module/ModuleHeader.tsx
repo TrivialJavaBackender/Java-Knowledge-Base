@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { TrackDot } from './TrackDot';
+import { TrackDot } from '@/components/ui/TrackDot';
 import { MiniBar } from './MiniBar';
 
 export function ModuleHeader({
@@ -30,7 +30,7 @@ export function ModuleHeader({
   return (
     <div>
       <div className="mb-2.5 flex flex-wrap items-center gap-1.5 text-xs text-fg-subtle">
-        <Link href="/" className="text-fg-muted hover:text-accent">Dashboard</Link>
+        <Link href="/" className="text-fg-muted hover:text-accent">Главная</Link>
         <span>/</span>
         <span>{trackTitle}</span>
       </div>
@@ -63,12 +63,10 @@ function StatTile({ label, done, total }: { label: string; done: number; total: 
   const hasData = total > 0;
   const pct = hasData ? (done / total) * 100 : 0;
   return (
-    <div className="min-w-0 rounded-lg border border-border bg-bg-card px-2.5 py-2 sm:w-[132px]">
-      <div className="mb-1.5 flex items-baseline justify-between gap-1">
-        <span className="truncate text-[10px] uppercase tracking-wide text-fg-subtle">{label}</span>
-        <span className={`font-mono text-xs ${hasData ? 'text-fg' : 'text-fg-subtle'}`}>
-          {hasData ? `${done}/${total}` : '—'}
-        </span>
+    <div className="min-w-0 rounded-lg border border-border bg-bg-card px-2.5 py-2 sm:w-[124px]">
+      <div className="text-[10px] uppercase leading-tight tracking-wide text-fg-subtle">{label}</div>
+      <div className={`mb-1.5 mt-px font-mono text-[13px] tabular-nums ${hasData ? 'text-fg' : 'text-fg-subtle'}`}>
+        {hasData ? `${done}/${total}` : '—'}
       </div>
       <MiniBar pct={pct} />
     </div>

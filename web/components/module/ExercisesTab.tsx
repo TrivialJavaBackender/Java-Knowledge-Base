@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { InlineMd } from '@/lib/inline-md';
 
 export interface ExerciseRow {
   slug: string;
@@ -61,7 +62,7 @@ export function ExercisesTab({ moduleSlug, rows }: { moduleSlug: string; rows: E
             )}
           </span>
           <span className="w-5 flex-none font-mono text-[11px] text-fg-subtle">{e.number}</span>
-          <span className={`min-w-0 flex-1 truncate text-sm ${e.isRead ? 'text-fg-muted' : 'text-fg'}`}>{e.title}</span>
+          <InlineMd className={`min-w-0 flex-1 truncate text-sm ${e.isRead ? 'text-fg-muted' : 'text-fg'}`} text={e.title} />
           <span className="flex-none font-mono text-[11px] text-fg-subtle">{e.language}</span>
         </Link>
       ))}

@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { TRACK_DOT_CLASS } from './colors';
+import { TRACK_DOT_CLASS } from '@/components/ui/TrackDot';
 import { ModuleCard, type ModuleCardData } from './ModuleCard';
 
 export interface TrackGroup {
@@ -52,8 +52,9 @@ export function ModulesBoard({ groups }: { groups: TrackGroup[] }) {
             <button
               key={f.key}
               type="button"
+              aria-pressed={active}
               onClick={() => setFilter(f.key)}
-              className={`h-[27px] rounded-full border px-2.5 text-[12.5px] transition ${
+              className={`h-8 rounded-full border px-3 text-[12.5px] transition ${
                 active
                   ? 'border-accent/45 bg-accent-soft text-accent'
                   : 'border-border bg-bg-card text-fg-muted hover:text-fg'

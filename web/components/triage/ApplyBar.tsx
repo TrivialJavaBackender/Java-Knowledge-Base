@@ -43,7 +43,8 @@ export function ApplyBar({
       <span className="flex-1 text-[13px] leading-[1.5] text-fg-muted">{note}</span>
       <Link
         href={listHref}
-        className={`h-[34px] shrink-0 rounded-[7px] border px-3.5 text-[13px] leading-[34px] ${
+        scroll={false}
+        className={`flex h-9 shrink-0 items-center rounded-[7px] border px-3.5 text-[13px] transition ${
           listActive ? 'border-accent/45 bg-accent-soft text-accent' : 'border-border bg-bg-card text-fg-muted hover:border-accent/30'
         }`}
       >

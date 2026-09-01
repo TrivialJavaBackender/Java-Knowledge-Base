@@ -24,7 +24,7 @@ export function OverallProgress({
         <div className="mb-1.5 text-[13px] text-fg-muted">Всё вместе</div>
         <ProgressBar done={done} total={total} />
       </div>
-      <div className="flex flex-none gap-5 sm:border-l sm:border-border sm:pl-4">
+      <div className="grid flex-none grid-cols-3 gap-4 sm:flex sm:gap-5 sm:border-l sm:border-border sm:pl-4">
         <StatCol label="Теория" stat={theory} />
         <StatCol label="Упражнения" stat={exercises} />
         <StatCol label="Вопросы" stat={qas} />
@@ -35,7 +35,7 @@ export function OverallProgress({
 
 function StatCol({ label, stat }: { label: string; stat: Stat }) {
   return (
-    <div className="text-right">
+    <div className="text-left sm:text-right">
       <div className="text-[10.5px] uppercase tracking-wide text-fg-subtle">{label}</div>
       <div className="font-mono text-sm text-fg tabular-nums">
         {stat.done}/{stat.total}

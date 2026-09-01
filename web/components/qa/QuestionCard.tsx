@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { ToggleQAKnown } from '@/components/ToggleProgress';
+import { InlineMd } from '@/lib/inline-md';
 
 export interface QaCard {
   id: number;
@@ -31,21 +32,31 @@ export function QuestionCard({
   open,
   onToggle,
   anchor,
+  flat,
 }: {
   q: QaCard;
   open: boolean;
   onToggle: () => void;
   /** id для прямых ссылок вида `#qa-12`. В панели читалки не нужен. */
   anchor?: string;
+  /**
+   * Строка внутри уже обрамлённого списка (страница вопросов): своя рамка не
+   * нужна — иначе получается карточка в карточке в карточке.
+   */
+  flat?: boolean;
 }) {
   return (
     <div
       id={anchor}
-      className={`overflow-hidden rounded-lg border bg-bg-card transition ${anchor ? 'scroll-mt-24' : ''} ${
-        open ? 'border-accent/45' : 'border-border hover:border-accent/40'
-      }`}
+      className={
+        flat
+          ? `border-b border-border last:border-b-0 ${anchor ? 'scroll-mt-24' : ''} ${open ? 'bg-bg-soft' : ''}`
+          : `overflow-hidden rounded-lg border bg-bg-card transition ${anchor ? 'scroll-mt-24' : ''} ${
+              open ? 'border-accent/45' : 'border-border hover:border-accent/40'
+            }`
+      }
     >
-      <div className="flex items-start gap-2.5 p-2.5">
+      <div className={`flex items-start gap-2.5 ${flat ? 'px-3.5 py-2.5' : 'p-2.5'}`}>
         <div className="mt-0.5 flex-none">
           <ToggleQAKnown id={q.id} initial={q.isKnown} size="sm" />
         </div>
@@ -60,14 +71,14 @@ export function QuestionCard({
               )}
               {q.box !== null && <span className="font-mono text-[10.5px] text-fg-subtle">box {q.box}</span>}
             </span>
-            <span className="block text-[13.5px] font-medium leading-[1.45] text-fg">{q.question}</span>
+            <InlineMd className="block text-[13.5px] font-medium leading-[1.45] text-fg" text={q.question} />
           </span>
           <ChevronIcon open={open} />
         </button>
       </div>
       {open && (
-        <div className="px-2.5 pb-2.5 pl-[37px]">
-          <div className="rounded-md bg-bg-soft p-2.5">
+        <div className={flat ? 'pb-3 pl-[45px] pr-3.5' : 'px-2.5 pb-2.5 pl-[37px]'}>
+          <div className={flat ? 'rounded-md border border-border bg-bg-card p-2.5' : 'rounded-md bg-bg-soft p-2.5'}>
             <div
               className="prose prose-sm max-w-none text-fg [&>p:last-child]:mb-0"
               dangerouslySetInnerHTML={{ __html: q.answerHtml }}
@@ -109,7 +120,7 @@ export function AnchoredQuestionCard({ q }: { q: QaCard }) {
     return () => window.removeEventListener('hashchange', openIfTargeted);
   }, [anchor]);
 
-  return <QuestionCard q={q} anchor={anchor} open={open} onToggle={() => setOpen((v) => !v)} />;
+  return <QuestionCard q={q} anchor={anchor} flat open={open} onToggle={() => setOpen((v) => !v)} />;
 }
 
 function ChevronIcon({ open }: { open: boolean }) {

@@ -18,6 +18,7 @@ export function PlanCards({ plans }: { plans: PlanCardData[] }) {
         <Link
           key={p.id}
           href={p.href}
+          scroll={false}
           className={`flex flex-col rounded-[10px] border p-[14px] ${
             p.active ? 'border-accent/45 bg-accent-soft' : 'border-border bg-bg-card hover:border-accent/25'
           }`}

@@ -46,6 +46,30 @@ html.dark {
   color-scheme: dark;
 }
 
+/*
+ * Видимый фокус для клавиатуры — один на приложение. UA-обводка по умолчанию
+ * почти не читается на тёмной теме (её цвет берётся из системного акцента, а
+ * не из палитры страницы) и полностью пропадает там, где элемент лежит на
+ * --bg-card. `:focus-visible`, а не `:focus`: мышиный клик по кнопке кольцо не
+ * рисует, Tab — рисует.
+ */
+:where(a, button, [role='checkbox'], input, select, textarea, summary, [tabindex]):focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Пользователи с prefers-reduced-motion не должны ловить слайды панелей и
+   анимации ширины — оставляем мгновенную смену состояния. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
 html, body {
   background: var(--bg);
   color: var(--fg);

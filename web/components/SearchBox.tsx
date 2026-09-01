@@ -299,17 +299,20 @@ export function SearchBox() {
         type="button"
         onClick={focusSearch}
         aria-label="Поиск"
-        className="rounded border border-border bg-bg-card px-2 py-1 text-xs text-fg-muted hover:border-accent/50 hover:text-fg sm:hidden"
+        className="flex h-[30px] w-[30px] items-center justify-center rounded-md border border-border bg-bg-card text-fg-muted transition hover:border-accent/50 hover:text-fg lg:hidden"
       >
-        ⌕
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" aria-hidden>
+          <circle cx="11" cy="11" r="7" />
+          <line x1="16.5" y1="16.5" x2="21" y2="21" />
+        </svg>
       </button>
 
       <div
         ref={rootRef}
         className={
           expanded
-            ? 'fixed inset-x-0 top-0 z-50 border-b border-border bg-bg-soft p-3 sm:static sm:z-auto sm:border-0 sm:bg-transparent sm:p-0'
-            : 'hidden sm:block'
+            ? 'fixed inset-x-0 top-0 z-50 border-b border-border bg-bg-soft p-3 lg:static lg:z-auto lg:border-0 lg:bg-transparent lg:p-0'
+            : 'hidden lg:block'
         }
       >
         <div className={expanded ? 'flex items-center gap-2' : ''}>
@@ -367,7 +370,7 @@ export function SearchBox() {
             <button
               type="button"
               onClick={close}
-              className="shrink-0 px-1 text-sm text-fg-muted hover:text-fg sm:hidden"
+              className="shrink-0 px-1 text-sm text-fg-muted hover:text-fg lg:hidden"
             >
               Отмена
             </button>

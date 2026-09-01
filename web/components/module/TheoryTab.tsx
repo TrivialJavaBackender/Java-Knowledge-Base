@@ -1,5 +1,6 @@
 import Link from 'next/link';
-import { pluralizeRu } from './pluralize';
+import { countOf } from '@/lib/plural';
+import { InlineMd } from '@/lib/inline-md';
 
 export interface TheoryRow {
   slug: string;
@@ -54,10 +55,10 @@ export function TheoryTab({ moduleSlug, rows }: { moduleSlug: string; rows: Theo
               d.isCurrent ? 'font-semibold text-fg' : d.isRead ? 'text-fg-muted' : 'text-fg'
             }`}
           >
-            {d.title}
+            <InlineMd text={d.title} />
           </span>
           <span className="hidden flex-none text-[11.5px] text-fg-subtle sm:inline">
-            {d.sectionCount} {pluralizeRu(d.sectionCount, 'раздел', 'раздела', 'разделов')}
+            {countOf(d.sectionCount, 'section')}
           </span>
           <span className="hidden w-[62px] flex-none text-right text-[11.5px] text-fg-subtle sm:inline">
             ~{d.readingMinutes} мин

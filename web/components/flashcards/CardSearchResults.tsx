@@ -1,4 +1,5 @@
-import { TRACK_DOT_CLASS } from './colors';
+import { TrackDot } from '@/components/ui/TrackDot';
+import { InlineMd } from '@/lib/inline-md';
 import { CardRowActions } from './CardRowActions';
 
 export interface CardResultRow {
@@ -51,24 +52,26 @@ export function CardSearchResults({ rows, emptyHint }: { rows: CardResultRow[]; 
         // <details> вместо клиентского аккордеона: раскрытие работает без JS,
         // и список остаётся целиком серверным компонентом.
         <details key={r.id} className="group border-b border-border last:border-b-0">
-          <summary className="flex cursor-pointer list-none items-start gap-2.5 px-3.5 py-2.5 hover:bg-bg-soft [&::-webkit-details-marker]:hidden">
+          <summary className="flex min-h-[52px] cursor-pointer list-none items-start gap-2.5 px-3.5 py-2.5 transition hover:bg-bg-soft [&::-webkit-details-marker]:hidden">
             <Chevron />
             <div className="min-w-0 flex-1">
-              <div className={`text-[13.5px] leading-snug ${r.archived ? 'text-fg-muted' : 'text-fg'}`}>{r.front}</div>
+              <div className={`line-clamp-2 text-[13.5px] leading-snug ${r.archived ? 'text-fg-muted' : 'text-fg'}`}>
+                <InlineMd text={r.front} />
+              </div>
               <div className="mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-[11.5px] text-fg-subtle">
                 {r.moduleTitle && (
                   <>
-                    <span
-                      className={`h-[7px] w-[7px] flex-none rounded-sm ${
-                        r.trackColor != null ? TRACK_DOT_CLASS[r.trackColor] : 'bg-fg-subtle'
-                      }`}
-                    />
+                    <TrackDot color={r.trackColor} size={7} />
                     <span>{r.moduleTitle}</span>
                     <span aria-hidden>·</span>
                   </>
                 )}
-                <span className="font-mono">box {r.box ?? '—'}</span>
-                <span aria-hidden>·</span>
+                {r.box !== null && (
+                  <>
+                    <span className="font-mono">box {r.box}</span>
+                    <span aria-hidden>·</span>
+                  </>
+                )}
                 <span className={r.overdue ? 'text-warn' : undefined}>{r.dueLabel}</span>
                 {r.tags && (
                   <>

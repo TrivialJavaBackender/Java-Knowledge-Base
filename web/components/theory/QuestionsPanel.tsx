@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { QuestionCard, type QaCard } from '@/components/qa/QuestionCard';
+import { countOf } from '@/lib/plural';
 
 // Тип живёт вместе с карточкой; ре-экспорт — чтобы читалка
 // (app/modules/[slug]/theory/[doc]/page.tsx) импортировала его отсюда, как и раньше.
@@ -30,19 +31,28 @@ export function QuestionsPanel({ docQuestions, moduleQuestions }: QuestionsPanel
 
   return (
     <>
+      {/* Когда у файла нет своих вопросов, кнопка показывала «Вопросы 0» —
+          выглядело как сломанный счётчик, хотя панель открывалась и показывала
+          вопросы всего модуля. Теперь и подпись, и число говорят об одном. */}
       <button
         type="button"
-        onClick={() => setOpen((v) => !v)}
-        className={`flex h-7 items-center gap-1.5 rounded-md border px-2.5 text-[12.5px] ${
+        aria-expanded={open}
+        title={hasDocBinding ? 'Вопросы, привязанные к этому файлу' : 'У файла нет своих вопросов — откроются вопросы модуля'}
+        className={`flex h-8 items-center gap-1.5 rounded-md border px-2.5 text-[12.5px] ${
           open
             ? 'border-[color-mix(in_oklab,var(--accent)_45%,var(--border))] bg-accent-soft text-accent'
             : 'border-border bg-bg-card text-fg-muted hover:border-accent/50 hover:text-fg'
         }`}
+        onClick={() => setOpen((v) => !v)}
       >
         <QuestionIcon />
-        Вопросы
-        <span className="rounded-full bg-accent-soft px-1.5 font-mono text-[11px] text-accent">
-          {docQuestions.length}
+        {hasDocBinding ? 'Вопросы' : 'Вопросы модуля'}
+        <span
+          className={`rounded-full px-1.5 font-mono text-[11px] ${
+            hasDocBinding ? 'bg-accent-soft text-accent' : 'bg-bg-soft text-fg-subtle'
+          }`}
+        >
+          {hasDocBinding ? docQuestions.length : moduleQuestions.length}
         </span>
       </button>
 
@@ -55,7 +65,9 @@ export function QuestionsPanel({ docQuestions, moduleQuestions }: QuestionsPanel
       >
         <div className="flex-none border-b border-border px-4 pb-3 pt-3.5">
           <div className="mb-2.5 flex items-center gap-2.5">
-            <span className="flex-1 text-[15px] font-semibold text-fg">Вопросы к этому файлу</span>
+            <span className="flex-1 text-[15px] font-semibold text-fg">
+              {scope === 'doc' ? 'Вопросы к этому файлу' : 'Вопросы модуля'}
+            </span>
             <button
               type="button"
               onClick={() => setOpen(false)}
@@ -65,7 +77,7 @@ export function QuestionsPanel({ docQuestions, moduleQuestions }: QuestionsPanel
             </button>
           </div>
           <div className="flex flex-wrap items-center gap-1.5">
-            <ScopeButton active={scope === 'doc'} onClick={() => setScope('doc')}>
+            <ScopeButton active={scope === 'doc'} disabled={!hasDocBinding} onClick={() => setScope('doc')}>
               Этот файл · {docQuestions.length}
             </ScopeButton>
             <ScopeButton active={scope === 'module'} onClick={() => setScope('module')}>
@@ -95,15 +107,27 @@ export function QuestionsPanel({ docQuestions, moduleQuestions }: QuestionsPanel
   );
 }
 
-function ScopeButton({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
+function ScopeButton({
+  active,
+  disabled,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  disabled?: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
   return (
     <button
       type="button"
+      aria-pressed={active}
+      disabled={disabled}
       onClick={onClick}
-      className={`h-[26px] rounded-full border px-2.5 text-[12px] ${
+      className={`h-7 rounded-full border px-2.5 text-[12px] transition disabled:cursor-not-allowed disabled:opacity-45 ${
         active
           ? 'border-[color-mix(in_oklab,var(--accent)_45%,var(--border))] bg-accent-soft text-accent'
-          : 'border-border bg-bg-card text-fg-muted'
+          : 'border-border bg-bg-card text-fg-muted enabled:hover:border-accent/50 enabled:hover:text-fg'
       }`}
     >
       {children}
@@ -117,18 +141,11 @@ function coverageNote(docQuestions: QaCard[]): string {
   }
   const bound = docQuestions.filter((q) => q.sectionLabel.startsWith('§')).length;
   if (bound === docQuestions.length) {
-    return `Все ${docQuestions.length} ${pluralizeQuestion(docQuestions.length)} этого файла привязаны к разделам — под каждым стоит плашка «Проверь себя».`;
+    return `Все ${countOf(docQuestions.length, 'question')} этого файла привязаны к разделам — под каждым стоит плашка «Проверь себя».`;
   }
   return `${bound} из ${docQuestions.length} вопросов этого файла привязаны к разделам — плашки «Проверь себя» есть не под всеми.`;
 }
 
-function pluralizeQuestion(n: number): string {
-  const mod10 = n % 10;
-  const mod100 = n % 100;
-  if (mod10 === 1 && mod100 !== 11) return 'вопрос';
-  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 10 || mod100 >= 20)) return 'вопроса';
-  return 'вопросов';
-}
 
 function QuestionIcon() {
   return (

@@ -5,6 +5,7 @@ import { requireUser } from '@/lib/auth';
 import { MiniBar } from '@/components/module/MiniBar';
 import { AnchoredQuestionCard, type QaCard } from '@/components/qa/QuestionCard';
 import { renderMarkdown } from '@/lib/markdown';
+import { InlineMd } from '@/lib/inline-md';
 
 export const dynamic = 'force-dynamic';
 
@@ -65,7 +66,7 @@ export default async function QAPage({ params }: { params: Promise<{ slug: strin
     <div className="mx-auto max-w-4xl px-4 py-6 sm:px-6">
       <div className="mb-2.5 flex flex-wrap items-center gap-1.5 text-xs text-fg-subtle">
         <Link href="/" className="text-fg-muted hover:text-accent">
-          Dashboard
+          Главная
         </Link>
         <span>/</span>
         <Link href={`/modules/${slug}`} className="text-fg-muted hover:text-accent">
@@ -100,17 +101,17 @@ export default async function QAPage({ params }: { params: Promise<{ slug: strin
               id={`section-${s.id}`}
               className="scroll-mt-20 overflow-hidden rounded-[10px] border border-border bg-bg-card"
             >
-              <div className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-border bg-bg-soft px-3.5 py-2.5">
-                <span className="min-w-0 flex-1 text-[13.5px] font-semibold leading-snug text-fg">{s.title}</span>
-                <span className="flex-none font-mono text-[11px] text-fg-subtle">
+              <h2 className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-border bg-bg-soft px-3.5 py-2.5">
+                <InlineMd className="min-w-0 flex-1 text-[13.5px] font-semibold leading-snug text-fg" text={s.title} />
+                <span className="flex-none font-mono text-[11px] text-fg-subtle tabular-nums">
                   {sDone}/{s.qas.length}
                 </span>
                 <div className="w-full sm:w-[84px] sm:flex-none">
                   <MiniBar pct={s.qas.length === 0 ? 0 : (sDone / s.qas.length) * 100} />
                 </div>
-              </div>
+              </h2>
 
-              <div className="space-y-2 p-2.5">
+              <div>
                 {(cardsBySection.get(s.id) ?? []).map((q) => (
                   <AnchoredQuestionCard key={q.id} q={q} />
                 ))}

@@ -16,7 +16,10 @@ import type { TriageScope } from '@/lib/triage-actions';
 export const dynamic = 'force-dynamic';
 
 const HORIZONS = [7, 14, 30] as const;
+/** Псевдо-slug колоды карточек без модуля — не пересекается ни с одним реальным. */
 const NONE_SLUG = 'none';
+/** Явное «не выбрано ничего» — отличается от отсутствия параметра (= все модули). */
+const EMPTY_TOKEN = 'empty';
 
 interface Search {
   plan?: string;
@@ -45,18 +48,46 @@ export default async function TriagePage({ searchParams }: { searchParams: Promi
   const plan: 'spread' | 'reset' | 'archive' = isPlan(sp.plan) ? sp.plan : 'spread';
   const nRaw = Number(sp.n);
   const n: number = (HORIZONS as readonly number[]).includes(nRaw) ? nRaw : plan === 'archive' ? 30 : 14;
-  const scopeParam = sp.scope ?? 'all';
+  const scopeParam = (sp.scope ?? 'all').trim();
   const showList = sp.list === '1';
 
   const modules = await prisma.module.findMany({
     orderBy: { order: 'asc' },
     select: { id: true, slug: true, title: true, track: true },
   });
-  const scopeModule = scopeParam !== 'all' && scopeParam !== NONE_SLUG ? modules.find((m) => m.slug === scopeParam) : null;
-  const scope: TriageScope = scopeParam === 'all' ? 'all' : scopeParam === NONE_SLUG ? 'none' : scopeModule ? scopeModule.id : 'all';
-  const effectiveScopeParam = scope === 'all' ? 'all' : scope === 'none' ? NONE_SLUG : scopeModule!.slug;
 
-  const scopeFlashcardWhere = scope === 'all' ? {} : scope === 'none' ? { moduleId: null } : { moduleId: scope };
+  // Выборка модулей живёт целиком в URL списком slug'ов через запятую.
+  // Отсутствующий параметр или `all` — все модули; `empty` — снято всё;
+  // неизвестные slug просто игнорируются, страница от этого не падает.
+  const allScopeSlugs = [...modules.map((m) => m.slug), NONE_SLUG];
+  const selectedScopeSlugs: string[] =
+    scopeParam === '' || scopeParam === 'all'
+      ? allScopeSlugs
+      : scopeParam === EMPTY_TOKEN
+        ? []
+        : (() => {
+            const wanted = new Set(scopeParam.split(',').map((x) => x.trim()));
+            return allScopeSlugs.filter((slug) => wanted.has(slug));
+          })();
+
+  const scopeIsAll = selectedScopeSlugs.length === allScopeSlugs.length;
+  const selectedModuleIds = modules.filter((m) => selectedScopeSlugs.includes(m.slug)).map((m) => m.id);
+  const scopeNoModule = selectedScopeSlugs.includes(NONE_SLUG);
+  const scope: TriageScope = scopeIsAll ? 'all' : { moduleIds: selectedModuleIds, noModule: scopeNoModule };
+
+  /** Тот же параметр в канонической форме — им ссылаются кнопки плана и горизонта. */
+  const effectiveScopeParam = scopeIsAll
+    ? 'all'
+    : selectedScopeSlugs.length === 0
+      ? EMPTY_TOKEN
+      : selectedScopeSlugs.join(',');
+
+  // То же условие, что scopeFilter в lib/triage-actions.ts, но для запросов
+  // предпросмотра на этой странице. Пустая выборка не должна считать всё подряд.
+  const scopeOr: Record<string, unknown>[] = [];
+  if (selectedModuleIds.length > 0) scopeOr.push({ moduleId: { in: selectedModuleIds } });
+  if (scopeNoModule) scopeOr.push({ moduleId: null });
+  const scopeFlashcardWhere = scopeIsAll ? {} : scopeOr.length > 0 ? { OR: scopeOr } : { id: { in: [] } };
 
   const user = await prisma.user.findUnique({ where: { id: userId }, select: { dailyReviewLimit: true } });
   const effectiveLimit = user?.dailyReviewLimit ?? 50;
@@ -210,18 +241,37 @@ export default async function TriagePage({ searchParams }: { searchParams: Promi
     active: n === h,
   }));
 
+  /** Ссылка чипа модуля — тогл, а не замена выбора: так набирается несколько. */
+  function scopeHrefToggling(slug: string): string {
+    const next = selectedScopeSlugs.includes(slug)
+      ? selectedScopeSlugs.filter((x) => x !== slug)
+      : [...selectedScopeSlugs, slug];
+    const ordered = allScopeSlugs.filter((x) => next.includes(x));
+    if (ordered.length === allScopeSlugs.length) return hrefFor({ scope: 'all' });
+    if (ordered.length === 0) return hrefFor({ scope: EMPTY_TOKEN });
+    return hrefFor({ scope: ordered.join(',') });
+  }
+
   const scopeOptions: ScopeOption[] = [
-    { key: 'all', title: 'Все модули', count: overdueTotal, href: hrefFor({ scope: 'all' }), active: scope === 'all', trackColor: null },
     ...modules.map((m) => ({
       key: m.slug,
       title: m.title,
       count: overdueByModuleId.get(m.id) ?? 0,
-      href: hrefFor({ scope: m.slug }),
-      active: scope === m.id,
+      href: scopeHrefToggling(m.slug),
+      active: selectedScopeSlugs.includes(m.slug),
       trackColor: getTrack(m.track as TrackKey).color,
     })),
     ...(noModuleOverdue > 0
-      ? [{ key: NONE_SLUG, title: 'Без модуля', count: noModuleOverdue, href: hrefFor({ scope: NONE_SLUG }), active: scope === 'none', trackColor: null as null }]
+      ? [
+          {
+            key: NONE_SLUG,
+            title: 'Без модуля',
+            count: noModuleOverdue,
+            href: scopeHrefToggling(NONE_SLUG),
+            active: scopeNoModule,
+            trackColor: null as null,
+          },
+        ]
       : []),
   ];
 
@@ -292,8 +342,22 @@ export default async function TriagePage({ searchParams }: { searchParams: Promi
               <PlanCards plans={plans} />
             </div>
 
-            <div className="grid grid-cols-1 gap-3.5 lg:grid-cols-[1fr_1.25fr]">
-              <ParamsPanel paramTitle={paramTitle} paramNote={paramNote} horizons={horizons} scopes={scopeOptions} />
+            <div className="grid grid-cols-1 items-start gap-3.5 lg:grid-cols-[1fr_1.25fr]">
+              <ParamsPanel
+                paramTitle={paramTitle}
+                paramNote={paramNote}
+                horizons={horizons}
+                scopes={scopeOptions}
+                scopeSummary={
+                  scopeIsAll
+                    ? `Все модули · ${overdueTotal}`
+                    : selectedScopeSlugs.length === 0
+                      ? 'Ничего не выбрано'
+                      : `${selectedScopeSlugs.length} из ${allScopeSlugs.length} · ${overdueInScope}`
+                }
+                selectAllHref={hrefFor({ scope: scopeIsAll ? EMPTY_TOKEN : 'all' })}
+                selectAllLabel={scopeIsAll ? 'Снять все' : 'Выбрать все'}
+              />
               <LoadChart
                 before={before}
                 after={after}

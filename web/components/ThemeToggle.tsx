@@ -31,13 +31,13 @@ export function ThemeToggle() {
     <button
       type="button"
       onClick={flip}
-      title={theme === 'dark' ? 'Switch to light' : 'Switch to dark'}
-      aria-label="Toggle theme"
-      className="flex items-center gap-1 rounded border border-border bg-bg-card px-2 py-1 text-xs text-fg-muted hover:text-fg hover:border-accent/50"
+      title={theme === 'dark' ? 'Включить светлую тему' : 'Включить тёмную тему'}
+      aria-label={theme === 'dark' ? 'Включить светлую тему' : 'Включить тёмную тему'}
+      className="flex h-[30px] items-center gap-1 rounded-md border border-border bg-bg-card px-2 text-xs text-fg-muted transition hover:border-accent/50 hover:text-fg"
     >
       {/* Ниже sm в шапке тесно — подпись прячем, символ остаётся. */}
       <span aria-hidden>{theme === 'dark' ? '☀︎' : '☾'}</span>
-      <span className="hidden sm:inline">{theme === 'dark' ? 'Light' : 'Dark'}</span>
+      <span className="hidden sm:inline">{theme === 'dark' ? 'Светлая' : 'Тёмная'}</span>
     </button>
   );
 }

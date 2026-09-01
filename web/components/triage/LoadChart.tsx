@@ -36,8 +36,16 @@ export function LoadChart({
       <div className="flex h-32 items-end gap-[5px] border-b border-border pb-1.5">
         {before.map((v, i) => (
           <div key={i} className="flex h-full flex-1 items-end justify-center gap-[2px]">
-            <span className="w-[6px] rounded-t-sm bg-border" style={{ height: h(v) }} title={`сейчас: ${v}`} />
-            <span className="w-[6px] rounded-t-sm bg-accent" style={{ height: h(after[i]) }} title={`после: ${after[i]}`} />
+            <span
+              className="w-full max-w-[9px] rounded-t-sm bg-border"
+              style={{ height: h(v) }}
+              title={`${labels[i]} — сейчас: ${v}`}
+            />
+            <span
+              className="w-full max-w-[9px] rounded-t-sm bg-accent"
+              style={{ height: h(after[i]) }}
+              title={`${labels[i]} — после: ${after[i]}`}
+            />
           </div>
         ))}
       </div>
@@ -49,7 +57,7 @@ export function LoadChart({
         ))}
       </div>
 
-      <div className="mt-3.5 flex gap-5 border-t border-border pt-3">
+      <div className="mt-3.5 grid grid-cols-3 gap-4 border-t border-border pt-3">
         <div>
           <div className="grp text-fg-subtle">Пик в день</div>
           <div className="mt-0.5 font-mono text-[17px] text-fg">{peakAfter}</div>

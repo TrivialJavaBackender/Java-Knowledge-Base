@@ -24,13 +24,26 @@ import { prisma } from '@/lib/db';
 import { requireUser } from '@/lib/auth';
 import { startOfDay, addDays, spreadDueDates, DORMANT_DATE } from '@/lib/leitner';
 
-/** 'all' = every module, 'none' = cards with no module, number = one module id. */
-export type TriageScope = 'all' | 'none' | number;
+/**
+ * Выборка модулей для массовой операции.
+ *
+ * `'all'` — вся учётная запись. Иначе — явный набор: список id модулей плюс
+ * флаг «карточки без модуля». Раньше здесь был одиночный выбор
+ * (`'all' | 'none' | number`), и разложить по дням просрочку сразу по двум-трём
+ * модулям было нельзя — приходилось применять план по одному.
+ */
+export type TriageScope = 'all' | { moduleIds: number[]; noModule: boolean };
+
+/** Условие, которому не удовлетворяет ни одна строка: выбрано пусто. */
+const MATCH_NOTHING: Prisma.FlashcardWhereInput = { id: { in: [] } };
 
 function scopeFilter(scope: TriageScope): Prisma.FlashcardWhereInput {
   if (scope === 'all') return {};
-  if (scope === 'none') return { moduleId: null };
-  return { moduleId: scope };
+  const or: Prisma.FlashcardWhereInput[] = [];
+  if (scope.moduleIds.length > 0) or.push({ moduleId: { in: scope.moduleIds } });
+  if (scope.noModule) or.push({ moduleId: null });
+  if (or.length === 0) return MATCH_NOTHING;
+  return { OR: or };
 }
 
 function revalidateQueueViews() {

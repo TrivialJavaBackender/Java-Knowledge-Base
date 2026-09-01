@@ -1,3 +1,5 @@
+import { InlineMd } from '@/lib/inline-md';
+
 export interface QueueRow {
   id: number;
   front: string;
@@ -24,7 +26,7 @@ export function QueueList({ rows, totalCount }: { rows: QueueRow[]; totalCount: 
         <div className="scroll max-h-[420px] overflow-y-auto">
           {rows.map((r) => (
             <div key={r.id} className="flex items-center gap-3 border-b border-border bg-bg-card px-3.5 py-[9px] last:border-b-0">
-              <span className="min-w-0 flex-1 truncate text-[13px] text-fg">{r.front}</span>
+              <InlineMd className="min-w-0 flex-1 truncate text-[13px] text-fg" text={r.front} />
               <span className="hidden w-[150px] flex-none truncate text-[12px] text-fg-muted lg:block">{r.moduleTitle}</span>
               <span className="w-[46px] flex-none font-mono text-[12px] text-fg-muted">{r.box ?? '—'}</span>
               <span className="w-[96px] flex-none font-mono text-[12px] text-warn">{r.lateDays} дн.</span>

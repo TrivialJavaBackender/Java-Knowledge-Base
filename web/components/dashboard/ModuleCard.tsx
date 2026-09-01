@@ -1,5 +1,6 @@
 import Link from 'next/link';
-import { TRACK_DOT_CLASS } from './colors';
+import { TrackDot } from '@/components/ui/TrackDot';
+import { InlineMd } from '@/lib/inline-md';
 
 export interface ModuleCardData {
   slug: string;
@@ -24,26 +25,40 @@ export function ModuleCard({ m }: { m: ModuleCardData }) {
       className="group flex flex-col rounded-lg border border-border bg-bg-card px-3.5 py-3 transition hover:border-accent/50"
     >
       <div className="mb-2 flex items-center gap-2">
-        <span className={`h-2 w-2 flex-none rounded-sm ${TRACK_DOT_CLASS[m.trackColor]}`} />
+        <TrackDot color={m.trackColor} />
         <span className="min-w-0 flex-1 truncate text-[14.5px] font-semibold text-fg group-hover:text-accent">
           {m.title}
         </span>
         {m.due > 0 && (
-          <span className="flex-none rounded-full bg-accent-soft px-1.5 py-px font-mono text-[10.5px] text-accent">
-            {m.due}
+          <span
+            title={`${m.due} на повторение сегодня`}
+            className="flex flex-none items-center gap-1 rounded-full bg-accent-soft px-1.5 py-px text-[10.5px] text-accent"
+          >
+            <CardsIcon />
+            <span className="font-mono">{m.due}</span>
+            <span className="sr-only">на повторение сегодня</span>
           </span>
         )}
       </div>
       <div className="bar">
         <span style={{ width: `${m.pct}%` }} />
       </div>
-      <div className="mt-2 truncate text-[11.5px] text-fg-subtle">{m.next}</div>
+      <InlineMd className="mt-2 block truncate text-[11.5px] text-fg-subtle" text={m.next} />
       <div className="mt-2.5 grid grid-cols-3 gap-1.5">
         <StatCell label="теория" stat={m.theory} />
         <StatCell label="упр." stat={m.exercises} showDash />
         <StatCell label="вопросы" stat={m.qas} />
       </div>
     </Link>
+  );
+}
+
+function CardsIcon() {
+  return (
+    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinejoin="round" aria-hidden>
+      <rect x="3" y="6" width="13" height="14" rx="2" />
+      <path d="M7 3h11a3 3 0 0 1 3 3v11" />
+    </svg>
   );
 }
 

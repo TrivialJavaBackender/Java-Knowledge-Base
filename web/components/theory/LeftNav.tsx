@@ -1,7 +1,8 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import Link from 'next/link';
+import { InlineMd } from '@/lib/inline-md';
 
 export interface NavDoc {
   slug: string;
@@ -44,59 +45,64 @@ export function LeftNav(props: LeftNavProps) {
     moduleSlug, moduleTitle, moduleOrder, moduleCount,
     docs, docsDone, qaSections, qaKnown, qaTotal, overallDone, overallTotal,
   } = props;
-  const [open, setOpen] = useState(true);
+  /**
+   * Два независимых состояния вместо одного.
+   *
+   * Раньше был общий `open` со стартовым `true` и эффектом, который после
+   * гидратации закрывал панель на узком экране. Из-за `transition-transform`
+   * это было видно буквально: каждое открытие страницы на телефоне начиналось
+   * с того, что навигация выезжала за левый край. Разделение убирает и эффект,
+   * и анимацию на первой отрисовке: мобильная шторка стартует закрытой, а
+   * десктопная колонка — раскрытой, и оба значения верны уже на сервере.
+   */
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [railOpen, setRailOpen] = useState(true);
   const overallPct = overallTotal === 0 ? 0 : Math.round((overallDone / overallTotal) * 100);
-
-  // Server-rendered default is "open" (correct for the lg+ in-flow column).
-  // Below lg that would paint as a full-screen overlay blocking the reader
-  // on first load, so close it once we know the viewport is narrow. This
-  // runs post-hydration — a state update, not a hydration mismatch.
-  useEffect(() => {
-    if (window.matchMedia('(max-width: 1023px)').matches) setOpen(false);
-  }, []);
 
   return (
     <>
-      {/* Mobile trigger — always present below lg, regardless of open state. */}
+      {/* Mobile trigger — always present below lg, regardless of drawer state. */}
       <button
         type="button"
-        onClick={() => setOpen((v) => !v)}
+        onClick={() => setDrawerOpen((v) => !v)}
         aria-label="Навигация по модулю"
-        className="fixed left-2 top-[60px] z-30 flex h-8 w-8 items-center justify-center rounded-md border border-border bg-bg-card text-fg-muted shadow-sm lg:hidden"
+        aria-expanded={drawerOpen}
+        className="fixed left-2 top-[60px] z-30 flex h-9 w-9 items-center justify-center rounded-md border border-border bg-bg-card text-fg-muted shadow-sm lg:hidden"
       >
         <MenuIcon />
       </button>
 
       {/* Mobile backdrop */}
-      {open && (
+      {drawerOpen && (
         <div
           className="fixed inset-0 z-20 bg-black/30 lg:hidden"
-          onClick={() => setOpen(false)}
+          onClick={() => setDrawerOpen(false)}
           aria-hidden
         />
       )}
 
       <nav
-        className={`scroll fixed bottom-0 left-0 top-[52px] z-20 overflow-x-hidden overflow-y-auto border-r border-border bg-bg-soft transition-transform duration-200 lg:static lg:z-auto lg:h-full lg:translate-x-0 lg:transition-[width] ${
-          open ? 'w-[272px] translate-x-0' : 'w-[272px] -translate-x-full lg:w-10'
-        }`}
+        className={`scroll fixed bottom-0 left-0 top-[52px] z-20 w-[272px] overflow-x-hidden overflow-y-auto border-r border-border bg-bg-soft transition-transform duration-200 lg:static lg:z-auto lg:h-full lg:translate-x-0 lg:transition-[width] ${
+          drawerOpen ? 'translate-x-0' : '-translate-x-full'
+        } ${railOpen ? 'lg:w-[272px]' : 'lg:w-10'}`}
       >
         {/* Desktop-only collapse toggle */}
         <div className="hidden justify-end p-1.5 lg:flex">
           <button
             type="button"
-            onClick={() => setOpen((v) => !v)}
-            title={open ? 'Свернуть навигацию' : 'Развернуть навигацию'}
+            onClick={() => setRailOpen((v) => !v)}
+            title={railOpen ? 'Свернуть навигацию' : 'Развернуть навигацию'}
+            aria-expanded={railOpen}
             className="flex h-7 w-7 flex-none items-center justify-center rounded-md border border-border bg-bg-card text-fg-muted hover:border-accent/50 hover:text-fg"
           >
-            {open ? <CollapseIcon /> : <MenuIcon />}
+            {railOpen ? <CollapseIcon /> : <MenuIcon />}
           </button>
         </div>
 
         {/* Content stays mounted while off-canvas on mobile (so the slide-in
             transition has something to show); at lg it's hidden outright
             while the rail is collapsed, since width alone can't clip it. */}
-        <div className={`w-[272px] ${open ? '' : 'lg:hidden'}`}>
+        <div className={`w-[272px] ${railOpen ? '' : 'lg:hidden'}`}>
             <div className="border-b border-border p-3 pt-1 lg:pt-3">
               <Link
                 href={`/modules/${moduleSlug}`}
@@ -143,7 +149,7 @@ export function LeftNav(props: LeftNavProps) {
                           d.isCurrent ? 'font-semibold text-fg' : 'text-fg-muted'
                         }`}
                       >
-                        {d.title}
+                        <InlineMd text={d.title} />
                       </span>
                     </Link>
                   ))}
@@ -164,7 +170,7 @@ export function LeftNav(props: LeftNavProps) {
                       href={`/modules/${moduleSlug}/qa#section-${s.id}`}
                       className="flex items-center gap-2.5 py-1.5 pl-3.5 pr-3 hover:bg-bg-card"
                     >
-                      <span className="min-w-0 flex-1 truncate text-[12.5px] leading-[1.35] text-fg-muted">{s.title}</span>
+                      <InlineMd className="min-w-0 flex-1 truncate text-[12.5px] leading-[1.35] text-fg-muted" text={s.title} />
                       <span className="font-mono text-[10.5px] text-fg-subtle">{s.known}/{s.total}</span>
                     </Link>
                   ))}

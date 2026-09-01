@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { MiniBar } from './MiniBar';
+import { InlineMd } from '@/lib/inline-md';
 
 export interface QaSectionCard {
   id: number;
@@ -29,7 +30,7 @@ export function QaTab({ moduleSlug, sections }: { moduleSlug: string; sections: 
             className="rounded-[10px] border border-border bg-bg-card p-3.5 hover:border-accent/40"
           >
             <div className="mb-2.5 flex items-baseline justify-between gap-2.5">
-              <span className="min-w-0 flex-1 text-[13.5px] font-medium leading-snug text-fg">{s.title}</span>
+              <InlineMd className="min-w-0 flex-1 text-[13.5px] font-medium leading-snug text-fg" text={s.title} />
               <span className="flex-none font-mono text-[11px] text-fg-subtle">
                 {s.known}/{s.total}
               </span>

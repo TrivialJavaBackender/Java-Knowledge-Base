@@ -1,12 +1,14 @@
 import Link from 'next/link';
 import { prisma } from '@/lib/db';
 import { requireUser } from '@/lib/auth';
-import { endOfDay } from '@/lib/leitner';
+import { endOfDay, startOfDay } from '@/lib/leitner';
 import { getTrack, type TrackKey } from '@/lib/tracks';
 import { FlashcardReview, type ReviewableCard } from '@/components/FlashcardReview';
 import { DeckSidebar, type DeckRowData } from '@/components/flashcards/DeckSidebar';
 import { BoxDistributionGrid } from '@/components/flashcards/BoxDistributionGrid';
+import { TriageButton } from '@/components/flashcards/TriageButton';
 import { pluralRu } from '@/components/flashcards/format';
+import { countOf } from '@/lib/plural';
 import { renderMarkdown } from '@/lib/markdown';
 
 export const dynamic = 'force-dynamic';
@@ -57,6 +59,13 @@ export default async function FlashcardsPage({
   const modules = await prisma.module.findMany({
     orderBy: { order: 'asc' },
     select: { id: true, slug: true, title: true, track: true },
+  });
+
+  // Просрочка — не то же, что «на сегодня»: due включает и сегодняшние карточки.
+  // Ссылка на разбор очереди нужна именно здесь, на экране, где завал и виден;
+  // раньше единственный вход в неё лежал на /flashcards/manage, третьим уровнем.
+  const overdueCount = await prisma.leitnerState.count({
+    where: { userId, nextDueAt: { lt: startOfDay(now) }, flashcard: { archived: false } },
   });
 
   // Распределение по ящикам + due-счётчик — один запрос (Prisma groupBy через
@@ -138,7 +147,10 @@ export default async function FlashcardsPage({
       hasDue: d.due > 0,
       due: d.due,
       boxes: d.boxes,
-      meta: `${d.total} ${pluralRu(d.total, ['карточка', 'карточки', 'карточек'])} · ${d.boxes[4]} в пятом ящике`,
+      meta:
+        d.boxes[4] > 0
+          ? `${countOf(d.total, 'card')} · ${d.boxes[4]} в пятом ящике`
+          : countOf(d.total, 'card'),
       selected,
       href: decksHref(selected ? selectedKeys.filter((k) => k !== d.key) : [...selectedKeys, d.key]),
     };
@@ -225,19 +237,20 @@ export default async function FlashcardsPage({
       <DeckSidebar decks={deckRows} selectAllLabel={selectAllLabel} selectAllHref={selectAllHref} />
 
       <div className="scroll min-h-0 min-w-0 flex-1 overflow-y-auto bg-bg">
-        {/* pt на мобильном — под плавающий триггер выбора колод
-            (DeckSidebar), иначе он ложится на заголовок сессии. */}
+        {/* pt на мобильном — под плавающий триггер выбора колод (DeckSidebar),
+            иначе он ложится на заголовок сессии. */}
         <div className="mx-auto max-w-[720px] px-4 pb-6 pt-[60px] sm:px-6 lg:pt-6">
-          <header className="mb-4 flex items-center gap-2.5">
-            <div className="min-w-0 flex-1">
-              <h1 className="truncate text-xl font-semibold tracking-tight text-fg">{sessionTitle}</h1>
+          <header className="mb-4 flex flex-wrap items-start gap-x-3 gap-y-2">
+            <div className="min-w-0 flex-1 basis-full sm:basis-0">
+              <h1 className="text-xl font-semibold leading-tight tracking-tight text-fg">{sessionTitle}</h1>
               <p className="mt-0.5 text-[12.5px] text-fg-muted">{sessionSub}</p>
             </div>
+            <TriageButton overdue={overdueCount} />
             <Link
               href="/flashcards/manage"
-              className="flex-none rounded-md border border-border bg-bg-card px-3 py-1.5 text-sm text-fg-muted hover:border-accent/50 hover:text-fg"
+              className="flex h-9 flex-none items-center rounded-md border border-border bg-bg-card px-3 text-[13px] text-fg-muted transition hover:border-accent/50 hover:text-fg"
             >
-              Управление / новая
+              Управление
             </Link>
           </header>
 
@@ -247,7 +260,10 @@ export default async function FlashcardsPage({
             </div>
           ) : (
             <>
-              <FlashcardReview initialQueue={queue} />
+              {/* key по выбранным колодам: initialQueue уезжает в useState, и без
+                  смены ключа снятие колоды не перерисовывало карточку — на
+                  экране оставался вопрос из модуля, который только что убрали. */}
+              <FlashcardReview key={selectedKeys.join(',')} initialQueue={queue} />
               <BoxDistributionGrid boxes={gridBoxes} />
             </>
           )}

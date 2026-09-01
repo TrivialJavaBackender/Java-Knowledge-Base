@@ -1,8 +1,8 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import Link from 'next/link';
-import { TRACK_DOT_CLASS } from './colors';
+import { TRACK_DOT_CLASS } from '@/components/ui/TrackDot';
 import { pluralRu } from './format';
 
 export interface DeckRowData {
@@ -41,15 +41,17 @@ export function DeckSidebar({
   selectAllLabel: string;
   selectAllHref: string;
 }) {
-  const [open, setOpen] = useState(true);
-
-  // Серверный дефолт «открыто» верен для lg+ (колонка в потоке). Ниже lg
-  // панель в 428px шириной иначе перекрыла бы карточку повторения на первом
-  // рендере — закрываем её сразу после гидратации. Это обновление состояния,
-  // а не рассинхрон гидратации.
-  useEffect(() => {
-    if (window.matchMedia('(max-width: 1023px)').matches) setOpen(false);
-  }, []);
+  /**
+   * Состояние мобильной шторки, и только её: на lg+ колонка стоит в потоке и
+   * держится классом `lg:translate-x-0` независимо от этого флага.
+   *
+   * Раньше здесь был стартовый `true` и эффект, закрывавший панель после
+   * гидратации на узком экране. Вместе с `transition-transform` это давало
+   * видимый глюк: панель успевала отрисоваться поверх карточки и уезжала за
+   * левый край сама собой на каждой загрузке. Закрытая по умолчанию шторка
+   * верна на сервере и на клиенте сразу, эффект не нужен.
+   */
+  const [open, setOpen] = useState(false);
 
   const selectedCount = decks.filter((d) => d.selected).length;
   const dueSum = decks.reduce((sum, d) => (d.selected ? sum + d.due : sum), 0);
@@ -63,7 +65,8 @@ export function DeckSidebar({
         type="button"
         onClick={() => setOpen(true)}
         aria-label="Выбор колод"
-        className={`fixed left-2 top-[60px] z-30 h-8 items-center gap-1.5 rounded-md border border-border bg-bg-card px-2.5 text-fg-muted shadow-sm lg:hidden ${open ? 'hidden' : 'flex'}`}
+        aria-expanded={open}
+        className={`fixed left-2 top-[60px] z-30 h-9 items-center gap-1.5 rounded-md border border-border bg-bg-card px-2.5 text-fg-muted shadow-sm lg:hidden ${open ? 'hidden' : 'flex'}`}
       >
         <DeckIcon />
         <span className="max-w-[46vw] truncate text-[12px]">
@@ -95,14 +98,15 @@ export function DeckSidebar({
           <span className="flex-1" />
           <Link
             href={selectAllHref}
-            className="rounded-full border border-border bg-bg-card px-2.5 py-1 text-[11.5px] text-fg-muted hover:border-accent/50 hover:text-fg"
+            scroll={false}
+            className="flex h-8 items-center rounded-full border border-border bg-bg-card px-3 text-[11.5px] text-fg-muted transition hover:border-accent/50 hover:text-fg"
           >
             {selectAllLabel}
           </Link>
           <button
             type="button"
             onClick={() => setOpen(false)}
-            className="rounded-full border border-border bg-bg-card px-2.5 py-1 text-[11.5px] text-fg-muted hover:border-accent/50 hover:text-fg lg:hidden"
+            className="flex h-8 items-center rounded-full border border-border bg-bg-card px-3 text-[11.5px] text-fg-muted transition hover:border-accent/50 hover:text-fg lg:hidden"
           >
             Готово
           </button>
@@ -113,8 +117,12 @@ export function DeckSidebar({
             <Link
               key={d.key}
               href={d.href}
+              scroll={false}
+              aria-pressed={d.selected}
               className={`block rounded-[9px] border px-3 py-2.5 transition ${
-                d.selected ? 'border-accent/45 bg-accent-soft' : 'border-border bg-bg-card hover:border-accent/30'
+                d.selected
+                  ? 'border-border bg-bg-card hover:border-accent/40'
+                  : 'border-dashed border-border bg-transparent opacity-55 hover:opacity-90'
               }`}
             >
               <div className="flex items-center gap-2.5">
@@ -137,7 +145,7 @@ export function DeckSidebar({
                 <span className="min-w-0 flex-1 truncate text-[13.5px] font-medium text-fg">{d.title}</span>
                 <span
                   className={`flex-none rounded-full px-1.5 py-px font-mono text-[11px] ${
-                    d.hasDue ? 'bg-accent-soft text-accent' : 'bg-bg-soft text-fg-subtle'
+                    d.hasDue ? 'bg-accent-soft text-accent' : 'text-fg-subtle'
                   }`}
                 >
                   {d.dueLabel}

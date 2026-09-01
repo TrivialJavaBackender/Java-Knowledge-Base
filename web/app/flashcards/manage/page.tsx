@@ -4,9 +4,9 @@ import { prisma } from '@/lib/db';
 import { requireUser } from '@/lib/auth';
 import { startOfDay, DORMANT_DATE } from '@/lib/leitner';
 import { getTrack, type TrackKey } from '@/lib/tracks';
-import { headingText } from '@/lib/slugify';
 import { renderMarkdown } from '@/lib/markdown';
 import { CardSearchResults, type CardResultRow } from '@/components/flashcards/CardSearchResults';
+import { TriageButton } from '@/components/flashcards/TriageButton';
 import { dueLabel, pluralRu } from '@/components/flashcards/format';
 
 export const dynamic = 'force-dynamic';
@@ -135,7 +135,10 @@ export default async function ManagePage({ searchParams }: { searchParams: Promi
       const archived = c.source === 'MANUAL' ? c.archived : dormant;
       return {
         id: c.id,
-        front: headingText(c.front),
+        // Раньше здесь стоял headingText(), срезавший в том числе обратные
+        // кавычки. Список рисует вопрос через <InlineMd>, который показывает
+        // `code` как код, поэтому текст отдаём как есть.
+        front: c.front,
         backHtml: await renderMarkdown(c.back),
         tags: c.tags,
         moduleTitle: c.module?.title ?? null,
@@ -177,28 +180,19 @@ export default async function ManagePage({ searchParams }: { searchParams: Promi
     <div className="mx-auto max-w-4xl space-y-4 px-4 py-6 sm:px-6">
       <header className="flex flex-wrap items-start justify-between gap-2">
         <div>
-          <Link href="/flashcards" className="text-sm text-fg-muted hover:text-accent">
+          <Link href="/flashcards" className="inline-flex h-7 items-center text-sm text-fg-muted hover:text-accent">
             ← Повторение
           </Link>
           <h1 className="text-2xl font-semibold tracking-tight text-fg">Карточки</h1>
           <p className="text-[12.5px] text-fg-subtle">
-            <b className="font-mono text-fg">{activeCount}</b> активных ·{' '}
-            <b className="font-mono text-fg">{mineCount}</b> своих ·{' '}
-            <b className="font-mono text-fg">{archivedCount}</b> в архиве
+            Найти конкретную карточку, посмотреть ответ и что-то с ней сделать.
           </p>
         </div>
         <div className="flex items-center gap-2">
-          {overdueCount > 0 && (
-            <Link
-              href="/flashcards/triage"
-              className="flex h-8 items-center rounded-md border border-warn/40 bg-warn/10 px-3 text-[13px] text-warn hover:bg-warn/20"
-            >
-              Разобрать очередь · {overdueCount}
-            </Link>
-          )}
+          <TriageButton overdue={overdueCount} />
           <Link
             href="/flashcards/new"
-            className="flex h-8 items-center rounded-md border border-accent/60 bg-accent/10 px-3 text-[13px] text-accent hover:bg-accent/20"
+            className="flex h-9 items-center rounded-md border border-accent/40 bg-accent/10 px-3 text-[13px] text-accent transition hover:bg-accent/20"
           >
             + Новая карточка
           </Link>
@@ -261,7 +255,9 @@ export default async function ManagePage({ searchParams }: { searchParams: Promi
               <Link
                 key={p.key}
                 href={hrefWith({ view: p.key })}
-                className={`flex h-7 items-center gap-1.5 rounded-full border px-3 text-[12.5px] ${
+                scroll={false}
+                aria-current={active ? 'page' : undefined}
+                className={`flex h-8 items-center gap-1.5 rounded-full border px-3 text-[12.5px] transition ${
                   active
                     ? 'border-accent/50 bg-accent-soft text-accent'
                     : 'border-border bg-bg-soft text-fg-muted hover:border-accent/30 hover:text-fg'

@@ -1,6 +1,6 @@
 import { prisma } from '@/lib/db';
 import { requireUser } from '@/lib/auth';
-import { endOfDay } from '@/lib/leitner';
+import { endOfDay, startOfDay } from '@/lib/leitner';
 import { TRACKS, getTrack, type TrackKey } from '@/lib/tracks';
 import { ContinueReadingCard, type ContinueReadingData } from '@/components/dashboard/ContinueReadingCard';
 import { TodayReviewCard, type DueBreakdownEntry } from '@/components/dashboard/TodayReviewCard';
@@ -20,6 +20,8 @@ interface DashboardData {
   hasModules: boolean;
   continueReading: ContinueReadingData;
   due: number;
+  /** Просрочено (срок раньше сегодняшнего дня) — подмножество `due`. */
+  overdue: number;
   dueBreakdown: DueBreakdownEntry[];
   totalDone: number;
   totalAll: number;
@@ -45,6 +47,7 @@ async function loadDashboard(userId: number): Promise<DashboardData> {
       hasModules: false,
       continueReading: { kind: 'empty' },
       due: 0,
+      overdue: 0,
       dueBreakdown: [],
       totalDone: 0,
       totalAll: 0,
@@ -58,7 +61,7 @@ async function loadDashboard(userId: number): Promise<DashboardData> {
 
   // Тео́рия: лёгкая построчная выборка (без body) — нужна и для тоталов/выполненного,
   // и для «первого непрочитанного документа» на карточке модуля и на «Продолжить чтение».
-  const [theoryDocs, theoryProgress, exerciseTotalsRaw, exerciseDoneRaw, qaTotalsRaw, qaDoneRaw, due, dueByModuleRaw] =
+  const [theoryDocs, theoryProgress, exerciseTotalsRaw, exerciseDoneRaw, qaTotalsRaw, qaDoneRaw, due, overdue, dueByModuleRaw] =
     await Promise.all([
       prisma.theoryDoc.findMany({
         select: { id: true, moduleId: true, slug: true, title: true, order: true, sectionCount: true, readingMinutes: true },
@@ -88,6 +91,9 @@ async function loadDashboard(userId: number): Promise<DashboardData> {
         GROUP BY q."moduleId"`,
       prisma.leitnerState.count({
         where: { userId, nextDueAt: { lte: endOfDay(now) }, flashcard: { archived: false } },
+      }),
+      prisma.leitnerState.count({
+        where: { userId, nextDueAt: { lt: startOfDay(now) }, flashcard: { archived: false } },
       }),
       prisma.$queryRaw<{ moduleId: number; count: number }[]>`
         SELECT f."moduleId" AS "moduleId", COUNT(*)::int AS count
@@ -250,6 +256,7 @@ async function loadDashboard(userId: number): Promise<DashboardData> {
     hasModules: true,
     continueReading,
     due,
+    overdue,
     dueBreakdown,
     totalDone: totalTheoryDone + totalExDone + totalQaDone,
     totalAll: totalTheoryTotal + totalExTotal + totalQaTotal,
@@ -289,7 +296,7 @@ export default async function DashboardPage() {
         <div className="sm:col-span-2">
           <ContinueReadingCard data={data.continueReading} />
         </div>
-        <TodayReviewCard due={data.due} breakdown={data.dueBreakdown} />
+        <TodayReviewCard due={data.due} overdue={data.overdue} breakdown={data.dueBreakdown} />
       </div>
 
       <OverallProgress

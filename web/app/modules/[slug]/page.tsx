@@ -138,7 +138,15 @@ export default async function ModulePage({
       } else {
         meta = `~${continueDoc.readingMinutes} мин`;
       }
-      continueInfo = { slug: continueDoc.slug, title: continueDoc.title, meta };
+      continueInfo = {
+        slug: continueDoc.slug,
+        title: continueDoc.title,
+        meta,
+        // Вся теория прочитана — карточка «Продолжить» иначе предлагала бы
+        // «Читать дальше» с подписью «§13 из 13 · осталось ~0 мин».
+        allRead: theoryTotal > 0 && theoryDone === theoryTotal,
+        qaOpen: Math.max(0, qaTotal - qaDone),
+      };
     }
 
     if (allQas.length > 0) {

@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { TRACK_DOT_CLASS } from './colors';
+import { TRACK_DOT_CLASS } from '@/components/ui/TrackDot';
 import { pluralRu } from './format';
 
 export interface DueBreakdownEntry {
@@ -16,7 +16,16 @@ export interface DueBreakdownEntry {
 const MAX_ROWS = 5;
 const KEPT_WHEN_FOLDED = 4;
 
-export function TodayReviewCard({ due, breakdown }: { due: number; breakdown: DueBreakdownEntry[] }) {
+export function TodayReviewCard({
+  due,
+  overdue,
+  breakdown,
+}: {
+  due: number;
+  /** Просрочено — подмножество `due`. Пока их больше половины, «453 на сегодня» вводит в заблуждение. */
+  overdue: number;
+  breakdown: DueBreakdownEntry[];
+}) {
   // breakdown приходит отсортированным по убыванию (app/page.tsx), поэтому срез —
   // это именно самые нагруженные модули, а не произвольные.
   const folded = breakdown.length > MAX_ROWS;
@@ -24,8 +33,13 @@ export function TodayReviewCard({ due, breakdown }: { due: number; breakdown: Du
   const rest = folded ? breakdown.slice(KEPT_WHEN_FOLDED) : [];
   const restCards = rest.reduce((sum, b) => sum + b.count, 0);
 
+  // Разбор очереди раньше был доступен только через /flashcards/manage — третьим
+  // уровнем от главной, и ровно там, где размер завала не показан. Ставим вход
+  // туда, где число просрочки и так на экране.
+  const showTriage = overdue > 0;
+
   return (
-    <div className="rounded-lg border border-border bg-bg-card px-4 py-4">
+    <div className="flex h-full flex-col rounded-lg border border-border bg-bg-card px-4 py-4">
       <div className="grp mb-2 text-fg-subtle">Сегодня на повторение</div>
       {due === 0 ? (
         <p className="text-sm text-fg-muted">Повторять пока нечего — все карточки впереди по расписанию.</p>
@@ -59,6 +73,23 @@ export function TodayReviewCard({ due, breakdown }: { due: number; breakdown: Du
             )}
           </div>
         </>
+      )}
+
+      {showTriage && (
+        // Строка, а не кнопка в рамке: выше в этой же карточке уже есть ссылка
+        // «ещё N модулей →», и рамка сдвигала стрелку внутрь на свой padding —
+        // две стрелки стояли в разных колонках. Теперь отступы, gap и разметка
+        // те же, и стрелки выстроены. Срочность несёт цвет, рамка для этого
+        // не нужна.
+        <Link
+          href="/flashcards/triage"
+          className="mt-auto flex items-center gap-2 border-t border-border pt-2.5 text-xs text-warn transition hover:opacity-75"
+        >
+          <span className="flex-1 truncate">
+            Просрочено <b className="font-mono tabular-nums">{overdue}</b> — разобрать очередь
+          </span>
+          <span aria-hidden>→</span>
+        </Link>
       )}
     </div>
   );

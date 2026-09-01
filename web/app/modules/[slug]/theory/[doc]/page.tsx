@@ -14,12 +14,14 @@ import {
   splitBySelfCheck,
 } from '@/lib/markdown';
 import { extractTheorySections } from '@/lib/theory-sections';
+import { countOf } from '@/lib/plural';
 import { ContractHeaderCards } from '@/components/theory/ContractHeaderCards';
 import { LeftNav, type NavDoc, type NavQaSection } from '@/components/theory/LeftNav';
 import { TocColumn, type TocSection } from '@/components/theory/TocColumn';
 import { QuestionsPanel, type QaCard } from '@/components/theory/QuestionsPanel';
 import { SelfCheckCard, type SelfCheckItem } from '@/components/theory/SelfCheckCard';
 import { ReadingProgress } from '@/components/theory/ReadingProgress';
+import { InlineMd } from '@/lib/inline-md';
 
 export const dynamic = 'force-dynamic';
 
@@ -203,19 +205,24 @@ export default async function TheoryPage({
           <ReadingProgress containerId={SCROLL_ID} />
 
           <div className="mx-auto max-w-[720px] px-4 pb-32 pt-6 sm:px-6">
-            <div className="mb-3.5 flex flex-wrap items-center gap-1.5 text-xs text-fg-subtle">
-              <Link href="/" className="text-fg-muted hover:text-accent">Dashboard</Link>
+            {/* pl-10 на мобильном — под плавающую кнопку навигации (LeftNav):
+                она fixed на top-[60px] left-2 и без отступа ложилась прямо на
+                первую крошку, обрезая её до «nboard». */}
+            <div className="mb-3.5 flex flex-wrap items-center gap-1.5 pl-10 text-xs text-fg-subtle lg:pl-0">
+              <Link href="/" className="text-fg-muted hover:text-accent">Главная</Link>
               <span>/</span>
               <Link href={`/modules/${slug}`} className="text-fg-muted hover:text-accent">{module.title}</Link>
               <span>/</span>
               <span>Теория</span>
             </div>
 
-            <h1 className="mb-2.5 text-[28px] font-semibold leading-[1.25] tracking-tight text-fg">{theory.title}</h1>
+            <h1 className="mb-2.5 text-[28px] font-semibold leading-[1.25] tracking-tight text-fg">
+              <InlineMd text={theory.title} />
+            </h1>
 
             <div className="flex flex-wrap items-center gap-2.5 border-b border-border pb-4">
               <span className="text-[12.5px] text-fg-muted">
-                {theory.sectionCount} {pluralizeSections(theory.sectionCount)}
+                {countOf(theory.sectionCount, 'section')}
               </span>
               <span className="text-fg-subtle">·</span>
               <span className="text-[12.5px] text-fg-muted">~{theory.readingMinutes} мин</span>
@@ -244,20 +251,46 @@ export default async function TheoryPage({
             </div>
             <MermaidInit />
 
-            <nav className="mt-10 flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4 text-sm">
+            {/* Раньше — две текстовые ссылки «← Заголовок» / «Заголовок →» в одну
+                строку: направление читалось только по стрелке, а на узком экране
+                они слипались. Теперь у каждой есть подпись направления, и на
+                мобильном они идут одна под другой. */}
+            {/* Отметка о прочтении — здесь, а не только в шапке: дочитав файл
+                до конца, пользователь оказывается именно тут, и возвращаться
+                за галочкой на две тысячи пикселей вверх незачем. */}
+            <div className="mt-10 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-bg-soft px-4 py-3">
+              <span className="text-[13px] text-fg-muted">
+                {isRead ? 'Тема отмечена прочитанной.' : 'Дочитали? Отметьте тему — она закроет шаг роадмапа.'}
+              </span>
+              <ToggleTheoryRead id={theory.id} initial={isRead} label="Прочитано" />
+            </div>
+
+            <nav aria-label="Соседние темы роадмапа" className="mt-3 grid gap-2 sm:grid-cols-2">
               {prev ? (
-                <Link href={`/modules/${slug}/theory/${prev.slug}`} className="text-fg-muted hover:text-accent">
-                  ← {prev.title}
+                <Link
+                  href={`/modules/${slug}/theory/${prev.slug}`}
+                  className="group flex min-h-[56px] flex-col justify-center rounded-lg border border-border bg-bg-card px-3.5 py-2.5 transition hover:border-accent/50"
+                >
+                  <span className="grp text-fg-subtle">← Предыдущая</span>
+                  <span className="mt-1 line-clamp-2 text-[13px] leading-snug text-fg-muted group-hover:text-fg">
+                    <InlineMd text={prev.title} />
+                  </span>
                 </Link>
               ) : (
-                <span />
+                <span className="hidden sm:block" />
               )}
               {next ? (
-                <Link href={`/modules/${slug}/theory/${next.slug}`} className="text-right text-fg-muted hover:text-accent">
-                  {next.title} →
+                <Link
+                  href={`/modules/${slug}/theory/${next.slug}`}
+                  className="group flex min-h-[56px] flex-col justify-center rounded-lg border border-border bg-bg-card px-3.5 py-2.5 transition hover:border-accent/50 sm:items-end sm:text-right"
+                >
+                  <span className="grp text-fg-subtle">Следующая →</span>
+                  <span className="mt-1 line-clamp-2 text-[13px] leading-snug text-fg-muted group-hover:text-fg">
+                    <InlineMd text={next.title} />
+                  </span>
                 </Link>
               ) : (
-                <span />
+                <span className="hidden sm:block" />
               )}
             </nav>
           </div>
@@ -303,10 +336,3 @@ function truncate(s: string, max: number): string {
   return s.length > max ? `${s.slice(0, max - 1)}…` : s;
 }
 
-function pluralizeSections(n: number): string {
-  const mod10 = n % 10;
-  const mod100 = n % 100;
-  if (mod10 === 1 && mod100 !== 11) return 'раздел';
-  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 10 || mod100 >= 20)) return 'раздела';
-  return 'разделов';
-}
