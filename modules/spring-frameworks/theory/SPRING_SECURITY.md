@@ -4,7 +4,7 @@
 
 ---
 
-## Ключевые концепции: Authentication vs Authorization
+## 1. Ключевые концепции: Authentication vs Authorization
 
 Прежде чем разбирать внутренности — важно понять две принципиально разные вещи:
 
@@ -15,7 +15,7 @@ Spring Security обрабатывает оба аспекта, и важно п
 
 ---
 
-## Архитектура: Filter Chain
+## 2. Архитектура: Filter Chain
 
 Spring Security интегрируется в Servlet контейнер через стандартный механизм Java Servlet Filters — до того как запрос попадёт в Spring MVC (DispatcherServlet).
 
@@ -57,7 +57,7 @@ DispatcherServlet → Controller
 
 ---
 
-## Процесс аутентификации изнутри
+## 3. Процесс аутентификации изнутри
 
 Рассмотрим как именно Spring Security проверяет username/password:
 
@@ -105,7 +105,7 @@ DispatcherServlet → Controller
 
 ---
 
-## SecurityContext и SecurityContextHolder
+## 4. SecurityContext и SecurityContextHolder
 
 `SecurityContext` — контейнер для объекта `Authentication` (кто аутентифицирован). `SecurityContextHolder` — хранилище текущего SecurityContext.
 
@@ -168,7 +168,7 @@ public class AsyncConfig implements AsyncConfigurer {
 
 ---
 
-## Конфигурация SecurityFilterChain (Spring Security 6+)
+## 5. Конфигурация SecurityFilterChain (Spring Security 6+)
 
 ```java
 @Configuration
@@ -279,7 +279,7 @@ public SecurityFilterChain webChain(HttpSecurity http) throws Exception {
 
 ---
 
-## Roles и Authorities: важное различие
+## 6. Roles и Authorities: важное различие
 
 Spring Security использует `GrantedAuthority` — строка, представляющая право.
 
@@ -298,7 +298,7 @@ Spring Security использует `GrantedAuthority` — строка, пре
 
 ---
 
-## UserDetailsService — загрузка пользователя из БД
+## 7. UserDetailsService — загрузка пользователя из БД
 
 Используется при form login или HTTP Basic аутентификации. При JWT — как правило не нужен (данные пользователя в самом токене).
 
@@ -339,7 +339,7 @@ public class CustomUserDetailsService implements UserDetailsService {
 
 ---
 
-## Method Security: @PreAuthorize и SpEL
+## 8. Method Security: @PreAuthorize и SpEL
 
 `@EnableMethodSecurity` включает проверку прав на уровне отдельных методов через AOP.
 
@@ -401,7 +401,7 @@ public class OrderSecurityService {
 
 ---
 
-## Password Encoding
+## 9. Password Encoding
 
 **Никогда не хранить пароли в открытом виде.** Даже MD5/SHA — небезопасно (rainbow tables, GPU-атаки).
 
@@ -437,7 +437,7 @@ return PasswordEncoderFactories.createDelegatingPasswordEncoder();
 
 ---
 
-## CSRF — понять чтобы правильно отключать
+## 10. CSRF — понять чтобы правильно отключать
 
 **CSRF-атака:** пользователь залогинен на bank.com. Злоумышленник заставляет браузер жертвы отправить запрос на bank.com/transfer. Браузер автоматически добавляет cookie сессии → банк думает что это легитимный запрос.
 
@@ -461,7 +461,7 @@ return PasswordEncoderFactories.createDelegatingPasswordEncoder();
 
 ---
 
-## Тестирование Security
+## 11. Тестирование Security
 
 ```java
 @SpringBootTest
@@ -509,7 +509,7 @@ class OrderControllerSecurityTest {
 
 ---
 
-## OWASP Top 10 и Spring Security
+## 12. OWASP Top 10 и Spring Security
 
 | Уязвимость | Суть | Защита в Spring |
 |-----------|------|----------------|

@@ -1,6 +1,6 @@
 # Spring Boot: Auto-Configuration и Starters
 
-## Зачем Spring Boot
+## 1. Зачем Spring Boot
 
 До Spring Boot (до 2014 года) настройка Spring-приложения требовала:
 - Десятки XML-файлов или Java-конфигов
@@ -17,7 +17,7 @@ Spring Boot решает это тремя вещами:
 
 ---
 
-## Starters: управление зависимостями
+## 2. Starters: управление зависимостями
 
 Starter — это Maven/Gradle артефакт, который **не содержит кода** — только `pom.xml` с зависимостями. Он транзитивно подтягивает всё нужное для функции с проверенными совместимыми версиями.
 
@@ -73,7 +73,7 @@ spring-boot-autoconfigure (отдельный jar)
 
 ---
 
-## Auto-Configuration: как это работает
+## 3. Auto-Configuration: как это работает
 
 ### @SpringBootApplication
 
@@ -207,7 +207,7 @@ public class MyCustomSecurityConfig { ... }
 
 ---
 
-## Конфигурация приложения
+## 4. Конфигурация приложения
 
 ### Источники конфигурации и их приоритет
 
@@ -340,7 +340,7 @@ public class PaymentService {
 
 ---
 
-## Actuator — production-ready мониторинг
+## 5. Actuator — production-ready мониторинг
 
 Actuator — встроенный набор HTTP-эндпоинтов для мониторинга и управления приложением в production.
 
@@ -441,7 +441,7 @@ public class OrderService {
 
 ---
 
-## Жизненный цикл SpringApplication
+## 6. Жизненный цикл SpringApplication
 
 ```java
 // Детальная кастомизация запуска:
@@ -503,7 +503,7 @@ spring.lifecycle.timeout-per-shutdown-phase=30s
 
 ---
 
-## Создание собственного Starter
+## 7. Создание собственного Starter
 
 Нужно когда у тебя есть библиотека, которую используют несколько Spring Boot приложений, и ты хочешь настраивать её "из коробки".
 

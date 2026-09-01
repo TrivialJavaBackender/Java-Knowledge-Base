@@ -1,6 +1,6 @@
 # Spring Data JPA и Hibernate
 
-## Стек технологий: что над чем
+## 1. Стек технологий: что над чем
 
 Важно понимать слоение, иначе легко перепутать, кто за что отвечает:
 
@@ -20,7 +20,7 @@ PostgreSQL / MySQL / H2  ← реальная база данных
 
 ---
 
-## JPA Entity и Persistence Context
+## 2. JPA Entity и Persistence Context
 
 ### Состояния сущности
 
@@ -98,7 +98,7 @@ public class User {
 
 ---
 
-## FetchType: EAGER vs LAZY и когда это важно
+## 3. FetchType: EAGER vs LAZY и когда это важно
 
 **EAGER** — связь загружается всегда вместе с основной сущностью (JOIN в SQL).
 **LAZY** — загружается при первом обращении к полю (отдельный SELECT).
@@ -146,7 +146,7 @@ Optional<User> findByIdWithOrders(@Param("id") Long id);
 
 ---
 
-## Spring Data JPA Repository
+## 4. Spring Data JPA Repository
 
 ```java
 public interface UserRepository extends JpaRepository<User, Long> {
@@ -206,7 +206,7 @@ slice.hasNext(); // true если есть следующая страница (
 
 ---
 
-## @Transactional — транзакционный менеджмент
+## 5. @Transactional — транзакционный менеджмент
 
 ### Как работает
 
@@ -330,7 +330,7 @@ public class UserService {
 
 ---
 
-## N+1 проблема (в Spring Data)
+## 6. N+1 проблема (в Spring Data)
 
 N+1 — самая частая проблема производительности в JPA-приложениях. Полная механика Hibernate (proxy, `JOIN FETCH`, `@EntityGraph`, `@BatchSize`, `@Fetch(SUBSELECT)`, способы обнаружения) разобрана в модуле hibernate-jpa: [`../../hibernate-jpa/theory/FETCHING_NPLUS1.md`](../../hibernate-jpa/theory/FETCHING_NPLUS1.md). Каноническая теория N+1 (почему ORM не решает её автоматически) — в [`../../databases/theory/DATABASE_TYPES.md`](../../databases/theory/DATABASE_TYPES.md).
 
@@ -354,7 +354,7 @@ List<UserDto> findUserDtos();
 
 ---
 
-## Hibernate Caching
+## 7. Hibernate Caching
 
 Hibernate имеет три уровня кэша — L1 (persistence context, область = сессия/транзакция), L2 (shared, на уровне `SessionFactory`) и Query Cache. Глубокий разбор — уровни кэша, провайдеры (EhCache/Caffeine/Infinispan/Redis), cache concurrency strategies (`READ_ONLY` / `NONSTRICT_READ_WRITE` / `READ_WRITE` / `TRANSACTIONAL`), инвалидация и подводные камни — вынесен в модуль hibernate-jpa: [`../../hibernate-jpa/theory/CACHING.md`](../../hibernate-jpa/theory/CACHING.md).
 
@@ -362,7 +362,7 @@ Hibernate имеет три уровня кэша — L1 (persistence context, �
 
 ---
 
-## Optimistic vs Pessimistic Locking
+## 8. Optimistic vs Pessimistic Locking
 
 Проблема: два пользователя одновременно читают данные и оба хотят записать изменения. Чья запись "победит"?
 
@@ -415,7 +415,7 @@ Optional<Account> findByIdForUpdate(@Param("id") Long id);
 
 ---
 
-## Projections: загружать только нужное
+## 9. Projections: загружать только нужное
 
 Entity — "тяжёлый" объект: загружает все колонки, держит в persistence context, участвует в dirty checking. Для read-only операций часто эффективнее использовать проекции.
 

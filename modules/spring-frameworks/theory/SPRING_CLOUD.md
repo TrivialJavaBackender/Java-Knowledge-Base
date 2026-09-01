@@ -6,7 +6,7 @@ Spring Cloud — набор библиотек для построения ра�
 
 ---
 
-## Основные компоненты
+## 1. Основные компоненты
 
 | Компонент | Проблема которую решает |
 |-----------|------------------------|
@@ -19,7 +19,7 @@ Spring Cloud — набор библиотек для построения ра�
 
 ---
 
-## Spring Cloud Config — централизованная конфигурация
+## 2. Spring Cloud Config — централизованная конфигурация
 
 **Проблема:** 20 микросервисов, у каждого своя база данных, свои настройки. При смене пароля к БД — обновлять и перезапускать 20 сервисов. Нет истории изменений конфигурации.
 
@@ -117,7 +117,7 @@ curl -X POST http://any-instance:8080/actuator/busrefresh
 
 ---
 
-## Service Discovery — Eureka
+## 3. Service Discovery — Eureka
 
 **Проблема:** в статичной инфраструктуре IP-адреса сервисов фиксированы — можно захардкодить. В динамической (K8s, ECS, Elastic Beanstalk) сервисы получают новые IP при каждом перезапуске. Как order-service знает, куда обращаться к user-service?
 
@@ -179,7 +179,7 @@ public WebClient.Builder webClientBuilder() { return WebClient.builder(); }
 
 ---
 
-## OpenFeign — декларативный HTTP-клиент
+## 4. OpenFeign — декларативный HTTP-клиент
 
 **Проблема:** вызов другого сервиса через RestTemplate/WebClient — бойлерплейт. Надо строить URL, добавлять заголовки, обрабатывать ошибки, десериализовать ответ. Для каждого эндпоинта.
 
@@ -257,7 +257,7 @@ public class FeignConfig {
 
 ---
 
-## Spring Cloud Gateway — API Gateway
+## 5. Spring Cloud Gateway — API Gateway
 
 **Проблема:** клиент (frontend, mobile) должен знать адреса всех микросервисов и вызывать каждый напрямую. При изменении адресов — обновлять клиентов. Нет общего места для аутентификации, rate limiting, логирования.
 
@@ -341,7 +341,7 @@ public class AuthenticationGatewayFilter implements GlobalFilter, Ordered {
 
 ---
 
-## Circuit Breaker с Resilience4j
+## 6. Circuit Breaker с Resilience4j
 
 **Проблема:** сервис A вызывает сервис B, который тормозит (30 секунд ответа вместо 1). Поток A ждёт. Новые запросы к A тоже ждут. Пул потоков A исчерпан. A начинает тормозить. A вызывает C — C тоже вовлекается. Каскадный сбой.
 
@@ -429,7 +429,7 @@ Bulkhead: ограничить количество параллельных з�
 
 ---
 
-## Distributed Tracing
+## 7. Distributed Tracing
 
 **Проблема:** запрос от пользователя проходит через API Gateway → order-service → user-service → payment-service. Один из шагов медленный. Как найти который?
 
@@ -475,7 +475,7 @@ user-service:  traceId=abc123, spanId=003 → log: "Loading user [traceId=abc123
 
 ---
 
-## Паттерны межсервисного взаимодействия
+## 8. Паттерны межсервисного взаимодействия
 
 ### Синхронное vs Асинхронное
 
@@ -515,7 +515,7 @@ public class OrderService {
 
 ---
 
-## Конфигурация для production
+## 9. Конфигурация для production
 
 ### Несколько инстансов Eureka (High Availability)
 

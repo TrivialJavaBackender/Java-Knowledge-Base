@@ -1,6 +1,6 @@
 # Stream API и функциональное программирование в Java
 
-## Функциональные интерфейсы
+## 1. Функциональные интерфейсы
 
 Java 8 ввёл `@FunctionalInterface` — интерфейс с ровно одним абстрактным методом. Все они из `java.util.function`:
 
@@ -27,7 +27,7 @@ Function<String, String> upperAndTrim = ((Function<String,String>) String::trim)
 
 ---
 
-## Lambda и Method References
+## 2. Lambda и Method References
 
 ```java
 // Lambda
@@ -42,7 +42,7 @@ ArrayList::new               // constructor: () -> new ArrayList<>()
 
 ---
 
-## Stream API — основы
+## 3. Stream API — основы
 
 Stream — ленивый конвейер операций над последовательностью элементов. Не хранит данные.
 
@@ -111,7 +111,7 @@ stream.forEachOrdered(System.out::println); // порядок гарантиро
 
 ---
 
-## Collectors — продвинутые
+## 4. Collectors — продвинутые
 
 ```java
 // Downstream collector
@@ -140,7 +140,7 @@ Map.Entry<Long, Long> minMax = stream.collect(
 
 ---
 
-## Optional
+## 5. Optional
 
 Контейнер значения, которое может отсутствовать. Альтернатива `null`.
 
@@ -174,7 +174,7 @@ if (opt.isPresent()) { opt.get(); }  // лучше orElse/map
 
 ---
 
-## Параллельные стримы
+## 6. Параллельные стримы
 
 ```java
 list.parallelStream()                           // параллельный
@@ -200,7 +200,7 @@ long sum = LongStream.rangeClosed(1, 100_000_000L)
 
 ---
 
-## Функциональные принципы
+## 7. Функциональные принципы
 
 ### First-class functions
 
@@ -365,7 +365,7 @@ Java сознательно допустила **множественное на
 
 ---
 
-## Практика: типичные паттерны на собеседовании
+## 8. Практика: типичные паттерны на собеседовании
 
 ```java
 // Топ-3 самых длинных строк

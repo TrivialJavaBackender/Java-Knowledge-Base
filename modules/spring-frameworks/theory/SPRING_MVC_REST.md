@@ -1,6 +1,6 @@
 # Spring MVC и REST
 
-## Архитектура: DispatcherServlet как Front Controller
+## 1. Архитектура: DispatcherServlet как Front Controller
 
 Spring MVC построен на классическом паттерне **Front Controller**: все HTTP-запросы проходят через единую точку входа — `DispatcherServlet`. Он не обрабатывает запросы сам, а делегирует их подходящим компонентам.
 
@@ -31,7 +31,7 @@ DispatcherServlet создаётся Spring Boot автоматически че
 
 ---
 
-## @RestController и маппинг запросов
+## 2. @RestController и маппинг запросов
 
 `@RestController = @Controller + @ResponseBody`. `@ResponseBody` означает: возвращаемый объект метода — это тело HTTP-ответа, а не имя View (Thymeleaf-шаблона). Spring автоматически сериализует объект в JSON через Jackson.
 
@@ -103,7 +103,7 @@ public class OrderController {
 
 ---
 
-## HttpMessageConverter: сериализация/десериализация
+## 3. HttpMessageConverter: сериализация/десериализация
 
 MessageConverter преобразует между HTTP body (bytes/string) и Java-объектами. Spring выбирает конвертер по `Content-Type` (для входящего запроса) и `Accept` заголовку (для ответа).
 
@@ -150,7 +150,7 @@ public Report getReport() { ... }
 
 ---
 
-## Обработка ошибок: @RestControllerAdvice
+## 4. Обработка ошибок: @RestControllerAdvice
 
 Без централизованной обработки ошибок каждый контроллер сам ловит исключения — дублирование кода. `@RestControllerAdvice` — глобальный обработчик: перехватывает исключения из всех контроллеров.
 
@@ -208,7 +208,7 @@ public record ValidationErrorResponse(String code, String message, Map<String, S
 
 ---
 
-## Bean Validation (@Valid)
+## 5. Bean Validation (@Valid)
 
 Стандарт Bean Validation (Jakarta Validation, бывший JSR-303/380) + Hibernate Validator как реализация.
 
@@ -290,7 +290,7 @@ public void update(@Validated(OnUpdate.class) @RequestBody UserRequest req) { ..
 
 ---
 
-## Фильтры и Interceptors: разница и порядок
+## 6. Фильтры и Interceptors: разница и порядок
 
 ```
 HTTP Request
@@ -390,7 +390,7 @@ public class WebMvcConfig implements WebMvcConfigurer {
 
 ---
 
-## CORS — Cross-Origin Resource Sharing
+## 7. CORS — Cross-Origin Resource Sharing
 
 Браузер блокирует Ajax-запросы с одного домена на другой (same-origin policy). CORS — механизм, позволяющий серверу явно разрешить cross-origin запросы.
 
@@ -431,7 +431,7 @@ public CorsConfigurationSource corsConfigurationSource() {
 
 ---
 
-## Тестирование MVC слоя
+## 8. Тестирование MVC слоя
 
 `@WebMvcTest` — слайс-тест, загружает только MVC компоненты (контроллеры, фильтры, конвертеры). Не загружает сервисы, репозитории — их нужно мокировать:
 

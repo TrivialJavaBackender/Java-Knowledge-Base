@@ -17,7 +17,7 @@ GraphQL уместен, когда:
 
 REST остаётся проще, когда: ресурсы плоские, нужна агрессивная HTTP-кэширование, нет команды чтобы поддерживать схему/кодген.
 
-> graphql.org/learn, Apollo blog «GraphQL vs REST»
+> theory/BASICS.md §1
 
 ---
 
@@ -33,7 +33,7 @@ REST остаётся проще, когда: ресурсы плоские, н�
 
 Модификаторы: `!` — non-null, `[T!]!` — non-null список non-null элементов. Корневые типы — `Query`, `Mutation`, `Subscription`.
 
-> spec.graphql.org
+> theory/BASICS.md §2
 
 ---
 
@@ -44,7 +44,7 @@ REST остаётся проще, когда: ресурсы плоские, н�
 - **Mutation** — запись с побочными эффектами. Поля одного блока выполняются **последовательно** (по спецификации) — иначе порядок мутаций был бы недетерминирован.
 - **Subscription** — long-lived поток, обычно поверх WebSocket (`graphql-ws` протокол). На стороне graphql-kotlin реализуется как `Flow<T>`. Канонично — один root-field на одну подписку.
 
-> spec.graphql.org §6.2 (Mutation strict ordering)
+> theory/BASICS.md §2
 
 ---
 
@@ -57,7 +57,7 @@ REST остаётся проще, когда: ресурсы плоские, н�
 
 Бонус: **inline fragment** — `... on User { … }` для union/interface, чтобы выбрать поля конкретного варианта.
 
-> spec.graphql.org §2.8–2.10
+> theory/BASICS.md §4
 
 ---
 
@@ -75,7 +75,7 @@ REST остаётся проще, когда: ресурсы плоские, н�
 - `errors` — массив; у каждой `message`, `path`, опционально `locations` и `extensions` (свободное место для `code`, `requestId`, и т.п.).
 - В graphql-kotlin кастомизация — через `DataFetcherExceptionHandler`.
 
-> graphql-java docs «Error Handling»
+> theory/BASICS.md §5
 
 ---
 
@@ -89,7 +89,7 @@ REST остаётся проще, когда: ресурсы плоские, н�
 
 graphql-kotlin полностью code-first: ты пишешь `class FooQueries : Query { fun bar(): Int = 42 }`, schema generator через рефлексию строит SDL.
 
-> opensource.expediagroup.com/graphql-kotlin/docs
+> theory/GRAPHQL_KOTLIN_SPRING.md §1
 
 ---
 
@@ -104,7 +104,7 @@ graphql-kotlin полностью code-first: ты пишешь `class FooQuerie
 - Generic с erased типом в коллекциях (`List<*>`) не сгенерится.
 - Subscription — обязан возвращать `Flow<T>` (или `Publisher<T>`), не `suspend`.
 
-> graphql-kotlin docs «Generator Configuration»
+> theory/GRAPHQL_KOTLIN_SPRING.md §9
 
 ---
 
@@ -114,7 +114,7 @@ graphql-kotlin полностью code-first: ты пишешь `class FooQuerie
 
 Контекст корутины наследуется от `Dispatchers.Default`; при необходимости можно сделать кастомный `CoroutineContext` через DataLoader registry и `GraphQLContext`. Главное — не вызывать `runBlocking` внутри (заблокирует executor-поток).
 
-> graphql-kotlin docs «Coroutines»
+> theory/GRAPHQL_KOTLIN_SPRING.md §5
 
 ---
 
@@ -124,7 +124,7 @@ graphql-kotlin полностью code-first: ты пишешь `class FooQuerie
 
 Альтернатива — `localContext` (передаётся от parent резолвера к children). Глобальное состояние (`@Component`) — для request-зависимых данных не подходит, потому что нет thread-locality (резолверы могут гулять по разным потокам в reactor).
 
-> graphql-kotlin docs «GraphQL Context»
+> theory/GRAPHQL_KOTLIN_SPRING.md §6
 
 ---
 
@@ -136,7 +136,7 @@ graphql-kotlin полностью code-first: ты пишешь `class FooQuerie
 
 В REST такого нет, потому что разработчик заранее решает форму ответа и пишет `JOIN`. В GraphQL клиент сам выбирает поля — сервер не знает заранее, нужен ли `author`. Тривиальная имплементация резолверов (по полю на вызов) даёт N+1 как побочный эффект гибкости.
 
-> Apollo «DataLoader» blog 2017
+> theory/DATALOADER_NPLUS1.md §1
 
 ---
 
@@ -151,7 +151,7 @@ graphql-kotlin полностью code-first: ты пишешь `class FooQuerie
 
 Кэш — двухуровневый: promise cache (CF на ключ) и value cache (после resolve). Per-request, чтобы не утекать данные между пользователями. Размер батча ограничен `setMaxBatchSize` (для дружбы с БД).
 
-> github.com/graphql/dataloader, graphql-java «Batching»
+> theory/DATALOADER_NPLUS1.md §2
 
 ---
 
@@ -165,7 +165,7 @@ graphql-kotlin полностью code-first: ты пишешь `class FooQuerie
 - **Mutations**: после изменения данных `loader.clear(id)` — иначе тот же запрос увидит старые данные в последующих полях.
 - **Размер батча** без лимита бьёт по `IN (...)`-параметру БД и портит план запроса.
 
-> graphql-kotlin DataLoader docs
+> theory/DATALOADER_NPLUS1.md §7
 
 ---
 
@@ -180,7 +180,7 @@ graphql-kotlin полностью code-first: ты пишешь `class FooQuerie
 - **Supergraph** — композит схема, собранная из subgraph-схем (статически через `rover compose` или динамически через managed federation в Apollo Studio).
 - **Router/Gateway** — Apollo Router (Rust) или Apollo Gateway (Node), который принимает клиентские запросы, строит query plan и распределяет работу по subgraphs, склеивая результаты через `_entities`.
 
-> apollographql.com/docs/federation
+> theory/FEDERATION.md §2
 
 ---
 
@@ -202,7 +202,7 @@ type User @key(fields: "id") @extends {
 
 Router при запросе `User.reviews` приходит к reviews-service с `representations: [{__typename: "User", id: "..."}]`, и subgraph должен вернуть `User`-объект (через **entity resolver**), у которого затем будет вызван `reviews()`.
 
-> apollographql.com/docs/federation/entities
+> theory/FEDERATION.md §3
 
 ---
 
@@ -219,4 +219,4 @@ Federation **не нужна**, когда:
 
 Альтернатива в этих случаях — единый graphql-kotlin сервис как **BFF** поверх REST/gRPC бэкендов (см. `../microservices/theory/EDGE_AND_MESH.md`).
 
-> apollographql.com/blog «Federation 2», «Choosing a gateway»
+> theory/FEDERATION.md §8

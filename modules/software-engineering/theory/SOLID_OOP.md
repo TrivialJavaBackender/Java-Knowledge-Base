@@ -1,6 +1,6 @@
 # SOLID и OOP принципы
 
-## S — Single Responsibility Principle
+## 1. S — Single Responsibility Principle
 
 Класс/модуль должен иметь **одну причину для изменения**.
 
@@ -27,7 +27,7 @@ class UserService {
 
 ---
 
-## O — Open/Closed Principle
+## 2. O — Open/Closed Principle
 
 Открыт для расширения, закрыт для изменения. Новое поведение — через новые классы, а не правку существующих.
 
@@ -50,7 +50,7 @@ class VipDiscount implements DiscountStrategy { ... }
 
 ---
 
-## L — Liskov Substitution Principle
+## 3. L — Liskov Substitution Principle
 
 Подтип должен быть полностью заменяем родительским типом без нарушения корректности программы.
 
@@ -74,7 +74,7 @@ assert r.area() == 15; // FAIL: Square.area() = 9
 
 ---
 
-## I — Interface Segregation Principle
+## 4. I — Interface Segregation Principle
 
 Клиент не должен зависеть от методов, которые не использует. Много узких интерфейсов лучше одного толстого.
 
@@ -94,7 +94,7 @@ class Robot implements Workable { ... }
 
 ---
 
-## D — Dependency Inversion Principle
+## 5. D — Dependency Inversion Principle
 
 1. Модули высокого уровня не должны зависеть от низкоуровневых — оба зависят от **абстракции**.
 2. Абстракции не должны зависеть от деталей — детали зависят от абстракций.
@@ -119,7 +119,7 @@ class UserService {
 
 ---
 
-## DIP и Jackson — реальный пример с собеседования
+## 6. DIP и Jackson — реальный пример с собеседования
 
 **Вопрос:** является ли прямая зависимость на `ObjectMapper` (Jackson) нарушением Dependency Inversion?
 

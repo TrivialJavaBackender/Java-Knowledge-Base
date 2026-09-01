@@ -1,6 +1,6 @@
 # Spring Core: DI, IoC и AOP
 
-## Почему появился Spring
+## 1. Почему появился Spring
 
 В ранние 2000-е написать Enterprise Java-приложение означало писать EJB (Enterprise JavaBeans). EJB требовал тяжёлого контейнера (JBoss, WebSphere), бойлерплейта из десятков XML-файлов, и классы жёстко зависели от EJB-интерфейсов. Тестирование было почти невозможно — нельзя запустить один класс без всего сервера.
 
@@ -10,7 +10,7 @@
 
 ---
 
-## IoC (Inversion of Control)
+## 2. IoC (Inversion of Control)
 
 **Инверсия управления** — это принцип, а не технология. Суть: управление жизненным циклом объектов и их связями отдаётся внешней системе (контейнеру).
 
@@ -32,7 +32,7 @@ class OrderService {
 
 ---
 
-## Три способа внедрения и почему конструктор лучше
+## 3. Три способа внедрения и почему конструктор лучше
 
 ```java
 // ✅ Constructor Injection — единственный рекомендуемый способ
@@ -82,7 +82,7 @@ public class UserService {
 
 ---
 
-## ApplicationContext — контейнер Spring
+## 4. ApplicationContext — контейнер Spring
 
 `ApplicationContext` — сердце Spring. Он хранит все бины, управляет их жизненным циклом и предоставляет их по запросу.
 
@@ -173,7 +173,7 @@ public class NotificationDispatcher {
 
 ---
 
-## Bean Scopes — область жизни бина
+## 5. Bean Scopes — область жизни бина
 
 Scope определяет, сколько экземпляров бина существует одновременно.
 
@@ -224,7 +224,7 @@ public class ReportService {
 
 ---
 
-## Bean Lifecycle — жизненный цикл бина
+## 6. Bean Lifecycle — жизненный цикл бина
 
 Понимание lifecycle важно для инициализации соединений, валидации конфигурации и освобождения ресурсов.
 
@@ -270,7 +270,7 @@ public class DatabaseConnectionPool {
 
 ---
 
-## AOP — Aspect-Oriented Programming
+## 7. AOP — Aspect-Oriented Programming
 
 AOP решает проблему cross-cutting concerns: логика, которая нужна во многих местах (логирование, транзакции, безопасность, кэширование), но не относится к бизнес-логике.
 
@@ -413,7 +413,7 @@ public class PerformanceAspect {
 
 ---
 
-## GoF паттерны в Spring
+## 8. GoF паттерны в Spring
 
 ### Factory
 
@@ -577,7 +577,7 @@ public class PaymentService {
 
 ---
 
-## Circular Dependencies — круговые зависимости
+## 9. Circular Dependencies — круговые зависимости
 
 Возникают когда A зависит от B, а B зависит от A.
 
