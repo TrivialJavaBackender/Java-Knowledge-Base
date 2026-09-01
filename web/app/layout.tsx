@@ -1,16 +1,28 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import Link from 'next/link';
 import './globals.css';
 import { prisma } from '@/lib/db';
-import { endOfDay } from '@/lib/leitner';
+import { countDue } from '@/lib/review-queue';
 import { SearchBox } from '@/components/SearchBox';
 import { ThemeToggle, themeBootScript } from '@/components/ThemeToggle';
+import { ServiceWorkerRegistrar } from '@/components/pwa/ServiceWorkerRegistrar';
 import { LogoutButton } from '@/app/login/logout';
 import { getSession } from '@/lib/auth';
 
 export const metadata: Metadata = {
   title: 'Interview Prep',
   description: 'Personal interview prep tracker — theory, exercises, flashcards.',
+  // Запуск с домашнего экрана iOS — там манифест не читается, нужны мета-теги.
+  appleWebApp: { capable: true, title: 'Prep', statusBarStyle: 'default' },
+};
+
+export const viewport: Viewport = {
+  // Цвет системной шапки в standalone-режиме. Две записи вместо одной: с одним
+  // значением тёмная тема получила бы светлую полосу над своим содержимым.
+  themeColor: [
+    { media: '(prefers-color-scheme: light)', color: '#0969da' },
+    { media: '(prefers-color-scheme: dark)', color: '#0b0d10' },
+  ],
 };
 
 interface HeaderData {
@@ -32,13 +44,7 @@ async function getHeaderData(): Promise<HeaderData> {
     const session = await getSession();
     if (!session) return { dueCount: 0, initials: null };
     const [dueCount, user] = await Promise.all([
-      prisma.leitnerState.count({
-        where: {
-          userId: session.userId,
-          nextDueAt: { lte: endOfDay(new Date()) },
-          flashcard: { archived: false },
-        },
-      }),
+      countDue(session.userId),
       prisma.user.findUnique({ where: { id: session.userId }, select: { username: true } }),
     ]);
     return { dueCount, initials: user ? initialsOf(user.username) : null };
@@ -102,12 +108,15 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             <ThemeToggle />
 
             {initials && (
-              <div
-                title="Профиль"
-                className="flex h-[30px] w-[30px] flex-none items-center justify-center rounded-full bg-accent-soft text-[12px] font-semibold text-accent"
+              // Аватар — вход в настройки: отдельной кнопки шапка не выдержит,
+              // а на мобильном там и так тесно.
+              <Link
+                href="/settings"
+                title="Настройки"
+                className="flex h-[30px] w-[30px] flex-none items-center justify-center rounded-full bg-accent-soft text-[12px] font-semibold text-accent transition hover:opacity-80"
               >
                 {initials}
-              </div>
+              </Link>
             )}
 
             <LogoutButton />
@@ -115,6 +124,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         </header>
 
         <main className="flex-1 min-h-0 overflow-y-auto">{children}</main>
+        <ServiceWorkerRegistrar />
       </body>
     </html>
   );

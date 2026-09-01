@@ -6,5 +6,12 @@
 [build.environment]
   NODE_VERSION = "20"
 
+# Путь относительно `base`, то есть web/netlify/functions. Расписание задаётся
+# в самом файле функции (`export const config = { schedule: '@hourly' }`) —
+# дублировать его здесь не нужно.
+[functions]
+  directory   = "netlify/functions"
+  node_bundler = "esbuild"
+
 [[plugins]]
   package = "@netlify/plugin-nextjs"

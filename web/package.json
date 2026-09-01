@@ -7,6 +7,7 @@
     "build": "prisma migrate deploy && tsx scripts/sync.ts && next build",
     "start": "next start",
     "lint": "next lint",
+    "test": "vitest run",
     "sync": "tsx scripts/sync.ts",
     "db:migrate": "prisma migrate dev",
     "db:push": "prisma db push",
@@ -22,7 +23,8 @@
     "next": "^15.0.3",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "shiki": "^1.24.0"
+    "shiki": "^1.24.0",
+    "web-push": "^3.6.7"
   },
   "pnpm": {
     "onlyBuiltDependencies": [
@@ -34,16 +36,20 @@
     ]
   },
   "devDependencies": {
+    "@netlify/functions": "^6.0.0",
     "@tailwindcss/typography": "^0.5.15",
     "@types/bcryptjs": "^3.0.0",
     "@types/node": "^22.10.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
+    "@types/web-push": "^3.6.4",
     "autoprefixer": "^10.4.20",
     "postcss": "^8.4.49",
     "prisma": "^5.22.0",
+    "sharp": "^0.35.4",
     "tailwindcss": "^3.4.16",
     "tsx": "^4.19.2",
-    "typescript": "^5.7.2"
+    "typescript": "^5.7.2",
+    "vitest": "^4.1.11"
   }
 }

@@ -1,7 +1,8 @@
 import Link from 'next/link';
 import { prisma } from '@/lib/db';
 import { requireUser } from '@/lib/auth';
-import { endOfDay, startOfDay } from '@/lib/leitner';
+import { endOfDay } from '@/lib/leitner';
+import { countOverdue, dailyLimitOf, loadDueQueue } from '@/lib/review-queue';
 import { getTrack, type TrackKey } from '@/lib/tracks';
 import { FlashcardReview, type ReviewableCard } from '@/components/FlashcardReview';
 import { DeckSidebar, type DeckRowData } from '@/components/flashcards/DeckSidebar';
@@ -53,8 +54,7 @@ export default async function FlashcardsPage({
 
   // Дневной лимит очереди (lib/triage-actions.ts → setDailyReviewLimit). Не
   // задан → дефолт 50, как было раньше жёстко закодировано в take.
-  const user = await prisma.user.findUnique({ where: { id: userId }, select: { dailyReviewLimit: true } });
-  const dailyLimit = user?.dailyReviewLimit ?? 50;
+  const dailyLimit = await dailyLimitOf(userId);
 
   const modules = await prisma.module.findMany({
     orderBy: { order: 'asc' },
@@ -64,9 +64,7 @@ export default async function FlashcardsPage({
   // Просрочка — не то же, что «на сегодня»: due включает и сегодняшние карточки.
   // Ссылка на разбор очереди нужна именно здесь, на экране, где завал и виден;
   // раньше единственный вход в неё лежал на /flashcards/manage, третьим уровнем.
-  const overdueCount = await prisma.leitnerState.count({
-    where: { userId, nextDueAt: { lt: startOfDay(now) }, flashcard: { archived: false } },
-  });
+  const overdueCount = await countOverdue(userId, now);
 
   // Распределение по ящикам + due-счётчик — один запрос (Prisma groupBy через
   // связь не умеет группировать по колонке из JOIN-нутой таблицы).
@@ -166,47 +164,15 @@ export default async function FlashcardsPage({
     if (selectedModuleIds.length > 0) flashcardOr.push({ moduleId: { in: selectedModuleIds } });
     if (includeManual) flashcardOr.push({ moduleId: null, source: 'MANUAL', userId });
 
-    const dueRows = await prisma.leitnerState.findMany({
-      where: {
-        userId,
-        nextDueAt: { lte: endOfDay(now) },
-        flashcard: { archived: false, OR: flashcardOr },
-      },
-      orderBy: [{ box: 'asc' }, { nextDueAt: 'asc' }],
-      take: dailyLimit,
-      include: {
-        flashcard: {
-          include: {
-            module: { select: { slug: true, title: true, track: true } },
-            qa: { select: { qNumber: true, refDocSlug: true, section: { select: { title: true } } } },
-          },
-        },
-      },
+    queue = await loadDueQueue(userId, {
+      limit: dailyLimit,
+      now,
+      flashcardOr,
+      // Одна колода — приоритет по box/nextDueAt как обычно. Несколько (или
+      // дефолтная смешанная очередь из всех) — перемешиваем, чтобы модули
+      // чередовались, а не шли блоками.
+      shuffle: selectedKeys.length !== 1,
     });
-
-    // Одна колода — приоритет по box/nextDueAt как обычно. Несколько (или
-    // дефолтная смешанная очередь из всех) — перемешиваем, чтобы модули
-    // чередовались, а не шли блоками.
-    const ordered = selectedKeys.length === 1 ? dueRows : shuffled(dueRows);
-
-    queue = await Promise.all(
-      ordered.map(async (r) => ({
-        id: r.flashcard.id,
-        front: r.flashcard.front,
-        back: r.flashcard.back,
-        frontHtml: await renderMarkdown(r.flashcard.front),
-        backHtml: await renderMarkdown(r.flashcard.back),
-        box: r.box,
-        source: r.flashcard.source,
-        moduleTitle: r.flashcard.module?.title ?? null,
-        moduleSlug: r.flashcard.module?.slug ?? null,
-        trackColor: r.flashcard.module ? getTrack(r.flashcard.module.track as TrackKey).color : null,
-        sectionTitle: r.flashcard.qa?.section?.title ?? null,
-        qNumber: r.flashcard.qa?.qNumber ?? null,
-        refDocSlug: r.flashcard.qa?.refDocSlug ?? null,
-        tags: r.flashcard.tags,
-      })),
-    );
   }
 
   // Заголовок сессии.

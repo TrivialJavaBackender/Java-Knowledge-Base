@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/db';
 import { requireUser } from '@/lib/auth';
-import { endOfDay, startOfDay } from '@/lib/leitner';
+import { endOfDay } from '@/lib/leitner';
+import { countDue, countOverdue } from '@/lib/review-queue';
 import { TRACKS, getTrack, type TrackKey } from '@/lib/tracks';
 import { ContinueReadingCard, type ContinueReadingData } from '@/components/dashboard/ContinueReadingCard';
 import { TodayReviewCard, type DueBreakdownEntry } from '@/components/dashboard/TodayReviewCard';
@@ -89,12 +90,8 @@ async function loadDashboard(userId: number): Promise<DashboardData> {
         JOIN "InterviewQA" q ON q.id = p."qaId"
         WHERE p."userId" = ${userId} AND p."isKnown" = true
         GROUP BY q."moduleId"`,
-      prisma.leitnerState.count({
-        where: { userId, nextDueAt: { lte: endOfDay(now) }, flashcard: { archived: false } },
-      }),
-      prisma.leitnerState.count({
-        where: { userId, nextDueAt: { lt: startOfDay(now) }, flashcard: { archived: false } },
-      }),
+      countDue(userId, now),
+      countOverdue(userId, now),
       prisma.$queryRaw<{ moduleId: number; count: number }[]>`
         SELECT f."moduleId" AS "moduleId", COUNT(*)::int AS count
         FROM "LeitnerState" l
@@ -291,12 +288,19 @@ export default async function DashboardPage() {
           карточка повторений рисовала строку на каждый модуль с просрочкой и при
           16 модулях уезжала втрое выше соседней. Теперь её список свёрнут до пяти
           строк (TodayReviewCard), высоты сопоставимы, и лишнее место лучше отдать
-          внутрь карточки, чем оставить провалом между ними. */}
+          внутрь карточки, чем оставить провалом между ними.
+
+          Повторение идёт первым: это единственное действие с дедлайном — карточки
+          созревают по расписанию и просрочиваются, а глава теории ждёт сколько
+          угодно. На узком экране сетка схлопывается в колонку, и «Начать
+          повторение» оказывается первым экраном без прокрутки. Ширину при этом
+          не отдаём: кнопка на две трети экрана выглядит нелепо, а прочитывается
+          не лучше. */}
       <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-3">
+        <TodayReviewCard due={data.due} overdue={data.overdue} breakdown={data.dueBreakdown} />
         <div className="sm:col-span-2">
           <ContinueReadingCard data={data.continueReading} />
         </div>
-        <TodayReviewCard due={data.due} overdue={data.overdue} breakdown={data.dueBreakdown} />
       </div>
 
       <OverallProgress

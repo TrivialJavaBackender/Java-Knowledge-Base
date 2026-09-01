@@ -31,7 +31,27 @@ function headerLine(c: ReviewableCard): string {
   return parts.join(' · ');
 }
 
-export function FlashcardReview({ initialQueue }: { initialQueue: ReviewableCard[] }) {
+/** Итог сессии — то, что нужно экрану завершения, чтобы решить, что показать. */
+export interface SessionSummary {
+  knew: number;
+  again: number;
+  /** Есть неотправленный ответ: уходить со страницы ещё нельзя. */
+  pending: boolean;
+}
+
+export function FlashcardReview({
+  initialQueue,
+  sessionDone,
+}: {
+  initialQueue: ReviewableCard[];
+  /**
+   * Чем заменить встроенный экран «очередь закончилась». Нужен минимальной
+   * сессии на `/review`: там конец пачки из пяти карточек — не конец дня, и
+   * предложить надо «продолжить или закончить», а не поздравить с пустой
+   * очередью. Не передан — поведение прежнее.
+   */
+  sessionDone?: (summary: SessionSummary) => React.ReactNode;
+}) {
   const [queue, setQueue] = useState(initialQueue);
   const [total] = useState(initialQueue.length);
   const [revealed, setRevealed] = useState(false);
@@ -126,7 +146,9 @@ export function FlashcardReview({ initialQueue }: { initialQueue: ReviewableCard
         </div>
       )}
 
-      {!current ? (
+      {!current && sessionDone ? (
+        sessionDone({ knew: history.knew, again: history.again, pending })
+      ) : !current ? (
         <div className="rounded-lg border border-border bg-bg-card p-8 text-center">
           {total === 0 ? (
             <>

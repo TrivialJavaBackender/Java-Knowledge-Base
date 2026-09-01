@@ -14,12 +14,46 @@ model User {
   passwordHash     String
   dailyReviewLimit Int?
 
-  theoryProgress   UserTheoryProgress[]
-  exerciseProgress UserExerciseProgress[]
-  qaProgress       UserQAProgress[]
-  leitnerStates    LeitnerState[]
-  reviewLogs       ReviewLog[]
-  flashcards       Flashcard[]
+  // Напоминания о повторении. Время и зона — пользовательские, не серверные:
+  // Netlify Scheduled Functions ходят по UTC, а «20:30» означает 20:30 там, где
+  // человек находится. Сопоставлением занимается lib/reminders.ts.
+  remindersEnabled   Boolean   @default(false)
+  reminderTime       String    @default("20:30") // HH:MM в локальной зоне
+  timezone           String    @default("UTC") // IANA, из Intl.DateTimeFormat()
+  lastReminderSentAt DateTime? // якорь идемпотентности: одна отправка в локальные сутки
+
+  theoryProgress    UserTheoryProgress[]
+  exerciseProgress  UserExerciseProgress[]
+  qaProgress        UserQAProgress[]
+  leitnerStates     LeitnerState[]
+  reviewLogs        ReviewLog[]
+  flashcards        Flashcard[]
+  pushSubscriptions PushSubscription[]
+}
+
+// Подписка браузера на Web Push. У одного пользователя их несколько: вкладка
+// Chrome, установленное PWA и ноутбук — это три разных endpoint'а.
+//
+// `endpoint` — natural key: браузер может выдать новую подписку на то же
+// устройство (после сброса разрешений или переустановки PWA), и запись тогда
+// обновляется, а не дублируется.
+model PushSubscription {
+  id         Int       @id @default(autoincrement())
+  userId     Int
+  endpoint   String    @unique
+  p256dh     String
+  auth       String
+  userAgent  String?
+  // false выставляется, когда push-сервис ответил 404/410 — подписки больше
+  // нет. Строку не удаляем: повторная подписка тем же браузером оживит её.
+  active     Boolean   @default(true)
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  lastUsedAt DateTime?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, active])
 }
 
 model UserTheoryProgress {
