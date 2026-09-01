@@ -39,7 +39,7 @@ export function ApplyBar({
   }
 
   return (
-    <div className="flex items-center gap-3 rounded-[10px] border border-border bg-bg-soft px-4 py-[13px]">
+    <div className="flex flex-wrap items-center gap-3 rounded-[10px] border border-border bg-bg-soft px-4 py-[13px]">
       <span className="flex-1 text-[13px] leading-[1.5] text-fg-muted">{note}</span>
       <Link
         href={listHref}

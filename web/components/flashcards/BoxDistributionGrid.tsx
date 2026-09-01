@@ -5,7 +5,7 @@ export function BoxDistributionGrid({ boxes }: { boxes: [number, number, number,
   return (
     <div className="mt-6">
       <div className="grp mb-2.5 text-fg-muted">Распределение по ящикам · выбранное</div>
-      <div className="grid grid-cols-5 gap-2">
+      <div className="grid grid-cols-3 gap-2 sm:grid-cols-5">
         {boxes.map((count, i) => {
           const box = i + 1;
           return (

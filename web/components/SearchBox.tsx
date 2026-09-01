@@ -259,7 +259,7 @@ export function SearchBox() {
                         close();
                         // Same page, different fragment: do it the way a plain
                         // anchor would. Assigning location.hash both scrolls and
-                        // fires `hashchange` (which QAItem listens for); Next's
+                        // fires `hashchange` (which AnchoredQuestionCard listens for); Next's
                         // pushState does neither.
                         const at = r.href.indexOf('#');
                         if (at !== -1 && r.href.slice(0, at) === pathname) {

@@ -210,7 +210,7 @@ export default async function ManagePage({ searchParams }: { searchParams: Promi
             поиска не сбрасывала выбранную вкладку. */}
         <form className="flex flex-wrap items-center gap-2">
           <input type="hidden" name="view" value={preset} />
-          <div className="relative min-w-[220px] flex-1">
+          <div className="relative w-full flex-1 sm:min-w-[220px]">
             <svg
               className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-fg-subtle"
               width="14"
@@ -236,7 +236,7 @@ export default async function ManagePage({ searchParams }: { searchParams: Promi
           <select
             name="module"
             defaultValue={moduleSlug}
-            className="h-9 w-[190px] appearance-none rounded-md border border-border bg-bg-soft px-2.5 text-[13px] text-fg focus:border-accent focus:outline-none"
+            className="h-9 w-full appearance-none rounded-md border border-border bg-bg-soft px-2.5 text-[13px] text-fg focus:border-accent focus:outline-none sm:w-[190px]"
           >
             <option value="all">Все модули</option>
             {modules.map((m) => (

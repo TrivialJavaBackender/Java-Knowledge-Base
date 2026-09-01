@@ -49,7 +49,7 @@ export function ModuleHeader({
           )}
         </div>
 
-        <div className="grid flex-none grid-cols-3 gap-2.5">
+        <div className="grid w-full grid-cols-3 gap-2.5 sm:w-auto sm:flex-none">
           <StatTile label="Теория" done={theoryDone} total={theoryTotal} />
           <StatTile label="Упражнения" done={exDone} total={exTotal} />
           <StatTile label="Вопросы" done={qaDone} total={qaTotal} />
@@ -63,9 +63,9 @@ function StatTile({ label, done, total }: { label: string; done: number; total: 
   const hasData = total > 0;
   const pct = hasData ? (done / total) * 100 : 0;
   return (
-    <div className="w-[132px] rounded-lg border border-border bg-bg-card px-2.5 py-2">
+    <div className="min-w-0 rounded-lg border border-border bg-bg-card px-2.5 py-2 sm:w-[132px]">
       <div className="mb-1.5 flex items-baseline justify-between gap-1">
-        <span className="text-[10px] uppercase tracking-wide text-fg-subtle">{label}</span>
+        <span className="truncate text-[10px] uppercase tracking-wide text-fg-subtle">{label}</span>
         <span className={`font-mono text-xs ${hasData ? 'text-fg' : 'text-fg-subtle'}`}>
           {hasData ? `${done}/${total}` : '—'}
         </span>

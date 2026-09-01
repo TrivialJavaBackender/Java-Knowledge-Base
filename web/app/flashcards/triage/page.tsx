@@ -292,7 +292,7 @@ export default async function TriagePage({ searchParams }: { searchParams: Promi
               <PlanCards plans={plans} />
             </div>
 
-            <div className="grid grid-cols-[1fr_1.25fr] gap-3.5">
+            <div className="grid grid-cols-1 gap-3.5 lg:grid-cols-[1fr_1.25fr]">
               <ParamsPanel paramTitle={paramTitle} paramNote={paramNote} horizons={horizons} scopes={scopeOptions} />
               <LoadChart
                 before={before}

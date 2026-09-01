@@ -33,9 +33,11 @@ export function ThemeToggle() {
       onClick={flip}
       title={theme === 'dark' ? 'Switch to light' : 'Switch to dark'}
       aria-label="Toggle theme"
-      className="rounded border border-border bg-bg-card px-2 py-1 text-xs text-fg-muted hover:text-fg hover:border-accent/50"
+      className="flex items-center gap-1 rounded border border-border bg-bg-card px-2 py-1 text-xs text-fg-muted hover:text-fg hover:border-accent/50"
     >
-      {theme === 'dark' ? '☀︎ Light' : '☾ Dark'}
+      {/* Ниже sm в шапке тесно — подпись прячем, символ остаётся. */}
+      <span aria-hidden>{theme === 'dark' ? '☀︎' : '☾'}</span>
+      <span className="hidden sm:inline">{theme === 'dark' ? 'Light' : 'Dark'}</span>
     </button>
   );
 }

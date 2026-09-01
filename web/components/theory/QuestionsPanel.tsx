@@ -1,19 +1,11 @@
 'use client';
 
 import { useState } from 'react';
-import { ToggleQAKnown } from '@/components/ToggleProgress';
+import { QuestionCard, type QaCard } from '@/components/qa/QuestionCard';
 
-export interface QaCard {
-  id: number;
-  qNumber: number;
-  /** `§N` when `refSection` is set, otherwise the parent Q&A section title. */
-  sectionLabel: string;
-  box: number | null;
-  question: string;
-  answerHtml: string;
-  sourceRef: string | null;
-  isKnown: boolean;
-}
+// Тип живёт вместе с карточкой; ре-экспорт — чтобы читалка
+// (app/modules/[slug]/theory/[doc]/page.tsx) импортировала его отсюда, как и раньше.
+export type { QaCard };
 
 export interface QuestionsPanelProps {
   /** Questions with `refDocSlug` pointing at the current file. */
@@ -90,7 +82,7 @@ export function QuestionsPanel({ docQuestions, moduleQuestions }: QuestionsPanel
           </div>
         </div>
 
-        <div className="scroll flex-1 overflow-y-auto p-3.5">
+        <div className="scroll flex-1 space-y-2 overflow-y-auto p-3.5">
           {list.length === 0 && (
             <div className="px-2 py-6 text-center text-[13px] text-fg-subtle">Вопросов в этой области нет.</div>
           )}
@@ -100,39 +92,6 @@ export function QuestionsPanel({ docQuestions, moduleQuestions }: QuestionsPanel
         </div>
       </aside>
     </>
-  );
-}
-
-function QuestionCard({ q, open, onToggle }: { q: QaCard; open: boolean; onToggle: () => void }) {
-  return (
-    <div className={`mb-2 overflow-hidden rounded-lg border ${open ? 'border-accent/45' : 'border-border'} bg-bg-card`}>
-      <div className="flex items-start gap-2.5 p-2.5">
-        <div className="mt-0.5">
-          <ToggleQAKnown id={q.id} initial={q.isKnown} size="sm" />
-        </div>
-        <button type="button" onClick={onToggle} className="min-w-0 flex-1 text-left">
-          <div className="mb-1 flex flex-wrap items-center gap-1.5">
-            <span className="font-mono text-[10.5px] text-fg-subtle">Q{q.qNumber}</span>
-            <span className="rounded border border-border bg-bg-soft px-1 font-mono text-[10px] text-fg-muted">{q.sectionLabel}</span>
-            {q.box !== null && <span className="font-mono text-[10.5px] text-fg-subtle">box {q.box}</span>}
-          </div>
-          <div className="text-[13.5px] font-medium leading-[1.45] text-fg">{q.question}</div>
-        </button>
-      </div>
-      {open && (
-        <div className="px-2.5 pb-2.5 pl-[37px]">
-          <div className="rounded-md bg-bg-soft p-2.5">
-            <div
-              className="prose prose-sm max-w-none text-fg [&_p]:mb-0"
-              dangerouslySetInnerHTML={{ __html: q.answerHtml }}
-            />
-            {q.sourceRef && (
-              <div className="mt-2 border-l-2 border-accent/40 pl-2.5 font-mono text-[11px] text-fg-subtle">{q.sourceRef}</div>
-            )}
-          </div>
-        </div>
-      )}
-    </div>
   );
 }
 

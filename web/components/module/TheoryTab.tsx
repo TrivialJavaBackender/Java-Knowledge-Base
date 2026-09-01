@@ -56,11 +56,13 @@ export function TheoryTab({ moduleSlug, rows }: { moduleSlug: string; rows: Theo
           >
             {d.title}
           </span>
-          <span className="flex-none text-[11.5px] text-fg-subtle">
+          <span className="hidden flex-none text-[11.5px] text-fg-subtle sm:inline">
             {d.sectionCount} {pluralizeRu(d.sectionCount, 'раздел', 'раздела', 'разделов')}
           </span>
-          <span className="w-[62px] flex-none text-right text-[11.5px] text-fg-subtle">~{d.readingMinutes} мин</span>
-          <span className="w-[74px] flex-none rounded-full bg-bg-soft px-1.5 py-px text-right font-mono text-[10.5px] text-fg-muted">
+          <span className="hidden w-[62px] flex-none text-right text-[11.5px] text-fg-subtle sm:inline">
+            ~{d.readingMinutes} мин
+          </span>
+          <span className="flex-none rounded-full bg-bg-soft px-1.5 py-px text-right font-mono text-[10.5px] text-fg-muted sm:w-[74px]">
             {d.qCount} вопр.
           </span>
         </Link>
