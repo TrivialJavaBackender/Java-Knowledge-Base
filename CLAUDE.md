@@ -20,8 +20,9 @@
 | `go` | `modules/go/` | Go с нуля (синтаксис, интерфейсы, горутины/каналы, GMP-шедулер, GC, дженерики, stdlib, net/http, тестирование) + Go-упражнения |
 | `design-patterns` | `modules/design-patterns/` | Паттерны GoF (порождающие/структурные/поведенческие), UML, GRASP, сравнения, антипаттерны + java-упражнения |
 | `ddd` | `modules/ddd/` | Domain-Driven Design (стратегия: Bounded Context/Context Map; тактика: VO/Entity/агрегат/Repository/Specification; архитектура Hexagonal/Onion/Clean; интеграция; Event Storming; функциональный DDD; антипаттерны) |
-| `engineering-process` | `modules/engineering-process/` | Корпоративные процессы разработки (роли и стейкхолдеры, бэклог, оценки и приоритизация, Scrum и поток, ветвление и релизные стратегии, технический долг, инциденты, метрики доставки, разбор ситуаций) |
+| `engineering-process` | `modules/engineering-process/` | Корпоративные процессы разработки (роли и стейкхолдеры, бэклог, оценки и приоритизация, Scrum и поток, ветвление и релизные стратегии, технический долг, инциденты, метрики доставки) |
 | `microservices` | `modules/microservices/` | Микросервисная архитектура (цена распределённости, границы и Strangler Fig, gRPC и крайние сроки, каскад отказа и предохранитель, события и идемпотентность, владение данными, сага и Outbox, CQRS/ES, контракты, шлюз и service mesh, SPIFFE, антипаттерны) |
+| `behavioral-interview` | `modules/behavioral-interview/` | Поведенческое, менеджерское и HR-интервью (STAR/STARL и рамка размена, конфликт и критика, провал и ошибка, объём и сроки, качество и риск, HR-раунд; индекс вопросов как точка входа) |
 
 ## Правило теории — NO OVERLAP
 

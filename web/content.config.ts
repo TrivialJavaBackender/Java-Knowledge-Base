@@ -32,4 +32,5 @@ export const MODULES: ModuleConfig[] = [
   { slug: 'ddd',                  title: 'Domain-Driven Design', order: 14, qaFormat: 'qa-bold', track: 'architecture' },
   { slug: 'engineering-process',  title: 'Engineering Process',  order: 15, qaFormat: 'qa-bold', track: 'process' },
   { slug: 'microservices',        title: 'Microservices',        order: 16, qaFormat: 'qa-bold', track: 'architecture' },
+  { slug: 'behavioral-interview', title: 'Behavioral Interview', order: 17, qaFormat: 'qa-bold', track: 'process' },
 ];

@@ -33,8 +33,7 @@
     ├── RELEASE_STRATEGIES.md           # релизная ветка, теги, CD, semver, feature flags, откат
     ├── TECH_DEBT.md                    # квадрант Фаулера, измерение, бюджет долга
     ├── INCIDENTS_AND_POSTMORTEM.md     # дежурство, ход инцидента, разбор без поиска виноватых
-    ├── DELIVERY_METRICS.md             # DORA, метрики потока, закон Гудхарта
-    └── DECISION_SCENARIOS.md           # разобранные ситуации с собеседований
+    └── DELIVERY_METRICS.md             # DORA, метрики потока, закон Гудхарта
 ```
 
 ## Темы
@@ -54,7 +53,6 @@
 | Технический долг | Квадрант Фаулера, бюджет, обоснование бизнесу | [TECH_DEBT](theory/TECH_DEBT.md) |
 | Инциденты | Дежурство, ход инцидента, постмортем | [INCIDENTS_AND_POSTMORTEM](theory/INCIDENTS_AND_POSTMORTEM.md) |
 | Метрики | DORA, метрики потока, закон Гудхарта | [DELIVERY_METRICS](theory/DELIVERY_METRICS.md) |
-| Ситуации | Разбор вопросов с собеседований | [DECISION_SCENARIOS](theory/DECISION_SCENARIOS.md) |
 
 ## Сквозной пример
 
@@ -78,6 +76,9 @@
 
 - механика развёртывания в Kubernetes, probes, откат Deployment — [infrastructure/KUBERNETES.md](../infrastructure/theory/KUBERNETES.md)
 - GitOps и Argo CD — [infrastructure/HELM.md](../infrastructure/theory/HELM.md)
+- разбор вопросов с собеседования («пять задач против двух», «срежь тесты», «прод упал»,
+  disagree and commit, bus factor, HR-раунд) — [behavioral-interview](../behavioral-interview/).
+  Здесь — механизмы, там — что произносить вслух
 - SLI / SLO / error budget — [infrastructure/OBSERVABILITY.md](../infrastructure/theory/OBSERVABILITY.md)
 - что стоит в CI-гейте (пирамида тестов, contract testing) — [software-engineering/TESTING.md](../software-engineering/theory/TESTING.md)
 - Event Storming и Example Mapping — [ddd/EVENT_STORMING.md](../ddd/theory/EVENT_STORMING.md)
@@ -91,9 +92,6 @@
 "следующий"   — следующая тема теории по ROADMAP
 "квиз"        — 5 случайных вопросов из INTERVIEW_QUESTIONS.md
 ```
-
-Разбор ситуаций в [DECISION_SCENARIOS](theory/DECISION_SCENARIOS.md) читается последним: он
-опирается на механизмы из остальных файлов и служит тренажёром перед собеседованием.
 
 ## Источники
 

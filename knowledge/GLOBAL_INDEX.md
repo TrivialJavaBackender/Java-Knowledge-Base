@@ -1039,20 +1039,58 @@ Canonical concept → owner file map. One concept, one owner. Other modules must
 - метрики потока: применение и интерпретация → modules/engineering-process/theory/DELIVERY_METRICS.md
 - метрики команде vs метрики руководству → modules/engineering-process/theory/DELIVERY_METRICS.md
 
-### Разбор ситуаций
-- рамка ответа «уточнить → критерий → размен → фиксация» → modules/engineering-process/theory/DECISION_SCENARIOS.md
-- «пять задач против двух», перегруз спринта, релиз в пятницу, два P0 → modules/engineering-process/theory/DECISION_SCENARIOS.md
-- когда правильный ответ — согласиться без разменов → modules/engineering-process/theory/DECISION_SCENARIOS.md
-- разговор с руководителем про «задачу на час» (разложить, не спорить) → modules/engineering-process/theory/DECISION_SCENARIOS.md
-- межкомандная блокировка: срок ожидания и лестница эскалации → modules/engineering-process/theory/DECISION_SCENARIOS.md
-- disagree and commit, условие пересмотра решения (ADR) → modules/engineering-process/theory/DECISION_SCENARIOS.md
-- внедрение новой технологии: цена владения и точка невозврата → modules/engineering-process/theory/DECISION_SCENARIOS.md
-- своя ошибка, стоившая денег: порядок действий → modules/engineering-process/theory/DECISION_SCENARIOS.md
-- наставничество против личной скорости → modules/engineering-process/theory/DECISION_SCENARIOS.md
-- спайк (spike) как ответ на «оцени незнакомое» → modules/engineering-process/theory/DECISION_SCENARIOS.md
-- отстаивание технического решения перед продуктом → modules/engineering-process/theory/DECISION_SCENARIOS.md
-- изменение процесса снизу, круг без разрешения → modules/engineering-process/theory/DECISION_SCENARIOS.md
-- bus factor: передача участия, а не документации → modules/engineering-process/theory/DECISION_SCENARIOS.md
+## Behavioral Interview
+
+### Рамки ответа
+- STAR / STARL как механика ответа-истории → modules/behavioral-interview/theory/ANSWER_FRAMES.md
+- рамка решения «уточнить → критерий → размен → зафиксировать» → modules/behavioral-interview/theory/ANSWER_FRAMES.md
+- выбор рамки по грамматическому времени вопроса → modules/behavioral-interview/theory/ANSWER_FRAMES.md
+- красные флаги в самом вопросе интервьюера → modules/behavioral-interview/theory/ANSWER_FRAMES.md
+- когда правильный ответ — согласиться без разменов → modules/behavioral-interview/theory/ANSWER_FRAMES.md
+- индекс вопросов собеседования с ядром ответа → modules/behavioral-interview/theory/QUESTION_INDEX.md
+
+### Поведенческий раунд: люди
+- конфликт с коллегой как вопрос собеседования → modules/behavioral-interview/theory/BEHAVIORAL_PEOPLE.md
+- приём критики на своё решение → modules/behavioral-interview/theory/BEHAVIORAL_PEOPLE.md
+- подача тяжёлой обратной связи, SBI и развенчание «сэндвича» → modules/behavioral-interview/theory/BEHAVIORAL_PEOPLE.md
+- объяснение технического ограничения нетехническому человеку → modules/behavioral-interview/theory/BEHAVIORAL_PEOPLE.md
+- наставничество против личной скорости → modules/behavioral-interview/theory/BEHAVIORAL_PEOPLE.md
+- межкомандная блокировка: срок ожидания и лестница эскалации → modules/behavioral-interview/theory/BEHAVIORAL_PEOPLE.md
+- disagree and commit, условие пересмотра решения → modules/behavioral-interview/theory/BEHAVIORAL_PEOPLE.md
+- bus factor: передача участия, а не документации → modules/behavioral-interview/theory/BEHAVIORAL_PEOPLE.md
+
+### Поведенческий раунд: о себе
+- провал проекта: системная причина и «что сделал бы иначе» → modules/behavioral-interview/theory/BEHAVIORAL_SELF.md
+- своя ошибка, стоившая денег: порядок действий → modules/behavioral-interview/theory/BEHAVIORAL_SELF.md
+- работа под давлением: источник давления и действие против него → modules/behavioral-interview/theory/BEHAVIORAL_SELF.md
+- быстрое освоение незнакомой области как история → modules/behavioral-interview/theory/BEHAVIORAL_SELF.md
+- выбор истории про достижение под роль → modules/behavioral-interview/theory/BEHAVIORAL_SELF.md
+
+### Менеджерский раунд
+- «пять задач против двух», перегруз спринта, два P0 → modules/behavioral-interview/theory/MANAGERIAL_SCOPE.md
+- заниженная оценка и срок, названный клиенту → modules/behavioral-interview/theory/MANAGERIAL_SCOPE.md
+- «дай оценку прямо сейчас» и задача «на час» → modules/behavioral-interview/theory/MANAGERIAL_SCOPE.md
+- спайк (spike) как ответ на «оцени незнакомое» → modules/behavioral-interview/theory/MANAGERIAL_SCOPE.md
+- «срежь тесты» и размен объёмом вместо качества → modules/behavioral-interview/theory/MANAGERIAL_QUALITY.md
+- решение о пятничном релизе → modules/behavioral-interview/theory/MANAGERIAL_QUALITY.md
+- поведение в инциденте как вопрос интервью → modules/behavioral-interview/theory/MANAGERIAL_QUALITY.md
+- «легаси мешает, давайте перепишем» → modules/behavioral-interview/theory/MANAGERIAL_QUALITY.md
+- отстаивание технического решения перед продуктом → modules/behavioral-interview/theory/MANAGERIAL_QUALITY.md
+- «почему так долго»: время цикла против времени выполнения → modules/behavioral-interview/theory/MANAGERIAL_PROCESS.md
+- изменение процесса снизу, круг без разрешения → modules/behavioral-interview/theory/MANAGERIAL_PROCESS.md
+- ретроспектива без изменений как разомкнутая петля → modules/behavioral-interview/theory/MANAGERIAL_PROCESS.md
+- задача без критериев приёмки → modules/behavioral-interview/theory/MANAGERIAL_PROCESS.md
+- Product Owner мимо бэклога → modules/behavioral-interview/theory/MANAGERIAL_PROCESS.md
+- внедрение новой технологии: цена владения и точка невозврата → modules/behavioral-interview/theory/MANAGERIAL_PROCESS.md
+- отказ старшему стейкхолдеру → modules/behavioral-interview/theory/MANAGERIAL_PROCESS.md
+
+### HR-раунд
+- «расскажите о себе»: питч на 60–90 секунд → modules/behavioral-interview/theory/HR_ROUND.md
+- «почему уходите» и проверка пересказом без оценок → modules/behavioral-interview/theory/HR_ROUND.md
+- «почему к нам» и подстановка конкурента как проверка → modules/behavioral-interview/theory/HR_ROUND.md
+- мотивация и проверяемые критерии выбора команды → modules/behavioral-interview/theory/HR_ROUND.md
+- вопросы кандидата к работодателю → modules/behavioral-interview/theory/HR_ROUND.md
+- зарплатные переговоры и эффект якоря → modules/behavioral-interview/theory/HR_ROUND.md
 
 ## Microservices
 
