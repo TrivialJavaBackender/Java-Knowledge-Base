@@ -1,0 +1,6 @@
+apiVersion: v2
+name: payments
+description: Сервис payments — сквозной пример модуля ci-cd
+type: application
+version: 1.0.0
+appVersion: "1.0"

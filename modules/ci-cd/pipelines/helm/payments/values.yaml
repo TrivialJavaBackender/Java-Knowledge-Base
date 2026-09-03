@@ -1,0 +1,18 @@
+# Значения по умолчанию. Окружения переопределяют только то, что реально различается,
+# — см. values-dev.yaml / values-qa.yaml / values-staging.yaml.
+environment: local
+replicaCount: 1
+
+image:
+  repository: registry.example.com/payments
+  # Пусто намеренно: конвейер подставляет дайджест собранного образа через --set.
+  # Тега здесь нет — тег изменяем, дайджест нет (theory/IMAGE_BUILD_AND_REGISTRY.md).
+  digest: ""
+  pullPolicy: IfNotPresent
+
+resources:
+  requests:
+    cpu: 250m
+    memory: 512Mi
+  limits:
+    memory: 1Gi

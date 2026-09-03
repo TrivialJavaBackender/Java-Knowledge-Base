@@ -1,0 +1,10 @@
+# staging отличается от прода только именем и объёмом данных: ресурсы те же,
+# иначе нагрузочная проверка на staging ничего не доказывает.
+environment: staging
+replicaCount: 3
+resources:
+  requests:
+    cpu: 500m
+    memory: 1Gi
+  limits:
+    memory: 2Gi

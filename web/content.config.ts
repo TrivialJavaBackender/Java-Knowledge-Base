@@ -33,4 +33,5 @@ export const MODULES: ModuleConfig[] = [
   { slug: 'engineering-process',  title: 'Engineering Process',  order: 15, qaFormat: 'qa-bold', track: 'process' },
   { slug: 'microservices',        title: 'Microservices',        order: 16, qaFormat: 'qa-bold', track: 'architecture' },
   { slug: 'behavioral-interview', title: 'Behavioral Interview', order: 17, qaFormat: 'qa-bold', track: 'process' },
+  { slug: 'ci-cd',                title: 'CI/CD & Delivery',      order: 18, qaFormat: 'qa-bold', track: 'platform' },
 ];

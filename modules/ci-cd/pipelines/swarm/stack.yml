@@ -1,0 +1,39 @@
+# Стек Docker Swarm для payments.
+# Разбор — theory/DEPLOY_K8S_AND_SWARM.md. Запуск:
+#   docker swarm init
+#   docker stack deploy -c pipelines/swarm/stack.yml payments
+version: "3.9"
+
+services:
+  api:
+    # Тот же принцип, что в чарте Helm: образ адресуется дайджестом.
+    # Здесь для локального прогона — локальный тег, у него дайджеста нет.
+    image: payments:v1
+    environment:
+      PAYMENTS_ENVIRONMENT: staging
+    ports:
+      - "8080:8080"
+    deploy:
+      replicas: 3
+      update_config:
+        # Постепенная замена: по одной реплике, пауза между ними — окно,
+        # в которое отказ успевает проявиться до замены следующей.
+        parallelism: 1
+        delay: 10s
+        # start-first: новая реплика поднимается ДО остановки старой.
+        # stop-first (по умолчанию) на трёх репликах роняет треть ёмкости.
+        order: start-first
+        # Что делать, если новая задача не поднялась.
+        failure_action: rollback
+        monitor: 20s
+      rollback_config:
+        parallelism: 0        # 0 = все сразу: откат должен быть быстрым
+        order: stop-first
+      restart_policy:
+        condition: on-failure
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8080/actuator/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 3
+      start_period: 30s

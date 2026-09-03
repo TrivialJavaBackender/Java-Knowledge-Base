@@ -1,0 +1,41 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}
+  labels:
+    app: payments
+    environment: {{ .Values.environment }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      app: payments
+  template:
+    metadata:
+      labels:
+        app: payments
+        environment: {{ .Values.environment }}
+    spec:
+      containers:
+        - name: payments
+          # Образ адресуется дайджестом, а не тегом: тег можно переставить,
+          # дайджест — нет. Один и тот же дайджест едет на dev, qa и staging.
+          image: "{{ .Values.image.repository }}@{{ required "image.digest обязателен: конвейер подставляет его после сборки" .Values.image.digest }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - containerPort: 8080
+          env:
+            - name: PAYMENTS_ENVIRONMENT
+              value: {{ .Values.environment | quote }}
+            - name: PAYMENTS_BUILD_DIGEST
+              value: {{ .Values.image.digest | quote }}
+          readinessProbe:
+            httpGet:
+              path: /actuator/health/readiness
+              port: 8080
+          livenessProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: 8080
+          resources:
+{{ toYaml .Values.resources | indent 12 }}
