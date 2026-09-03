@@ -67,3 +67,12 @@
   Strangler Fig при замене легаси (../microservices/theory/DECOMPOSITION.md).
 - `ddd` — Event Storming и Example Mapping как техники совместного разбора требования
   (EVENT_STORMING.md).
+- `behavioral-interview` — **что произносить вслух** на поведенческом, менеджерском и HR-интервью.
+  Граница строгая и появилась не сразу: этот модуль отвечает «как устроен процесс», тот —
+  «что сказать, когда спросят». Разборы ситуаций («бизнесу нужно пять задач, а команда тянет две»,
+  «срежь тесты», «прод упал посреди спринта», disagree and commit, bus factor) переехали туда
+  вместе с рамкой ответа; здесь остались механизмы, на которые они ссылаются: цена недели ожидания
+  и WSJF (PRIORITIZATION), закон Литтла и WIP (FLOW_AND_WIP), перцентили и спайк (ESTIMATION),
+  цель спринта (SCRUM_PROCESS), критерий готовности (BACKLOG_MANAGEMENT), откат и флаги
+  (RELEASE_STRATEGIES), ход инцидента (INCIDENTS_AND_POSTMORTEM), техдолг (TECH_DEBT),
+  DORA и закон Гудхарта (DELIVERY_METRICS).
