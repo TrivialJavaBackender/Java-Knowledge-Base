@@ -85,12 +85,25 @@ Deployment и только про его поды (§8). Набор как це�
 > — Helm docs, `helm upgrade`
 
 **Осторожно с названием флага на собеседовании.** До Helm 4 он назывался `--atomic`, и именно эта
-форма ходит по статьям. В Helm 4 (на стенде — v4.2.4) переименование зафиксировано в списке
-изменений: «`--atomic → --rollback-on-failure`», причём «the existing flags remain, but emit a
-deprecated warning» (Helm docs, «Helm 4 Overview»). У `helm upgrade` старая привязка сохранена, у
-`helm install` — удалена, поэтому `helm install --atomic` в Helm 4 падает с «unknown flag»
-(helm/helm, issue #31900). Скрипт конвейера, написанный в 2022 году, продолжает работать; тот же
-флаг, скопированный в `helm install`, — уже нет.
+форма ходит по статьям. В Helm 4 переименование зафиксировано в списке изменений:
+«`--atomic → --rollback-on-failure`», причём «the existing flags remain, but emit a deprecated
+warning» (Helm docs, «Helm 4 Overview»). Проверено на стенде — Helm v4.2.4+g3900f43:
+
+```
+$ helm upgrade --help | grep -c atomic
+0
+$ helm upgrade payments pipelines/helm/payments --atomic --dry-run …
+Flag --atomic has been deprecated, use --rollback-on-failure instead
+```
+
+Читать это надо буквально: в справке флага **уже нет** — ни у `upgrade`, ни у `install`, — но
+разбор аргументов его по-прежнему принимает, ограничиваясь предупреждением. Обе команды ведут себя
+одинаково; вариант «у одной работает, у другой падает с unknown flag» проверку не проходит.
+
+Практический вывод для конвейера сильнее, чем кажется. Скрипт, написанный в 2022 году, продолжает
+работать, и предупреждение теряется в общем логе — так что момент, когда флаг перестанут принимать
+совсем, вы пропустите. Формулировка «оставлено ради совместимости» означает «работает до
+следующей мажорной версии», а не «работает всегда».
 
 *Синхронизация Argo CD: в Git, и применяет её не конвейер.* Здесь шага раскатки в конвейере нет
 вовсе. Конвейер коммитит новый дайджест в репозиторий конфигурации и на этом заканчивается; агент
@@ -660,6 +673,57 @@ Helm по-прежнему считает текущей ту ревизию, к
 
 ## 9. Шпаргалка
 
+**Значения по умолчанию, о которых чаще всего узнают на инциденте.**
+
+| Что | По умолчанию | Последствие |
+|---|---|---|
+| `helm upgrade` без `--wait` | стратегия `hookOnly` | шаг зелёный до готовности подов |
+| `--rollback-on-failure` | выключен; включает `--wait=watcher` | без него Helm ничего не откатывает |
+| `.spec.progressDeadlineSeconds` | 600 с | после — только условие, откат не делается |
+| `.spec.revisionHistoryLimit` | 10 | при `0` откатывать нечем |
+| согласование Argo CD | 120 с + джиттер 60 с | коммит ≠ мгновенная раскатка |
+| Swarm `update_config.order` | `stop-first` | треть ёмкости минус на трёх репликах |
+| Swarm `update_config.failure_action` | `pause` | замирает на полпути, половина реплик новые |
+| Swarm `rollback_config.parallelism: 0` | «все сразу» | быстро, но через полный простой |
+
+**Дерево решений.**
+
+- Один объект, один человек → `kubectl apply` + `kubectl rollout status`.
+- Набор ресурсов как единый релиз, нужен автоматический откат → `helm upgrade --rollback-on-failure`
+  и готовность к тому, что неудачный прогон станет самым долгим.
+- Не хотите отдавать конвейеру ключи от кластера → коммит в конфигурацию, ожидание —
+  `argocd app wait --health`, откат — `git revert`.
+- Свои машины, закрытый словарь (сервис, сеть, том, секрет), ровный профиль нагрузки → Swarm.
+
+**Формулировки для собеседования.**
+
+- «Зелёный шаг раскатки доказывает, что API-сервер принял манифест, и больше ничего: ждать
+  готовности надо отдельной командой, и ждёт она ровно то, что описывает проба готовности.»
+- «Kubernetes не откатывает застрявшую раскатку — он выставляет `ProgressDeadlineExceeded` и
+  продолжает пытаться; красным конвейер делает `kubectl rollout status`, а не кластер.»
+- «Три разных отката: ReplicaSet помнит поды, Helm помнит релиз, Git помнит всё описанное; базу не
+  помнит никто.»
+- «В Swarm обновление и откат настраиваются раздельно, потому что при откате уже известно, что
+  текущая версия сломана: там платят простоем за скорость, здесь скоростью за плавность.»
+- «Разница Swarm и Kubernetes не в возможностях, а в том, открыт ли словарь: всё, что нельзя назвать
+  сервисом, на Swarm становится вашим кодом.»
+
 ## Источники
 
-<!-- WIP -->
+Прогон 6 журнала модуля (`.build/verified/_RUNS.notes.md`): Docker 29.4.3, macOS 15
+(Darwin 25.6.0) — постепенная замена и откат трёх реплик `payments`. Раскатка в Kubernetes на стенде
+**не прогонялась**: всё, что её касается, подпёрто документацией.
+
+- Kubernetes docs — «Kubernetes Object Management»; «Declarative Management of Kubernetes Objects
+  Using Configuration Files»; «Deployment» (раздел «Failed Deployment»); «Horizontal Pod
+  Autoscaling»; «Custom Resources».
+- Kubernetes API reference, Deployment v1 — `progressDeadlineSeconds`, `revisionHistoryLimit`.
+- Kubernetes CLI reference — `kubectl rollout status`, `kubectl rollout undo`.
+- Helm docs — `helm upgrade` (флаги `--wait`, `--rollback-on-failure`, `--cleanup-on-fail`,
+  `--timeout`), `helm rollback`, «Helm 4 Overview» (переименование `--atomic`).
+- Прогон 9 журнала модуля — фактическое поведение `--atomic` в Helm v4.2.4.
+- Argo CD docs — «Automated Sync Policy»; CLI `argocd app wait`.
+- Docker docs — «Swarm mode overview»; «Compose Deploy Specification» (`update_config`,
+  `rollback_config`); CLI `docker service rollback`.
+- Учебные артефакты модуля: `pipelines/swarm/stack.yml`, `pipelines/helm/payments/`,
+  `pipelines/argocd/`, `pipelines/github/ci.yml`.

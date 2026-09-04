@@ -1,0 +1,120 @@
+# Конвейер сервиса payments — GitLab CI.
+#
+# ВНИМАНИЕ: файл лежит в modules/ci-cd/pipelines/gitlab/, а не в корне
+# репозитория. Это учебный артефакт; в корне GitLab исполнял бы его всерьёз.
+#
+# Тот же путь и те же имена заданий, что в pipelines/github/ci.yml и в
+# pipelines/jenkins/Jenkinsfile. Различаются не команды, а модель.
+#
+# Модель GitLab: этапы существуют и по умолчанию образуют барьер — задание
+# следующего этапа не начнётся, пока не закончились ВСЕ задания предыдущего.
+# `needs` снимает барьер и превращает конвейер в граф. Ровно наоборот, чем в
+# Actions, где графом является умолчание.
+
+stages:
+  - build
+  - test
+  - image
+  - deploy
+
+variables:
+  IMAGE: registry.example.com/payments
+  # Локальный репозиторий Maven внутри рабочей директории: кэш GitLab умеет
+  # сохранять только пути внутри проекта, а ~/.m2 лежит вне её.
+  MAVEN_OPTS: "-Dmaven.repo.local=$CI_PROJECT_DIR/.m2/repository"
+
+default:
+  image: maven:3.9-eclipse-temurin-21
+  cache:
+    # Ключ — хэш pom.xml: изменился вход, изменился ключ, промах, новая запись.
+    key:
+      files:
+        - pom.xml
+    paths:
+      - .m2/repository
+
+build:
+  stage: build
+  script:
+    - mvn -B -ntp clean package
+  artifacts:
+    paths:
+      - target/*.jar
+    expire_in: 1 day
+    reports:
+      # Отчёт о тестах разбирается платформой и показывается в интерфейсе
+      # пулл-реквеста. Это встроенная возможность, а не сторонний компонент, —
+      # в этом и состоит отличие модели GitLab от композиции чужих действий.
+      junit: target/surefire-reports/TEST-*.xml
+
+integration-test:
+  stage: test
+  needs: [build]
+  # Testcontainers требует доступа к Docker API. У исполнителя с executor
+  # docker своего демона нет — его подключают отдельным сервисом (DinD).
+  # На эфемерном исполнителе без этого блока интеграционные тесты падают
+  # не «тестом», а невозможностью поднять контейнер.
+  services:
+    - name: docker:27-dind
+      alias: docker
+  variables:
+    DOCKER_HOST: tcp://docker:2375
+    DOCKER_TLS_CERTDIR: ""
+  script:
+    - mvn -B -ntp verify
+
+image:
+  stage: image
+  needs: [build, integration-test]
+  image: docker:27
+  services:
+    - docker:27-dind
+  variables:
+    DOCKER_HOST: tcp://docker:2375
+    DOCKER_TLS_CERTDIR: ""
+  script:
+    - docker login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" "$CI_REGISTRY"
+    - docker buildx build --push -t "$IMAGE:$CI_COMMIT_SHA" .
+    # Дальше едет дайджест, а не тег: тег можно переставить на другое
+    # содержимое, дайджест — функция от содержимого манифеста.
+    - echo "DIGEST=$(docker buildx imagetools inspect "$IMAGE:$CI_COMMIT_SHA" | awk '/^Digest:/{print $2}')" > image.env
+  artifacts:
+    reports:
+      # dotenv — штатный способ передать переменную вниз по графу: задания
+      # не делят диск, поэтому «просто export» границу задания не переживает.
+      dotenv: image.env
+
+deploy-dev:
+  stage: deploy
+  needs: [image]
+  image: alpine/helm:3
+  # Окружение — объект платформы: GitLab ведёт историю развёртываний и
+  # показывает, что именно сейчас работает на dev.
+  environment:
+    name: dev
+    url: https://payments.dev.example.com
+  script:
+    - helm upgrade --install payments ./pipelines/helm/payments
+      -f ./pipelines/helm/payments/values-dev.yaml
+      --set image.digest="$DIGEST"
+
+deploy-qa:
+  stage: deploy
+  needs: [deploy-dev]
+  image: alpine/helm:3
+  environment:
+    name: qa
+    url: https://payments.qa.example.com
+  # Ручное одобрение в GitLab — свойство ЗАДАНИЯ (`when: manual`), а не
+  # окружения: конвейер доходит до этого задания и останавливается, пока
+  # человек не нажмёт кнопку. В Actions то же самое выражается свойством
+  # окружения — сравни с deploy-qa в pipelines/github/ci.yml.
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
+      when: manual
+      allow_failure: false
+  script:
+    # Тот же дайджест, что проверен на dev.
+    - helm upgrade --install payments ./pipelines/helm/payments
+      -f ./pipelines/helm/payments/values-qa.yaml
+      --set image.digest="$DIGEST"

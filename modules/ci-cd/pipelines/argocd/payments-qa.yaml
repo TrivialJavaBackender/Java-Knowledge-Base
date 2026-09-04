@@ -1,0 +1,29 @@
+# qa: автоматическое согласование без selfHeal.
+#
+# Отличие от dev — одна строка, и она про людей, а не про технику: на qa тестировщик
+# может временно поменять что-то руками, и selfHeal откатил бы правку посреди
+# проверки. Расхождение при этом остаётся видимым в интерфейсе Argo CD
+# (состояние OutOfSync) — его не прячут, его просто не устраняют молча.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: payments-qa
+  namespace: argocd
+spec:
+  project: default
+
+  source:
+    repoURL: https://github.com/example/payments-config.git
+    targetRevision: main
+    path: kustomize/overlays/qa
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: payments-qa
+
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: false
+    syncOptions:
+      - CreateNamespace=true

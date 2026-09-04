@@ -1,0 +1,17 @@
+# База описывает сервис payments без единого признака окружения.
+# Всё, что различается между dev, qa и staging, живёт в overlays/ — иначе
+# «продвижение артефакта» пришлось бы делать правкой общего файла, а такую
+# правку нельзя ни отревьюить по одному окружению, ни откатить по одному.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# commonLabels объявлено устаревшим — актуальная форма labels с явным
+# includeSelectors: она же дописывает метку в selector Deployment.
+labels:
+  - includeSelectors: true
+    pairs:
+      app: payments
+
+resources:
+  - deployment.yaml
+  - service.yaml

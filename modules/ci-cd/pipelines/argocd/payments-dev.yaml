@@ -1,0 +1,36 @@
+# dev: полное автоматическое согласование.
+#
+# Конвейер приложения сюда не ходит вообще — он останавливается на том, что
+# записал новый дайджест в overlays/dev репозитория конфигурации. Дальше Argo CD
+# сам замечает расхождение между Git и кластером и устраняет его.
+# Креденшелов кластера у конвейера при этом нет — в этом весь смысл модели.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: payments-dev
+  namespace: argocd
+spec:
+  project: default
+
+  source:
+    # Репозиторий КОНФИГУРАЦИИ, а не репозиторий приложения: у них разный
+    # темп изменений и разный круг ревьюеров.
+    repoURL: https://github.com/example/payments-config.git
+    targetRevision: main
+    path: kustomize/overlays/dev
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: payments-dev
+
+  syncPolicy:
+    automated:
+      # prune: удалить из кластера то, что удалили из Git. Без него Git перестаёт
+      # быть полным описанием окружения — удаления в нём просто не работают.
+      prune: true
+      # selfHeal: вернуть кластер к состоянию Git, если его правили руками.
+      # Именно это превращает «истину в Git» из лозунга в проверяемое свойство:
+      # ручной kubectl edit живёт до следующего цикла согласования.
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

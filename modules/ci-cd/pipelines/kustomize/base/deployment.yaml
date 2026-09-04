@@ -1,0 +1,44 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: payments
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: payments
+  template:
+    metadata:
+      labels:
+        app: payments
+    spec:
+      containers:
+        - name: payments
+          # Тег `unset` — не значение по умолчанию, а маркер: база намеренно не
+          # называет версию. Overlay каждого окружения заменяет эту ссылку на
+          # `repository@sha256:...` через преобразователь images (см. kustomization
+          # окружения). Если overlay забыли — в кластер поедет несуществующий тег
+          # и под не стартует. Это лучше, чем тихо уехавший `latest`.
+          image: registry.example.com/payments:unset
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8080
+          env:
+            - name: PAYMENTS_ENVIRONMENT
+              value: unset
+            - name: PAYMENTS_BUILD_DIGEST
+              value: unset
+          readinessProbe:
+            httpGet:
+              path: /actuator/health/readiness
+              port: 8080
+          livenessProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: 8080
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+            limits:
+              memory: 1Gi

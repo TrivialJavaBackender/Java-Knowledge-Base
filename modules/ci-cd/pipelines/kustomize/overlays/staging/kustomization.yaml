@@ -1,0 +1,40 @@
+# staging отличается от прода именем и объёмом данных, но не ресурсами:
+# нагрузочная проверка на вдвое меньшей машине ничего не доказывает.
+# Дайджест здесь намеренно отстаёт от qa — так выглядит артефакт,
+# прошедший dev и qa, но ещё не согласованный для staging.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: payments-staging
+
+resources:
+  - ../../base
+
+images:
+  - name: registry.example.com/payments
+    digest: sha256:0000000000000000000000000000000000000000000000000000000000000000
+
+replicas:
+  - name: payments
+    count: 3
+
+patches:
+  - target:
+      kind: Deployment
+      name: payments
+    patch: |-
+      - op: replace
+        path: /spec/template/spec/containers/0/env/0/value
+        value: staging
+      - op: replace
+        path: /spec/template/spec/containers/0/env/1/value
+        value: sha256:0000000000000000000000000000000000000000000000000000000000000000
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/requests/cpu
+        value: 500m
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/requests/memory
+        value: 1Gi
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/limits/memory
+        value: 2Gi

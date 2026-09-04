@@ -1,0 +1,136 @@
+// Конвейер сервиса payments — Jenkins, Declarative Pipeline.
+//
+// ВНИМАНИЕ: учебный артефакт. Тот же путь и те же имена стадий, что в
+// pipelines/github/ci.yml и pipelines/gitlab/.gitlab-ci.yml.
+//
+// Модель Jenkins: ни этапов-барьеров, ни рёбер графа. Стадии выполняются
+// сверху вниз, одна за другой. Параллельность существует, но её надо
+// объявить блоком parallel внутри стадии — умолчанием она не является.
+//
+// Второе отличие, которое видно прямо в файле: агент не эфемерен.
+// Рабочая директория переживает сборку, поэтому её чистят руками, а
+// передача файлов между стадиями делается через stash/unstash — по той же
+// причине, по которой в Actions нужен upload-artifact: стадии могут
+// оказаться на разных агентах.
+
+pipeline {
+
+    // agent none на верхнем уровне: агент выделяется каждой стадии отдельно.
+    // Это не эстетика — стадия ожидания одобрения не должна держать
+    // исполнителя на агенте всё время, пока человек думает.
+    agent none
+
+    options {
+        timestamps()
+        disableConcurrentBuilds()
+        buildDiscarder(logRotator(numToKeepStr: '30'))
+    }
+
+    environment {
+        IMAGE = 'registry.example.com/payments'
+    }
+
+    stages {
+
+        stage('build') {
+            agent { label 'linux && docker' }
+            steps {
+                // Клонирование делает встроенный шаг: в Jenkins нет
+                // маркетплейса действий — есть плагины, устанавливаемые
+                // администратором в сам сервер, и Groovy-код в этом файле.
+                checkout scm
+                sh 'mvn -B -ntp clean package'
+                // Агент может смениться на следующей стадии — то, что должно
+                // её пережить, откладывается явно.
+                stash name: 'payments-jar', includes: 'target/*.jar'
+            }
+            post {
+                always {
+                    junit 'target/surefire-reports/TEST-*.xml'
+                    // Рабочая директория не исчезает вместе с заданием —
+                    // на долгоживущем агенте её приходится чистить самому.
+                    cleanWs()
+                }
+            }
+        }
+
+        stage('integration-test') {
+            agent { label 'linux && docker' }
+            steps {
+                checkout scm
+                // Testcontainers работает, только если у агента есть доступ к
+                // демону Docker. На классическом Jenkins-агенте это обычно
+                // означает членство пользователя jenkins в группе docker —
+                // то есть фактически права root на машине агента.
+                sh 'mvn -B -ntp verify'
+            }
+            post { always { cleanWs() } }
+        }
+
+        stage('image') {
+            agent { label 'linux && docker' }
+            steps {
+                checkout scm
+                unstash 'payments-jar'
+                withCredentials([usernamePassword(credentialsId: 'registry-payments',
+                                                  usernameVariable: 'REG_USER',
+                                                  passwordVariable: 'REG_PASS')]) {
+                    sh '''
+                        echo "$REG_PASS" | docker login registry.example.com -u "$REG_USER" --password-stdin
+                        docker buildx build --push -t "$IMAGE:$GIT_COMMIT" .
+                    '''
+                }
+                // Groovy здесь нужен по делу: значение шага надо вернуть в
+                // переменную конвейера. Declarative сам такого не умеет —
+                // это тот случай, ради которого существует блок script.
+                script {
+                    env.DIGEST = sh(
+                        script: 'docker buildx imagetools inspect "$IMAGE:$GIT_COMMIT" | awk \'/^Digest:/{print $2}\'',
+                        returnStdout: true
+                    ).trim()
+                }
+            }
+            post { always { cleanWs() } }
+        }
+
+        stage('deploy-dev') {
+            agent { label 'linux && docker' }
+            steps {
+                checkout scm
+                sh '''
+                    helm upgrade --install payments ./pipelines/helm/payments \
+                      -f ./pipelines/helm/payments/values-dev.yaml \
+                      --set image.digest="$DIGEST"
+                '''
+            }
+            post { always { cleanWs() } }
+        }
+
+        // Ручное одобрение в Jenkins — не свойство окружения (как в Actions) и
+        // не свойство задания (как в GitLab), а обычный ШАГ конвейера. Отсюда
+        // и цена: без agent none выше эта стадия занимала бы исполнителя на
+        // агенте всё время ожидания. Таймаут обязателен — иначе конвейер будет
+        // висеть, пока кто-нибудь не вспомнит про него.
+        stage('approve-qa') {
+            steps {
+                timeout(time: 2, unit: 'HOURS') {
+                    input message: "Катим ${env.DIGEST} на qa?", submitter: 'release-managers'
+                }
+            }
+        }
+
+        stage('deploy-qa') {
+            agent { label 'linux && docker' }
+            steps {
+                checkout scm
+                // Тот же дайджест, что проверен на dev.
+                sh '''
+                    helm upgrade --install payments ./pipelines/helm/payments \
+                      -f ./pipelines/helm/payments/values-qa.yaml \
+                      --set image.digest="$DIGEST"
+                '''
+            }
+            post { always { cleanWs() } }
+        }
+    }
+}

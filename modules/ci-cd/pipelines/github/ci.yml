@@ -1,0 +1,131 @@
+# Конвейер сервиса payments — GitHub Actions.
+#
+# ВНИМАНИЕ: файл лежит в modules/ci-cd/pipelines/github/, а не в .github/workflows/
+# корня репозитория. Это учебный артефакт: положи его в .github/workflows/ — и
+# GitHub начнёт исполнять его по-настоящему на каждый push.
+#
+# Один и тот же путь build → integration-test → image → deploy-dev → deploy-qa
+# записан здесь, в pipelines/gitlab/.gitlab-ci.yml и в pipelines/jenkins/Jenkinsfile.
+# Имена заданий совпадают намеренно: различие видно не в словах, а в модели.
+#
+# Модель Actions: этапов нет вообще. Есть задания и рёбра `needs` между ними.
+# Всё, что ребром не связано, стартует одновременно.
+
+name: payments
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+env:
+  IMAGE: registry.example.com/payments
+
+jobs:
+
+  build:
+    # Не ubuntu-latest: latest — это подвижная метка, а не версия. Обновление
+    # образа исполнителя красит конвейер без единого изменения в коде.
+    runs-on: ubuntu-24.04
+    steps:
+      # Единица переиспользования в Actions — чужой пакет кода, подключаемый
+      # по имени и версии. Даже клонирование репозитория делает не сам GitHub,
+      # а действие actions/checkout: платформа даёт исполнителя, остальное
+      # собирается из компонентов.
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: temurin
+          # Кэш ~/.m2 ключом по хэшу pom.xml — вход полностью описывает
+          # содержимое, поэтому изменение pom даёт промах и новую запись.
+          cache: maven
+
+      # Модульные тесты (surefire) выполняются здесь: фаза test предшествует
+      # package, отдельная команда не нужна. Это самый дешёвый гейт конвейера.
+      - run: mvn -B -ntp clean package
+
+      # Задания не делят диск: следующее получит чистую машину. Всё, что должно
+      # пережить границу задания, передаётся артефактом явно.
+      - uses: actions/upload-artifact@v4
+        with:
+          name: payments-jar
+          path: target/*.jar
+          retention-days: 1
+
+  integration-test:
+    needs: build
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: temurin
+          cache: maven
+      # На управляемом исполнителе GitHub демон Docker уже есть, поэтому
+      # Testcontainers поднимет PostgreSQL сам и никакой настройки не требует.
+      # На собственном исполнителе это перестаёт быть данностью — там доступ к
+      # Docker API надо обеспечить руками.
+      #
+      # `verify` прогоняет surefire второй раз (около 40 секунд). Это цена за
+      # то, что задание самодостаточно и собирается из чистого клона; терять
+      # быстрый гейт ради экономии сорока секунд смысла нет.
+      - run: mvn -B -ntp verify
+
+  image:
+    # Два ребра: образу нужен исходный код, а зелёные интеграционные тесты —
+    # условие по политике, а не по данным. Ребро осознанное: не хотим держать
+    # в реестре образы, про которые ничего не известно.
+    needs: [build, integration-test]
+    runs-on: ubuntu-24.04
+    outputs:
+      # Дайджест уезжает вниз по графу как выход задания.
+      digest: ${{ steps.push.outputs.digest }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - run: echo "${{ secrets.REGISTRY_PASSWORD }}" | docker login registry.example.com -u "${{ secrets.REGISTRY_USER }}" --password-stdin
+
+      - id: push
+        run: |
+          docker buildx build --push -t "$IMAGE:${{ github.sha }}" .
+          # Дальше по конвейеру едет дайджест, а не тег. Тег — изменяемая
+          # метка: его можно переставить на другое содержимое, и никакой
+          # ошибки при этом не произойдёт.
+          DIGEST=$(docker buildx imagetools inspect "$IMAGE:${{ github.sha }}" | awk '/^Digest:/{print $2}')
+          echo "digest=$DIGEST" >> "$GITHUB_OUTPUT"
+
+  deploy-dev:
+    needs: image
+    runs-on: ubuntu-24.04
+    # Окружение в Actions — объект платформы: к нему привязаны секреты и
+    # правила защиты, и оно ведёт историю развёртываний.
+    environment:
+      name: dev
+      url: https://payments.dev.example.com
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          helm upgrade --install payments ./modules/ci-cd/pipelines/helm/payments \
+            -f ./modules/ci-cd/pipelines/helm/payments/values-dev.yaml \
+            --set image.digest="${{ needs.image.outputs.digest }}"
+
+  deploy-qa:
+    needs: deploy-dev
+    runs-on: ubuntu-24.04
+    # Ручного одобрения как отдельного задания здесь нет и быть не может:
+    # одобрение в Actions — свойство ОКРУЖЕНИЯ. У окружения qa включены
+    # required reviewers, и задание, сославшееся на него, ждёт одобрения
+    # прежде чем начать выполняться и прежде чем получить его секреты.
+    environment:
+      name: qa
+      url: https://payments.qa.example.com
+    steps:
+      - uses: actions/checkout@v4
+      # Тот же дайджест, что уже проверен на dev. Не тот же тег — тот же образ.
+      - run: |
+          helm upgrade --install payments ./modules/ci-cd/pipelines/helm/payments \
+            -f ./modules/ci-cd/pipelines/helm/payments/values-qa.yaml \
+            --set image.digest="${{ needs.image.outputs.digest }}"

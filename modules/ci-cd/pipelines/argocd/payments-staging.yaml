@@ -1,0 +1,30 @@
+# staging: согласование вручную.
+#
+# Блока automated нет вовсе: Argo CD видит расхождение и показывает его,
+# но не применяет, пока человек не нажмёт синхронизацию. Это и есть та самая
+# точка согласования — она выражена отсутствием трёх строк, а не отдельным
+# механизмом одобрения.
+#
+# Обратите внимание, что здесь сдвинута ГРАНИЦА ответственности, а не добавлена
+# проверка: пулл-реквест с новым дайджестом уже слит, Git уже содержит целевое
+# состояние, и единственное, что отделяет его от кластера, — решение человека.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: payments-staging
+  namespace: argocd
+spec:
+  project: default
+
+  source:
+    repoURL: https://github.com/example/payments-config.git
+    # На staging закреплена ветка, а не main: продвижение сюда — это слияние
+    # в release/staging, то есть отдельное, отдельно ревьюируемое событие.
+    targetRevision: release/staging
+    path: kustomize/overlays/staging
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: payments-staging
+
+  # syncPolicy отсутствует намеренно — синхронизация только по команде человека.

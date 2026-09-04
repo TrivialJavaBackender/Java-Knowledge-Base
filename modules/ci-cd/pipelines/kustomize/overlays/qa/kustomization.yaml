@@ -1,0 +1,31 @@
+# qa. Дайджест сюда переносится пулл-реквестом из overlays/dev — это и есть
+# продвижение артефакта в модели доставки вытягиванием: изменение окружения
+# выглядит как изменение одной строки в Git, а не как запуск задания.
+# Пока дайджест не совпал с dev, окружения различаются, и различие видно диффом.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: payments-qa
+
+resources:
+  - ../../base
+
+images:
+  - name: registry.example.com/payments
+    digest: sha256:1111111111111111111111111111111111111111111111111111111111111111
+
+replicas:
+  - name: payments
+    count: 2
+
+patches:
+  - target:
+      kind: Deployment
+      name: payments
+    patch: |-
+      - op: replace
+        path: /spec/template/spec/containers/0/env/0/value
+        value: qa
+      - op: replace
+        path: /spec/template/spec/containers/0/env/1/value
+        value: sha256:1111111111111111111111111111111111111111111111111111111111111111

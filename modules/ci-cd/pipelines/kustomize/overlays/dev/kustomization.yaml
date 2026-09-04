@@ -1,0 +1,41 @@
+# dev. Дайджест здесь меняет бот конвейера сразу после сборки: это единственное
+# место во всём дереве, где записано, какая версия сейчас в окружении dev.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: payments-dev
+
+resources:
+  - ../../base
+
+# Преобразователь images заменяет ссылку на образ во всех ресурсах базы.
+# Поле digest, а не newTag: продвигается содержимое, а не подвижная метка.
+images:
+  - name: registry.example.com/payments
+    digest: sha256:1111111111111111111111111111111111111111111111111111111111111111
+
+replicas:
+  - name: payments
+    count: 1
+
+patches:
+  # Дайджест приходится писать второй раз: у kustomize нет вычисляемых значений,
+  # поэтому значение из блока images в переменную окружения само не попадёт.
+  # В Helm это одна ссылка .Values.image.digest — вот цена декларативности
+  # без шаблонизатора, и её стоит называть вслух.
+  - target:
+      kind: Deployment
+      name: payments
+    patch: |-
+      - op: replace
+        path: /spec/template/spec/containers/0/env/0/value
+        value: dev
+      - op: replace
+        path: /spec/template/spec/containers/0/env/1/value
+        value: sha256:1111111111111111111111111111111111111111111111111111111111111111
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/requests/cpu
+        value: 100m
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/requests/memory
+        value: 256Mi
