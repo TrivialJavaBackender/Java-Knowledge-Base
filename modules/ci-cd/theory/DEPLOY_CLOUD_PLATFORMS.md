@@ -1,348 +1,116 @@
 # Управляемые платформы как цель раскатки: чем они различаются на самом деле
 
-> **Какую проблему решает.** Конвейер собрал образ `payments` и знает его дайджест. Кластера
-> Kubernetes нет, и заводить его никто не рвётся. У одного только AWS контейнер запускают пять
-> разных служб, у Google — ещё две, и в документации почти каждая описана словами «fully managed».
-> Выбор в такой ситуации обычно делается по тому, что первым нашлось в поиске, а различаются они не
-> тем, как выглядит команда раскатки, — она везде в одну строку, — а тем, что происходит **после**
-> неё и что вы получите в три часа ночи.
-> **Кому это надо.** Тому, кто выбирает цель раскатки для нового сервиса и должен обосновать выбор
-> словами, а не привычкой; тому, кого спросят «ECS или EKS» и «чем Cloud Run отличается от GKE».
-> **Когда НЕ надо.** Если Kubernetes у вас уже есть и в нём живут другие сервисы — этот файл вам не
-> нужен: вторая цель раскатки означает второй способ выкатывать, второй способ откатывать и второй
-> набор того, что надо знать дежурному. Эта цена почти всегда выше любой экономии на отдельном
-> сервисе.
+> **Какую проблему решает.** Образ `payments` собран, кластера Kubernetes нет, а запустить контейнер
+> предлагают пять служб AWS и две службы Google — и почти каждая описана словами «fully managed».
+> **Кому это надо.** Тому, кого спросят «ECS или EKS» и «чем Cloud Run отличается от GKE».
+> **Когда НЕ надо.** Если Kubernetes уже есть: вторая цель раскатки — это второй способ выкатывать,
+> откатывать и дежурить, и эта цена почти всегда выше экономии на отдельном сервисе.
 
-**Границы с соседними файлами.** Модели услуг (IaaS, PaaS, FaaS), устройство облака, привязка к
-поставщику как явление и скрытая стоимость — в
-[`CLOUD.md` §3, §7, §9](../../infrastructure/theory/CLOUD.md); здесь не пересказывается ничего из
-этого, здесь только **выбор цели раскатки**. Механика применения и отката в Kubernetes и Swarm —
-[`DEPLOY_K8S_AND_SWARM.md`](DEPLOY_K8S_AND_SWARM.md); всё, что сказано ниже про EKS и GKE, опирается
-на неё. Terraform внутри конвейера и Ansible как инструмент настройки машины —
-[`IAC_IN_PIPELINE.md`](IAC_IN_PIPELINE.md); здесь виртуальная машина рассматривается только как цель
-раскатки. Выбор схемы релиза (канарейка, сине-зелёное) —
-[`RELEASE_STRATEGIES.md` §8](../../engineering-process/theory/RELEASE_STRATEGIES.md). Дайджест против
-тега — [`IMAGE_BUILD_AND_REGISTRY.md` §5](IMAGE_BUILD_AND_REGISTRY.md). Кто даёт конвейеру доступ в
-облако без хранимого ключа — [`SUPPLY_CHAIN_SECURITY.md` §2](SUPPLY_CHAIN_SECURITY.md).
-
-**Сквозной пример.** Всё тот же `payments`: Spring Boot 3.3.4, Java 21, PostgreSQL, пик 40 запросов
-в секунду. Это число здесь работает как инструмент: для такой нагрузки половина различий между
-платформами не наступает вовсе, и увидеть, какие именно, — половина ответа на вопрос о выборе.
-
-**Как читать этот файл.** Он обзорный и намеренно короткий: справочника по каждому продукту здесь
-нет и не будет — он устареет раньше, чем вы дочитаете. Каждое утверждение о чужом продукте — цитата
-его документации (проверено 4 сентября 2026 года). **Цен и тарифов нет вовсе**, и там, где
-документация не даёт числа, числа нет и в тексте.
+**Границы.** Модели услуг и привязка к поставщику —
+[`CLOUD.md` §3, §7, §9](../../infrastructure/theory/CLOUD.md); применение и откат —
+[`DEPLOY_K8S_AND_SWARM.md`](DEPLOY_K8S_AND_SWARM.md); схемы выката —
+[`PROGRESSIVE_DELIVERY_K8S.md`](PROGRESSIVE_DELIVERY_K8S.md). Цен и тарифов здесь нет намеренно.
 
 ---
 
 ## 1. AWS: пять служб, три разных вопроса
 
-**Задача.** Образ `payments` лежит в реестре. Запустить его в AWS предлагают ECS, EKS, Fargate,
-App Runner и Elastic Beanstalk, а рядом стоит CodeDeploy, про который тоже говорят «раскатка».
+ECS, EKS, Fargate, App Runner, Elastic Beanstalk и CodeDeploy **не лежат на одной оси**: они
+отвечают на три независимых вопроса, и выбрать можно любую комбинацию.
 
-**Наивное решение.** Выписать их в столбик, сравнить по списку возможностей и взять «самый
-managed». Так делают почти все — и получают спор, у которого нет предмета.
+**Какой API вы программируете** — ECS или EKS. Ходовая формулировка «ECS проще, потому что не надо
+содержать control plane» описывает несуществующее различие: ECS работает «without the complexity of
+managing a control plane», но и в EKS standard «AWS manages the Kubernetes control plane». Настоящее
+различие — словарь. EKS «certified Kubernetes-conformant», и всё написанное против Kubernetes
+переносится; словарь ECS свой и короткий: task definition, cluster, task, service. Та же развилка,
+что между Swarm и Kubernetes ([`DEPLOY_K8S_AND_SWARM.md` §5](DEPLOY_K8S_AND_SWARM.md)).
 
-**Где ломается.** Эти шесть названий **не лежат на одной оси**. Они отвечают на три разных вопроса,
-и ответы независимы: можно выбрать любую комбинацию. Пока вопросы не разделены, сравнение
-бессмысленно — это как выбирать между «поездом» и «купе».
+**Кто владеет серверами** — не альтернатива первому вопросу, а вариант ёмкости **под** ним: на EC2
+вы выбираете тип и число машин, на Fargate «you don't need to manage servers». Отсюда частая ошибка
+формулировки: **«мы выбрали Fargate вместо ECS»** — предложение без смысла, Fargate не оркестратор.
 
-**Вопрос первый: какой API вы программируете.** Здесь всего два ответа, ECS или EKS.
+**Нужен ли оркестратор вообще** — два ответа «нет» и один «да, но раскатку хочу отдельно».
 
-> «Amazon Elastic Container Service (Amazon ECS) is a fully managed container orchestration service
-> … You can run and scale your container workloads across AWS Regions in the cloud, and
-> on-premises, **without the complexity of managing a control plane**.»
->
-> — AWS docs, «What is Amazon Elastic Container Service?»
+| Служба | Ответ | Что это на самом деле |
+|---|---|---|
+| App Runner | нет | раскатка «directly to a scalable and secure web application» из кода или образа; сегодня «no longer open to new customers» |
+| Elastic Beanstalk | нет | «provisions Amazon EC2 instances, configures load balancing, sets up health monitoring»: конвейер отдаёт бандл, а не желаемое состояние |
+| CodeDeploy | да, отдельно | схема выката поверх чужой цели: «stop and roll back», для ECS и Lambda всё «blue/green», трафик «canary, linear, or all-at-once»; те же схемы на Kubernetes — [`PROGRESSIVE_DELIVERY_K8S.md`](PROGRESSIVE_DELIVERY_K8S.md) |
 
-> «**EKS standard:** AWS manages the Kubernetes control plane when you create a cluster with EKS.» /
-> «Amazon EKS is **certified Kubernetes-conformant**, so you can deploy Kubernetes-compatible
-> applications without refactoring and use Kubernetes community tooling and plugins.»
->
-> — AWS docs, «What is Amazon EKS?»
-
-Обратите внимание, чего в этой паре цитат **нет**: управляющий слой в обоих случаях не ваша забота.
-Ходовая формулировка «ECS проще, потому что не надо содержать control plane» описывает
-несуществующее различие — по документации его не надо содержать и в EKS standard. Настоящее
-различие — во второй цитате: словарь EKS это словарь Kubernetes, и всё, что написано против него,
-переносится. Словарь ECS — свой и короткий: task definition («the blueprint for the application»),
-cluster, task, service («a long running stateless application»), service auto scaling (там же,
-Features). Это ровно та же развилка, что между Swarm и Kubernetes
-([`DEPLOY_K8S_AND_SWARM.md` §5](DEPLOY_K8S_AND_SWARM.md)), только обе стороны здесь управляемые:
-закрытый словарь — меньше знать, открытый — больше переносить.
-
-**Вопрос второй: кто владеет серверами.** И это не альтернатива первому, а вариант ёмкости **под**
-ним:
-
-> «**Amazon EC2 instances in the AWS cloud** — You choose the instance type, the number of instances,
-> and manage the capacity.» / «**Serverless in the AWS cloud** — Fargate is a serverless,
-> pay-as-you-go compute engine. With Fargate you don't need to manage servers, handle capacity
-> planning, or isolate container workloads for security.»
->
-> — AWS docs, «What is Amazon ECS?», перечень capacity options
-
-Отсюда самая частая ошибка формулировки на собеседовании: **«мы выбрали Fargate вместо ECS»** — это
-предложение без смысла, потому что Fargate не оркестратор. Правильно звучит «ECS на Fargate» или
-«EKS на Fargate»: сначала выбран API, потом — кто отвечает за машины под ним.
-
-**Вопрос третий: нужен ли вам оркестратор вообще.** Два ответа «нет» и один «да, но раскатку я
-хочу отдельно».
-
-*App Runner — ответ «нет», и с ним произошло то, что делает этот раздел особенно поучительным.*
-Первая строка страницы продукта сегодня выглядит так:
-
-> «AWS App Runner is no longer open to new customers. Existing customers can continue to use the
-> service as normal.»
->
-> — AWS docs, «What is AWS App Runner?»
-
-Сам продукт описан как «a fast, simple, and cost-effective way to deploy from source code or a
-container image directly to a scalable and secure web application in the AWS Cloud. You don't need
-to learn new technologies, decide which compute service to use, or know how to provision and
-configure AWS resources» (там же) — то есть максимум управляемости ценой минимума контроля. Но
-строить на нём план для нового сервиса уже нельзя, и узнать об этом можно единственным способом:
-открыв страницу продукта. **Вывод шире App Runner: любой обзор платформ — это снимок, и перед тем
-как класть чужой продукт в архитектурное решение, страницу продукта надо открыть.** Ровно поэтому в
-этом файле нет ни справочника, ни цен.
-
-*Elastic Beanstalk — тот же ответ «нет», но старше и ближе к машинам:* «You build and deploy your
-applications. Elastic Beanstalk provisions Amazon EC2 instances, configures load balancing, sets up
-health monitoring, and dynamically scales your environment» (AWS docs, «What is AWS Elastic
-Beanstalk?»). Модель здесь — «загрузите бандл приложения, окружение построится само»: конвейер
-отдаёт артефакт, а не описание желаемого состояния.
-
-*CodeDeploy — вообще другой класс, и путать его с остальными легко.* Это не место, где живёт сервис:
-
-> «CodeDeploy is a deployment service that automates application deployments to Amazon EC2
-> instances, on-premises instances, serverless Lambda functions, or Amazon ECS services.» / «**Stop
-> and roll back.** You can automatically or manually stop and roll back deployments if there are
-> errors.»
->
-> — AWS docs, «What is CodeDeploy?»
-
-Он добавляет поверх чужой цели то, чего у неё самой нет: схему выката и автоматический откат. Для
-ECS и Lambda это вообще единственный режим — «all AWS Lambda and Amazon ECS deployments are
-blue/green», а доля переключаемого трафика задаётся конфигурацией «canary, linear, or all-at-once»
-(там же). Сам выбор схемы — предмет
-[`RELEASE_STRATEGIES.md` §8](../../engineering-process/theory/RELEASE_STRATEGIES.md); здесь важно
-лишь, что в AWS эта возможность живёт в отдельной службе, а не в оркестраторе.
-
-**Правило.** Не спрашивайте «какой сервис AWS лучше». Задайте три вопроса по порядку: **какой API мы
-программируем** (ECS или EKS — закрытый словарь или переносимый), **кто владеет серверами** (EC2 или
-Fargate) и **нужна ли отдельная служба раскатки со схемой выката и откатом** (CodeDeploy или
-достаточно обновления сервиса). Три ответа дают конкретную конфигурацию; список названий не даёт
-ничего.
-
+**Правило.** Не «какой сервис AWS лучше», а три вопроса по порядку: API, владелец серверов,
+отдельная служба раскатки. И строка про App Runner доказывает: любой обзор платформ — снимок.
 
 ## 2. GCP: Cloud Run, GKE и что такое Cloud Build
 
-**Задача.** Тот же образ, тот же вопрос, другой поставщик. Cloud Run или GKE?
+«Cloud Run для маленького, GKE для большого» неверно: Cloud Run «rapidly scales out to handle all
+incoming requests» и поднимается до более чем тысячи экземпляров. Различий два, и оба не про размер.
 
-**Наивный ответ.** «Cloud Run для маленького, GKE для большого.» Размер здесь ни при чём:
-Cloud Run «rapidly scales out to handle all incoming requests» и поднимается до более чем тысячи
-экземпляров (Google Cloud docs, «What is Cloud Run»). Различие в другом, и оно двойное.
+**Единица управления.** Cloud Run умеет «routing incoming traffic to the latest revision, **rolling
+back to a previous revision**, and **splitting traffic to multiple revisions**»: то, что в Kubernetes
+собирается из Deployment, Service, Ingress и отдельного инструмента для канарейки
+([`PROGRESSIVE_DELIVERY_K8S.md`](PROGRESSIVE_DELIVERY_K8S.md)), здесь встроено в модель, и вопрос
+«где хранится предыдущая версия и кто её вернёт»
+([`DEPLOY_K8S_AND_SWARM.md` §8](DEPLOY_K8S_AND_SWARM.md)) имеет ответ по умолчанию. GKE даёт весь
+словарь Kubernetes, и внутри него повторяется ось из §1: в Autopilot «Google Cloud also manages your
+worker nodes», в Standard узлы ваши.
 
-**Различие первое: что вы получаете в качестве единицы управления.**
+**Что происходит, когда запросов нет.** «If there are no incoming requests to your service, **even
+the last remaining instance will be removed**» — а плата описана там же и намеренно без единого
+числа: новый экземпляр «can increase the response time for these initial requests, **depending on
+how quickly your container becomes ready**». Последние пять слов — буквально про нас: `payments` —
+Spring Boot на JVM, и любое «холодный старт занимает N секунд» выдумка, пока вы не измерили свой
+образ. Компромисс («keep a minimum amount of instances active») отменяет само приобретение.
 
-> «Cloud Run is a fully managed application platform for running your code, function, or container
-> on top of Google's highly scalable infrastructure.» — и платформа умеет «routing incoming traffic
-> to the latest revision, **rolling back to a previous revision**, and **splitting traffic to
-> multiple revisions**».
->
-> — Google Cloud docs, «What is Cloud Run»
+Ответ поэтому разный по окружениям: рабочее под постоянным трафиком (пик 40 запросов в секунду) до
+нуля не сворачивается вообще, а на dev и qa, где ночью запросов нет, сворачивание даёт экономию
+ценой медленного первого запроса утром
+([`ENVIRONMENTS_AND_PROMOTION.md` §4](ENVIRONMENTS_AND_PROMOTION.md)). Cloud Build в этот ряд не
+входит: он «executes your builds on Google Cloud», то есть исполнитель сборки
+([`RUNNERS_AND_EXECUTION.md` §1](RUNNERS_AND_EXECUTION.md)), а не место, где живёт сервис.
 
-Это важнее, чем кажется. То, что в Kubernetes собирается из Deployment, Service, Ingress и
-отдельного инструмента для канарейки, в Cloud Run встроено в саму модель: ревизия — первоклассный
-объект, откат на ревизию и деление трафика между ревизиями идут из коробки. Иначе говоря, механика
-из [`DEPLOY_K8S_AND_SWARM.md` §8](DEPLOY_K8S_AND_SWARM.md) — «где хранится предыдущая версия и кто
-её вернёт» — здесь имеет ответ по умолчанию.
-
-GKE даёт противоположное: не готовую модель раскатки, а весь словарь целиком.
-
-> «GKE is a managed implementation of the Kubernetes open source container orchestration platform.»
->
-> — Google Cloud docs, «GKE overview»
-
-И внутри GKE повторяется та же ось, что в §1 разделяла EC2 и Fargate: в режиме Autopilot «Google
-Cloud also manages your worker nodes» (там же), в Standard узлы остаются вашими. Ось «кто владеет
-машинами» — не свойство поставщика, а отдельный вопрос, который задают у обоих.
-
-**Различие второе: что происходит, когда запросов нет.**
-
-> «If there are no incoming requests to your service, **even the last remaining instance will be
-> removed**.»
->
-> — Google Cloud docs, «What is Cloud Run»
-
-Это и есть главное приобретение Cloud Run — и его же плата, описанная там же и, что важно, **без
-единого числа**:
-
-> «Cloud Run creates a new instance. This process can increase the response time for these initial
-> requests, **depending on how quickly your container becomes ready**.»
->
-> — там же
-
-Последние пять слов — это буквально про нас. `payments` — Spring Boot на JVM; сколько времени
-проходит от старта контейнера до готовности, зависит от вашего приложения, и документация честно
-отказывается называть цифру. Называть её здесь тоже не будем: любое «холодный старт занимает N
-секунд» — выдумка, пока вы не измерили именно свой образ.
-
-Компромисс существует и описан явно: можно «configure Cloud Run to keep a minimum amount of
-instances active so that your service doesn't scale to zero» (там же). Только заметьте, что он
-отменяет само приобретение: экземпляры, которые всегда живы, — это ровно то, чем платит любая
-непрерывно работающая платформа.
-
-**Что это значит для `payments` — и почему ответ разный для разных окружений.** На пике 40 запросов
-в секунду рабочее окружение под постоянным трафиком до нуля не сворачивается вообще: экземпляры не
-удаляются, пока запросы идут, — значит и первого медленного запроса там просто не возникает. А вот
-на dev и qa, где ночью нет ни одного запроса, всё наоборот: сворачивание до нуля даёт настоящую
-экономию, а первый утренний запрос будет медленным, и тестировщик увидит это как «сервис тормозит».
-Одно и то же свойство платформы оказывается приобретением на одном окружении и раздражением на
-другом ([`ENVIRONMENTS_AND_PROMOTION.md` §4](ENVIRONMENTS_AND_PROMOTION.md)).
-
-**Отдельно про Cloud Build, потому что его регулярно ставят в этот ряд.** Он в него не входит:
-
-> «Cloud Build is a service that executes your builds on Google Cloud. Cloud Build can import source
-> code from a variety of repositories or Cloud Storage, execute a build to your specifications, and
-> produce artifacts such as Docker containers or Java archives.»
->
-> — Google Cloud docs, «Cloud Build overview»
-
-Это управляемый **исполнитель сборки**, то есть ответ на вопрос из
-[`RUNNERS_AND_EXECUTION.md` §1](RUNNERS_AND_EXECUTION.md), а не место, где живёт сервис. Он может
-собрать образ ([`IMAGE_BUILD_AND_REGISTRY.md`](IMAGE_BUILD_AND_REGISTRY.md)) и шагом вызвать
-раскатку — но целью раскатки не является. Фраза «мы раскатываем через Cloud Build» описывает
-конвейер, а не платформу, и на уточняющий вопрос «а куда именно» отвечать всё равно придётся.
-
-**Правило.** Развилка Cloud Run против GKE решается двумя вопросами, и ни один из них не про
-размер: **нужен ли вам словарь Kubernetes целиком** (если в ответе нет ни CRD, ни операторов, ни
-сетевых политик — не нужен) и **есть ли у вашего трафика простой** (если есть — сворачивание до
-нуля это деньги, если нет — это только медленный первый запрос без всякой выгоды).
-
+**Правило.** Cloud Run против GKE решают два вопроса: нужен ли словарь Kubernetes целиком и есть ли
+у трафика простой.
 
 ## 3. Голая виртуальная машина с systemd: нижняя граница
 
-**Задача.** Три виртуальные машины, на них должен работать `payments`. Никакого оркестратора нет и
-покупать его никто не собирается. Это вообще рабочий вариант — или технический долг по определению?
-
-**Наивное решение.** Шаг конвейера в две команды:
+Шаг раскатки на три машины пишется в две команды — и ломается в трёх местах:
 
 ```bash
 scp target/payments.jar deploy@host:/opt/payments/payments.jar
 ssh deploy@host 'systemctl restart payments'
 ```
 
-Прямолинейно, понятно, работает с первого раза.
+`restart` — остановка и запуск, то есть окно недоступности на каждой машине. Команда завершается
+успехом, когда systemd запустил процесс, а не когда Spring поднял контекст и Actuator ответил
+([`DEPLOY_K8S_AND_SWARM.md` §2](DEPLOY_K8S_AND_SWARM.md)), — и дописать сюда команду ожидания
+неоткуда. И `scp` перезаписал файл: предыдущей версии больше нет, откатывать нечем.
 
-**Где ломается — в трёх местах, и все три уже знакомы.** Первое: `systemctl restart` — это остановка
-и запуск, то есть окно недоступности на каждой машине; три машины подряд дадут три окна. Второе:
-команда завершается успехом, когда systemd **запустил процесс**, а не когда Spring поднял контекст и
-Actuator ответил, — ровно та же болезнь, что разобрана в
-[`DEPLOY_K8S_AND_SWARM.md` §2](DEPLOY_K8S_AND_SWARM.md), только здесь нет и команды ожидания, которую
-можно было бы дописать. Третье: `scp` перезаписал файл, предыдущей версии на машине больше нет —
-откатывать нечем, кроме как заново собрав старый коммит.
+Systemd даёт ровно одно: `Restart=` перезапускает процесс, когда тот завершился, был убит или не
+уложился в таймаут (пауза `RestartSec=` по умолчанию 100 мс). Это **поддержание одного процесса
+живым на одной машине**, первая половина согласования желаемого состояния; второй половины нет —
+никто не знает, что машин три и что при смерти одной процесс надо поднять на другой. Её закрывает
+Ansible, и не полностью: «When the system is in the state your playbook describes, **Ansible does not
+change anything, even if the playbook runs multiple times**» — идемпотентность есть, а агента,
+который непрерывно возвращал бы машину к описанию, нет
+([`DELIVERY_PUSH_VS_PULL.md` §1](DELIVERY_PUSH_VS_PULL.md), [`IAC_IN_PIPELINE.md` §8](IAC_IN_PIPELINE.md)).
 
-**Механизм: что systemd действительно даёт.** Ровно одно, и это стоит знать точно:
+**Чего у этой цели нет.** Постепенной замены по машинам с ожиданием готовности. Условия «продолжать,
+только если новая версия здорова». Отката как операции — предыдущую версию храните сами.
+Перепланирования: упавший процесс systemd поднимет, но на живую машину не перенесёт.
 
-> «`Restart=` — Configures whether the service shall be restarted when the service process exits, is
-> killed, or a timeout is reached.» Допустимые значения: `no`, `on-success`, `on-failure`,
-> `on-abnormal`, `on-watchdog`, `on-abort`, `always`. «`RestartSec=` — Configures the time to sleep
-> before restarting a service … **Defaults to 100ms**.»
->
-> — `systemd.service(5)`
+Это законный выбор, когда сервисов один-два, нагрузка предсказуема, машины оплачены, а список выше
+не нужен или покрыт балансировщиком; сюда же закрытый контур и машина заказчика. Долгом он
+становится по одному признаку: вы дописываете пункты списка скриптами — последовательная раскатка,
+проверка `/actuator/health`, хранение предыдущего каталога.
 
-Это **поддержание одного процесса живым на одной машине** — первая половина того, что оркестратор
-называет согласованием желаемого состояния. Второй половины нет: никто не знает, что машин три, что
-версия на них должна быть одинаковой и что при падении машины процесс надо поднять где-то ещё.
-
-**Вторую половину закрывает Ansible — и не полностью.**
-
-> «You declare the desired state of a local or remote system in your playbook. Ansible ensures that
-> the system remains in that state.» / «When the system is in the state your playbook describes,
-> **Ansible does not change anything, even if the playbook runs multiple times**.»
->
-> — Ansible docs, «Introduction»
-
-Второе предложение — это идемпотентность, то же свойство, ради которого в
-[`DEPLOY_K8S_AND_SWARM.md` §7](DEPLOY_K8S_AND_SWARM.md) выбирался декларативный `apply`: повторный
-прогон конвейера не добавляет изменений. Разница в том, **кто и когда** этот прогон запускает.
-Ansible — доставка толчком: желаемое состояние применяется, когда конвейер вызвал команду, и ни
-секундой позже. Агента, который непрерывно возвращал бы машину к описанию, в этой модели нет
-([`DELIVERY_PUSH_VS_PULL.md` §1](DELIVERY_PUSH_VS_PULL.md)). Как устроен сам playbook, чем настройка
-машины отличается от выделения ресурсов и где Ansible встаёт в конвейер — в
-[`IAC_IN_PIPELINE.md`](IAC_IN_PIPELINE.md); здесь виртуальная машина интересует нас только как цель
-раскатки.
-
-**Чего у этой цели нет — список, который стоит проговорить целиком.** Постепенной замены по машинам с
-ожиданием готовности между ними. Условия «продолжать, только если новая версия здорова». Отката как
-операции — предыдущую версию надо хранить самому (скажем, два каталога и симлинк). Перепланирования:
-systemd поднимет упавший процесс, но не перенесёт его на живую машину, если умерла эта.
-
-**Когда это правильный ответ, а не долг.** Когда сервисов один-два, нагрузка предсказуема, машины уже
-есть и оплачены, а всё из списка выше вам либо не нужно, либо покрывается балансировщиком перед
-машинами. Это тот же критерий, что в [`DEPLOY_K8S_AND_SWARM.md` §6](DEPLOY_K8S_AND_SWARM.md), только
-на уровень ниже: считается не то, что платформа умеет, а то, что придётся содержать. Отдельный
-законный случай — требования, при которых оркестратора просто не может быть: закрытый контур,
-аттестованная сборка операционной системы, машина заказчика.
-
-**А когда это точно долг — признак ровно один.** Вы начинаете дописывать пункты из списка «чего нет»
-скриптами: сначала последовательная раскатка по машинам, потом проверка `/actuator/health` между
-ними, потом хранение предыдущего каталога, потом снятие машины с балансировщика на время замены. В
-этот момент вы пишете свой оркестратор — хуже готового, без документации и с единственным
-специалистом.
-
-**Правило.** Голая машина — законная нижняя граница, но у неё есть точная граница применимости:
-**пока конвейер не начал реализовывать в скриптах то, что оркестратор делает по определению.** Как
-только начал — сравнение уже не «платформа против машины», а «чужой оркестратор против вашего».
-
+**Правило.** Голая машина законна, пока конвейер не начал реализовывать в скриптах то, что
+оркестратор делает по определению: с этого момента сравнение идёт между чужим оркестратором и вашим.
 
 ## 4. Критерий выбора: четыре оси размена
 
-**Задача.** Новый сервис, платформа не выбрана. На собеседовании это звучит так: «сравните EKS,
-Cloud Run и голую виртуальную машину».
-
-**Наивное решение.** Достать сравнительную таблицу возможностей. Она не помогает по любопытной
-причине: **все её строки истинны и ни одна не решает**. Таблица отвечает на вопрос «что умеет
-платформа», а выбирать надо по вопросу «что из этого будет правдой для нас».
-
-**Механизм: четыре оси, и по каждой платформа что-то отдаёт.**
-
-*Ось первая: встроенный откат по ревизиям.* Спросите себя: сколько шагов между решением «откатить»
-и работающей прежней версией — и сколько из этих шагов ваши? У Cloud Run ревизия — объект платформы,
-и откат на неё встроен («rolling back to a previous revision» — Google Cloud docs, «What is Cloud
-Run»). У EKS откат существует, но живёт в инструменте, который вы поставили сверху, и хранилищ
-предыдущей версии там три разных
-([`DEPLOY_K8S_AND_SWARM.md` §8](DEPLOY_K8S_AND_SWARM.md)). На голой машине его нет вообще, пока вы
-его не напишете (§3). В AWS эта ось выделена в отдельную службу — CodeDeploy со «stop and roll back»
-(§1).
-
-*Ось вторая: простой против первого запроса.* Сворачивание до нуля («even the last remaining
-instance will be removed») экономит в простое и платит задержкой первого запроса, «depending on how
-quickly your container becomes ready» (там же). Постоянно живые реплики — наоборот. Компромисс
-описан («keep a minimum amount of instances active»), но он отменяет саму экономию. Вопрос к себе
-короткий: **есть ли у вашего трафика ночь?**
-
-*Ось третья: привязка к поставщику — и формулировать её надо точнее, чем принято.* Контейнер
-переносим всегда: это образ OCI, он одинаково запустится где угодно. Непереносимо **описание
-раскатки** — и вот здесь документация даёт единственное прямое утверждение во всём файле:
-
-> «Amazon EKS is certified Kubernetes-conformant, so you can deploy Kubernetes-compatible
-> applications without refactoring and use Kubernetes community tooling and plugins.»
->
-> — AWS docs, «What is Amazon EKS?»
-
-То есть чарт, манифесты и инструменты едут с вами. Для Cloud Run и App Runner аналогичного
-заявления о конформности в обзорных страницах нет — значит, переносимость их описания надо
-проверять отдельно, а не предполагать по умолчанию. Само явление привязки, с примерами и оценкой
-цены выхода, разбирается во владеющем файле —
-[`CLOUD.md` §9](../../infrastructure/theory/CLOUD.md).
-
-*Ось четвёртая — и её задают последней, а решать надо первой.* **Нужны ли вам примитивы Kubernetes
-конкретно?** Не «мы за Kubernetes», а список: какие CRD, какие операторы, какие сетевые политики,
-какой ingress-контроллер. Если честный список пуст, весь спор «EKS против Cloud Run» шёл о словаре,
-которым вы не собираетесь пользоваться, — и по трём предыдущим осям управляемая платформа
-приложений выигрывает без борьбы.
+Сравнительная таблица возможностей не помогает потому, что **все её строки истинны и ни одна не
+решает**: она отвечает на «что умеет платформа», а выбирать надо по «что из этого будет правдой для
+нас».
 
 | Ось | EKS / GKE | Cloud Run | Голая машина |
 |---|---|---|---|
@@ -351,83 +119,56 @@ quickly your container becomes ready» (там же). Постоянно жив�
 | Переносимость описания | заявлена конформность | проверять отдельно | переносится ваш скрипт |
 | Словарь | Kubernetes целиком | сервис, ревизия, трафик | процесс и юнит systemd |
 
-**Два вопроса, которые закрывают выбор окончательно, и оба не про технику.** Первый: каков профиль
-нагрузки — не пиковая цифра, а форма графика. У `payments` пик 40 запросов в секунду и ровный
-дневной профиль: до нуля рабочее окружение не свернётся, автомасштабирование оптимизировать нечего,
-трёх реплик хватает с запасом. Половина различий между платформами для него просто не наступает — и
-это не редкий случай, а самый частый. Второй: **есть ли в команде люди, готовые содержать
-оркестратор**, и что случится, когда один из них уйдёт.
+По оси отката считают не время, а шаги: сколько их между решением «откатить» и работающей прежней
+версией и сколько из них ваши. По оси переносимости контейнер переносим всегда, это образ OCI, —
+непереносимо **описание раскатки**: EKS «certified Kubernetes-conformant … without refactoring», то
+есть чарт и манифесты едут с вами, а для Cloud Run и App Runner такого заявления в обзорных
+страницах нет ([`CLOUD.md` §9](../../infrastructure/theory/CLOUD.md)).
 
-**Разбор для нашего случая.** Если Kubernetes у команды уже есть — ответ EKS или GKE, и разговор
-окончен: вторая цель раскатки дороже любой выгоды от неё. Если нет и список примитивов пуст —
-Cloud Run закрывает всё, включая ту самую ось отката, ради которой в Kubernetes ставят отдельный
-инструмент. Голая машина — только если машины уже есть и оплачены.
+Четвёртую ось задают последней, а решать надо первой: **нужны ли вам примитивы Kubernetes
+конкретно** — не «мы за Kubernetes», а список из CRD, операторов и сетевых политик. Пуст — весь спор
+шёл о словаре, которым вы не собираетесь пользоваться.
 
-**Чего этот критерий не делает.** Он не называет «правильного поставщика» и не считает деньги. Цены
-в этом файле нет намеренно: тарифы меняются быстрее, чем устаревает текст, а сравнение по стоимости
-без вашего профиля нагрузки — это сравнение чужих профилей. Считать надо на своих числах, и это
-отдельная работа ([`PIPELINE_ECONOMICS.md`](PIPELINE_ECONOMICS.md),
-[`CLOUD.md` §7](../../infrastructure/theory/CLOUD.md)).
+Закрывают выбор два вопроса, и оба не про технику: форма графика нагрузки (а не пиковая цифра) и
+наличие людей, готовых содержать оркестратор. У `payments` профиль ровный — половина различий между
+платформами для него не наступает, и это самый частый случай.
 
-**Правило.** Выбор платформы — это не таблица, а **порядок вопросов**: сначала «какие примитивы
-Kubernetes мы назовём по имени» (обычно ни одного), потом «есть ли у трафика ночь», потом «сколько
-шагов до отката и чьи они», и только потом — переносимость. Ответ «возьмём Kubernetes, это
-стандарт» пропускает все четыре и потому ответом не является.
-
+**Правило.** Выбор платформы — не таблица, а порядок вопросов; «возьмём Kubernetes, это стандарт»
+пропускает все четыре. Kubernetes уже есть — EKS или GKE, разговор окончен; нет и список примитивов
+пуст — Cloud Run закрывает всё, включая ось отката; голая машина — только если машины уже оплачены.
+Денег критерий не считает: сравнение стоимости без своего профиля нагрузки — сравнение чужих
+([`PIPELINE_ECONOMICS.md`](PIPELINE_ECONOMICS.md)).
 
 ## 5. Чем именно конвейер раскатывает на каждую цель
 
-**Задача.** В `pipelines/github/ci.yml` шаг раскатки — это `helm upgrade`. Цель поменялась. Что
-писать вместо него?
-
-**Наивное ожидание.** Что под управляемую платформу понадобится какой-то интеграционный слой.
-
-**Механизм.** Не понадобится: примитив вызова короткий у всех, и это ровно то, почему сравнивать
-платформы по команде бесполезно.
+Интеграционного слоя под управляемую платформу не понадобится: примитив вызова короткий у всех — и
+поэтому сравнивать платформы по команде раскатки бесполезно.
 
 | Цель | Команда в задании | Чем дожидаетесь готовности |
 |---|---|---|
 | EKS / GKE | `helm upgrade` или `kubectl apply` | `kubectl rollout status`, `--wait`, `argocd app wait` |
 | ECS (на EC2 или Fargate) | новое определение задачи + `aws ecs update-service` | `aws ecs wait services-stable` |
-| Cloud Run | `gcloud run deploy --image …` | ничего дописывать не надо (см. ниже) |
+| Cloud Run | `gcloud run deploy --image …` | ничего дописывать не надо |
 | Голая машина | `ansible-playbook` с ролью, обновляющей юнит systemd | пишете сами (§3) |
 
-Две детали в этой таблице стоят больше, чем сама таблица.
+**`--force-new-deployment` в ECS — диагноз, а не флаг:** он нужен, чтобы запустить раскатку «with no
+service definition changes … to use a newer Docker image with **the same image/tag combination
+(`my_image:latest`)**». Адресуйте образ дайджестом
+([`IMAGE_BUILD_AND_REGISTRY.md` §5](IMAGE_BUILD_AND_REGISTRY.md)) — и новое определение задачи
+отличается от старого само.
 
-*Первая: `--force-new-deployment` в ECS — это диагноз, а не флаг.* Документация объясняет, зачем он
-нужен: «you can use this option to start a new deployment with no service definition changes. For
-example, you can update a service's tasks to use a newer Docker image with **the same image/tag
-combination (`my_image:latest`)**» (AWS CLI docs, `ecs update-service`). То есть флаг существует для
-случая, когда образ адресован подвижным тегом и определение задачи после сборки **не изменилось**.
-Адресуйте образ дайджестом ([`IMAGE_BUILD_AND_REGISTRY.md` §5](IMAGE_BUILD_AND_REGISTRY.md)) — и
-новое определение задачи отличается от старого само, форсировать нечего.
+**Умолчания ожидания у поставщиков противоположны.** У Cloud Run флаг `--async` заставляет команду
+вернуться немедленно — значит, без флага она ждёт; у `helm upgrade` стратегия ожидания без флага —
+`hookOnly` ([`DEPLOY_K8S_AND_SWARM.md` §2](DEPLOY_K8S_AND_SWARM.md)). Для ECS ожидание дописывается
+и тоже с умолчанием: `aws ecs wait services-stable` опрашивает раз в 15 секунд и выходит с кодом 255
+после 40 неудачных проверок — ваш предельный срок раскатки, заданный не вами. Там же `--no-traffic`:
+ревизия развёрнута, трафика не получает, включается отдельным решением
+([`RELEASE_STRATEGIES.md` §4](../../engineering-process/theory/RELEASE_STRATEGIES.md)).
 
-*Вторая: у Cloud Run умолчание противоположно Helm.* Флаг `--async` описан как «return immediately,
-without waiting for the operation in progress to complete» (gcloud CLI docs, `gcloud run deploy`) —
-значит, **без флага команда ждёт**. Сравните с `helm upgrade`, у которого стратегия ожидания без
-флага — `hookOnly` ([`DEPLOY_K8S_AND_SWARM.md` §2](DEPLOY_K8S_AND_SWARM.md)): одно и то же решение
-принято поставщиками по-разному, и знать надо не «правило», а умолчание вашего инструмента.
-
-Для ECS ожидание нужно дописывать, и оно тоже с умолчаниями: `aws ecs wait services-stable` «will
-poll every 15 seconds until a successful state has been reached. This will exit with a return code
-of 255 after 40 failed checks» (AWS CLI docs). Сорок проверок по пятнадцать секунд — это ваш
-предельный срок раскатки, и он задан не вами.
-
-Отдельно у Cloud Run есть флаг, который стоит запомнить как готовый ответ на вопрос «а как у вас
-deploy отделён от release»: `--no-traffic` — «true to avoid sending traffic to the revision being
-deployed … the revision being deployed will not receive traffic» (там же). Ревизия развёрнута,
-трафика не получает, включается отдельным решением; сам приём и его смысл —
-[`RELEASE_STRATEGIES.md` §4](../../engineering-process/theory/RELEASE_STRATEGIES.md).
-
-**Правило.** Различие платформ — не в команде раскатки: она везде одна строка. Оно в том, **что
-происходит после неё, чем это дождаться и какие у этого ожидания умолчания**. Выписывая шаг
-раскатки под новую цель, ищите в её документации ровно два ответа: «ждёт ли команда по умолчанию» и
-«какой у ожидания предельный срок».
-
+**Правило.** Под новую цель ищите в документации два ответа: ждёт ли команда по умолчанию и каков
+предельный срок ожидания.
 
 ## 6. Шпаргалка
-
-**Три вопроса вместо списка сервисов AWS.**
 
 | Вопрос | Ответы |
 |---|---|
@@ -437,17 +178,13 @@ deployed … the revision being deployed will not receive traffic» (там же
 
 **Порядок вопросов при выборе цели раскатки.**
 
-1. Какие примитивы Kubernetes мы назовём по имени? Пусто → управляемая платформа приложений.
-2. Есть ли у трафика ночь? Есть → сворачивание до нуля это деньги, нет → только медленный запрос.
+1. Какие примитивы Kubernetes назовём по имени? Пусто → управляемая платформа приложений.
+2. Есть ли у трафика ночь? Есть → сворачивание до нуля это деньги, нет → медленный первый запрос.
 3. Сколько шагов до отката и чьи они?
 4. Переносимо ли **описание** раскатки (контейнер переносим всегда).
 5. Кто это будет содержать и что будет, когда он уйдёт.
 
-**Умолчания, которые надо посмотреть в документации своей цели.** Ждёт ли команда раскатки по
-умолчанию (`gcloud run deploy` — да, `helm upgrade` — нет) и каков предельный срок ожидания
-(`aws ecs wait services-stable` — 40 проверок по 15 секунд).
-
-**Формулировки для собеседования.**
+### Формулировки для собеседования
 
 - «Fargate — не альтернатива ECS, а вариант ёмкости под ним: сначала выбирают API, потом — кто
   владеет машинами.»
@@ -458,19 +195,23 @@ deployed … the revision being deployed will not receive traffic» (там же
 
 ## Источники
 
-Прогонов нет: файл обзорный, ничего не запускалось. Все утверждения о свойствах продуктов — цитаты
-документации соответствующего поставщика, проверенные 4 сентября 2026 года. Цены и тарифы не
-приводятся намеренно.
-
-- AWS docs — «What is Amazon Elastic Container Service?»; «What is Amazon EKS?»; «What is AWS App
-  Runner?» (включая уведомление о закрытии для новых клиентов); «What is AWS Elastic Beanstalk?»;
-  «What is CodeDeploy?».
-- AWS CLI reference — `ecs update-service`, `ecs wait services-stable`.
-- Google Cloud docs — «What is Cloud Run»; «GKE overview»; «Cloud Build overview».
-- gcloud CLI reference — `run deploy` (`--image`, `--async`, `--no-traffic`).
-- `systemd.service(5)` — `Restart=`, `RestartSec=`.
-- Ansible docs — «Introduction» (желаемое состояние, идемпотентность).
-- Соседние файлы модуля: [`DEPLOY_K8S_AND_SWARM.md`](DEPLOY_K8S_AND_SWARM.md),
-  [`IMAGE_BUILD_AND_REGISTRY.md`](IMAGE_BUILD_AND_REGISTRY.md),
-  [`DELIVERY_PUSH_VS_PULL.md`](DELIVERY_PUSH_VS_PULL.md),
-  [`ENVIRONMENTS_AND_PROMOTION.md`](ENVIRONMENTS_AND_PROMOTION.md).
+- [What is Amazon ECS?](https://docs.aws.amazon.com/AmazonECS/latest/developerguide/Welcome.html) —
+  управляющий слой, словарь ECS, ёмкость EC2 против Fargate.
+- [What is Amazon EKS?](https://docs.aws.amazon.com/eks/latest/userguide/what-is-eks.html) —
+  конформность Kubernetes и переносимость описания.
+- [App Runner](https://docs.aws.amazon.com/apprunner/latest/dg/what-is-apprunner.html),
+  [Elastic Beanstalk](https://docs.aws.amazon.com/elasticbeanstalk/latest/dg/Welcome.html),
+  [CodeDeploy](https://docs.aws.amazon.com/codedeploy/latest/userguide/welcome.html) — закрытие для
+  новых клиентов; модель «загрузите бандл»; «stop and roll back» и схемы выката.
+- [`ecs update-service`](https://docs.aws.amazon.com/cli/latest/reference/ecs/update-service.html),
+  [`ecs wait services-stable`](https://docs.aws.amazon.com/cli/latest/reference/ecs/wait/services-stable.html)
+  — `--force-new-deployment`; 40 проверок по 15 секунд.
+- [What is Cloud Run](https://cloud.google.com/run/docs/overview/what-is-cloud-run),
+  [GKE overview](https://cloud.google.com/kubernetes-engine/docs/concepts/kubernetes-engine-overview),
+  [Cloud Build overview](https://cloud.google.com/build/docs/overview) — ревизии, деление трафика,
+  удаление последнего экземпляра, Autopilot против Standard.
+- [gcloud run deploy](https://cloud.google.com/sdk/gcloud/reference/run/deploy) — `--async`,
+  `--no-traffic`.
+- [systemd.service(5)](https://www.freedesktop.org/software/systemd/man/latest/systemd.service.html),
+  [Getting started with Ansible](https://docs.ansible.com/ansible/latest/getting_started/index.html)
+  — `Restart=`, `RestartSec=`; идемпотентность.
