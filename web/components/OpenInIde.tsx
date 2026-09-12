@@ -1,10 +1,18 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 export function OpenInIde({ filePath }: { filePath: string }) {
   const [status, setStatus] = useState<'idle' | 'pending' | 'ok' | 'err'>('idle');
   const [error, setError] = useState<string | null>(null);
+  // Кнопка дёргает локальный API, который открывает файл в IDE на этой же машине.
+  // На телефоне и на любом задеплоенном хосте она бесполезна, поэтому её там нет.
+  const [isLocalHost, setIsLocalHost] = useState(false);
+
+  useEffect(() => {
+    const h = window.location.hostname;
+    setIsLocalHost(h === 'localhost' || h === '127.0.0.1' || h === '[::1]' || h.endsWith('.local'));
+  }, []);
 
   async function open() {
     setStatus('pending');
@@ -28,6 +36,8 @@ export function OpenInIde({ filePath }: { filePath: string }) {
       setStatus('err');
     }
   }
+
+  if (!isLocalHost) return null;
 
   return (
     <div className="flex items-center gap-2">

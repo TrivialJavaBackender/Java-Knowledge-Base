@@ -1,0 +1,61 @@
+# Сквозной релизный конвейер: сборка → дайджест → канареечная раскатка → вердикт → откат.
+# Учебный артефакт: лежит в модуле, а не в .github/workflows, чтобы GitHub его не исполнял.
+name: release-canary
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+  packages: write
+  id-token: write          # OIDC: доступ в облако без хранимого секрета
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    outputs:
+      digest: ${{ steps.image.outputs.digest }}
+    steps:
+    - uses: actions/checkout@v4
+    - uses: actions/setup-java@v4
+      with: { distribution: temurin, java-version: '21', cache: maven }
+    - run: mvn -B -ntp verify
+    - uses: docker/login-action@v3
+      with:
+        registry: ghcr.io
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    - id: image
+      uses: docker/build-push-action@v7
+      with:
+        context: .
+        push: true
+        tags: ghcr.io/acme/payments:${{ github.sha }}
+        cache-from: type=registry,ref=ghcr.io/acme/payments:buildcache
+        cache-to: type=registry,ref=ghcr.io/acme/payments:buildcache,mode=max
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: production                     # ревьюеры и таймер настраиваются здесь
+      url: https://payments.example.com
+    steps:
+    - name: Установить плагин Argo Rollouts
+      run: |
+        curl -sSL -o /usr/local/bin/kubectl-argo-rollouts \
+          https://github.com/argoproj/argo-rollouts/releases/latest/download/kubectl-argo-rollouts-linux-amd64
+        chmod +x /usr/local/bin/kubectl-argo-rollouts
+
+    - name: Запустить раскатку по дайджесту
+      run: |
+        kubectl argo rollouts set image payments \
+          payments=ghcr.io/acme/payments@${{ needs.build.outputs.digest }}
+
+    - name: Дождаться вердикта
+      run: kubectl argo rollouts status payments --timeout 30m
+
+    - name: Прервать раскатку при провале
+      if: failure()
+      run: kubectl argo rollouts abort payments

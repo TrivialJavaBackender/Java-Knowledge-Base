@@ -26,7 +26,7 @@ staging», «чем `latest` плох», «как конвейер получа�
 ## Структура проекта
 
 ```
-├── ROADMAP.md                          # 12 тем в порядке прохождения + чеклисты
+├── ROADMAP.md                          # 14 тем в порядке прохождения + чеклисты
 ├── INTERVIEW_QUESTIONS.md              # вопросы с ответами (формат qa-bold)
 ├── _SUMMARY.md                         # семантическое сжатие модуля
 │
@@ -35,7 +35,8 @@ staging», «чем `latest` плох», «как конвейер получа�
 ├── src/main/java/by/pavel/payments/    # исходники сервиса
 │
 ├── pipelines/                          # учебные артефакты: один конвейер на разных языках
-│   ├── github/    gitlab/    jenkins/
+│   ├── github/    gitlab/    jenkins/  # ci.yml + release-canary.yml + release-gitops.yml
+│   ├── rollouts/                       # Argo Rollouts: канарейка, blue-green, анализ, HTTPRoute
 │   ├── helm/payments/                  # чарт + values для dev/qa/staging
 │   ├── kustomize/                      # base + overlays окружений
 │   ├── argocd/                         # Application-манифесты
@@ -52,6 +53,8 @@ staging», «чем `latest` плох», «как конвейер получа�
     ├── ENVIRONMENTS_AND_PROMOTION.md   # продвижение одного артефакта по dev → qa → staging
     ├── DELIVERY_PUSH_VS_PULL.md        # GitOps: кто применяет изменение и почему
     ├── DEPLOY_K8S_AND_SWARM.md         # kubectl / helm / Argo; стек Swarm; ожидание готовности
+    ├── PROGRESSIVE_DELIVERY_K8S.md     # канарейка, blue-green, A/B: трафик, Rollouts, анализ
+    ├── RELEASE_PIPELINE_RECIPES.md     # сквозные конвейеры релиза: толчком, GitOps, blue-green
     ├── DEPLOY_CLOUD_PLATFORMS.md       # ECS, EKS, Cloud Run, GKE, голая VM: критерий выбора
     ├── IAC_IN_PIPELINE.md              # plan как артефакт ревью, кто владеет apply
     └── PIPELINE_ECONOMICS.md           # длительность, кэш, ненадёжные тесты, монорепо

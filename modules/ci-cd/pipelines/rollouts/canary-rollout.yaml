@@ -1,0 +1,47 @@
+# Канареечная раскатка payments с управлением трафиком через Gateway API.
+# Применять вместо Deployment: kubectl apply -f canary-rollout.yaml
+apiVersion: argoproj.io/v1alpha1
+kind: Rollout
+metadata:
+  name: payments
+spec:
+  replicas: 10
+  revisionHistoryLimit: 5
+  selector:
+    matchLabels: { app: payments }
+  strategy:
+    canary:
+      canaryService: payments-canary     # оба сервиса обязательны при trafficRouting
+      stableService: payments-stable
+      trafficRouting:
+        plugins:
+          argoproj-labs/gatewayAPI:
+            httpRoute: payments          # см. httproute.yaml
+            namespace: prod
+      analysis:                          # фоновый анализ на всё время раскатки
+        templates:
+        - templateName: success-rate
+        startingStep: 2
+      steps:
+      - setWeight: 5
+      - pause: { duration: 10m }
+      - setWeight: 25
+      - analysis:                        # блокирующий шаг: едем дальше только по вердикту
+          templates:
+          - templateName: success-rate
+      - setWeight: 50
+      - pause: { duration: 10m }
+  template:
+    metadata:
+      labels: { app: payments }
+    spec:
+      containers:
+      - name: payments
+        image: ghcr.io/acme/payments@sha256:0000000000000000000000000000000000000000000000000000000000000000
+        ports: [{ containerPort: 8080 }]
+        readinessProbe:
+          httpGet: { path: /actuator/health/readiness, port: 8080 }
+          periodSeconds: 5
+        livenessProbe:
+          httpGet: { path: /actuator/health/liveness, port: 8080 }
+          periodSeconds: 10

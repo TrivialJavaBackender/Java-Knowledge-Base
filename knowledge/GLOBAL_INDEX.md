@@ -1293,6 +1293,17 @@ Canonical concept → owner file map. One concept, one owner. Other modules must
 - Docker Swarm как цель раскатки (`stack deploy`, `update_config`, `rollback_config`) → modules/ci-cd/theory/DEPLOY_K8S_AND_SWARM.md
 - механика отката: `kubectl rollout undo` против `helm rollback` против `git revert` → modules/ci-cd/theory/DEPLOY_K8S_AND_SWARM.md
 - декларативное применение против императивных команд в конвейере → modules/ci-cd/theory/DEPLOY_K8S_AND_SWARM.md
+- прогрессивная доставка на Kubernetes (канарейка, blue-green, A/B) → modules/ci-cd/theory/PROGRESSIVE_DELIVERY_K8S.md
+- канарейка на репликах и её гранулярность `1/N` → modules/ci-cd/theory/PROGRESSIVE_DELIVERY_K8S.md
+- разделение трафика весами (`weight` в HTTPRoute, VirtualService) → modules/ci-cd/theory/PROGRESSIVE_DELIVERY_K8S.md
+- A/B-маршрутизация по заголовку как доставка двух версий → modules/ci-cd/theory/PROGRESSIVE_DELIVERY_K8S.md
+- Argo Rollouts: `Rollout`, шаги `setWeight`/`pause`, промоут и прерывание → modules/ci-cd/theory/PROGRESSIVE_DELIVERY_K8S.md
+- `AnalysisTemplate` как автоматический гейт раскатки → modules/ci-cd/theory/PROGRESSIVE_DELIVERY_K8S.md
+- Flagger против Argo Rollouts (кто владеет рабочей нагрузкой) → modules/ci-cd/theory/PROGRESSIVE_DELIVERY_K8S.md
+- сквозной релизный конвейер: четыре шага и вердикт → modules/ci-cd/theory/RELEASE_PIPELINE_RECIPES.md
+- рецепт раскатки толчком с гейтом в конвейере → modules/ci-cd/theory/RELEASE_PIPELINE_RECIPES.md
+- рецепт раскатки через репозиторий конфигурации (дайджест коммитом) → modules/ci-cd/theory/RELEASE_PIPELINE_RECIPES.md
+- место ручного гейта: пауза контроллера против окружения с ревьюерами → modules/ci-cd/theory/RELEASE_PIPELINE_RECIPES.md
 - выбор управляемой платформы как цели раскатки → modules/ci-cd/theory/DEPLOY_CLOUD_PLATFORMS.md
 - ECS против EKS, Fargate как вариант ёмкости → modules/ci-cd/theory/DEPLOY_CLOUD_PLATFORMS.md
 - Cloud Run против GKE, сворачивание до нуля как размен → modules/ci-cd/theory/DEPLOY_CLOUD_PLATFORMS.md
@@ -1320,6 +1331,63 @@ Canonical concept → owner file map. One concept, one owner. Other modules must
 
 ---
 
+## Cassandra
+
+- наследие Dynamo и BigTable в Cassandra → modules/cassandra/theory/WHY_CASSANDRA.md
+- выбор Cassandra против РСУБД (когда оправдана, когда нет) → modules/cassandra/theory/WHY_CASSANDRA.md
+- отсутствие `JOIN` и произвольного `WHERE` в CQL → modules/cassandra/theory/WHY_CASSANDRA.md
+- граница атомарности = граница партиции → modules/cassandra/theory/WHY_CASSANDRA.md
+- Cassandra против ScyllaDB / HBase / DynamoDB → modules/cassandra/theory/WHY_CASSANDRA.md
+- первичный ключ Cassandra: ключ партиции и ключ кластеризации → modules/cassandra/theory/DATA_MODEL.md
+- составной ключ партиции → modules/cassandra/theory/DATA_MODEL.md
+- `CLUSTERING ORDER BY` и порядок строк на диске → modules/cassandra/theory/DATA_MODEL.md
+- wide row и предел размера партиции в ячейках → modules/cassandra/theory/DATA_MODEL.md
+- статические колонки Cassandra → modules/cassandra/theory/DATA_MODEL.md
+- коллекции CQL: frozen против non-frozen → modules/cassandra/theory/DATA_MODEL.md
+- UDT в Cassandra и эволюция типа → modules/cassandra/theory/DATA_MODEL.md
+- счётчики Cassandra и их неидемпотентность → modules/cassandra/theory/DATA_MODEL.md
+- моделирование от запросов (query-first) → modules/cassandra/theory/QUERY_FIRST_DESIGN.md
+- денормализация в Cassandra → modules/cassandra/theory/QUERY_FIRST_DESIGN.md
+- бакетирование партиции по времени → modules/cassandra/theory/QUERY_FIRST_DESIGN.md
+- вторичный индекс Cassandra (2i) → modules/cassandra/theory/QUERY_FIRST_DESIGN.md
+- SAI (Storage-Attached Indexing) → modules/cassandra/theory/QUERY_FIRST_DESIGN.md
+- материализованное представление Cassandra → modules/cassandra/theory/QUERY_FIRST_DESIGN.md
+- `ALLOW FILTERING` → modules/cassandra/theory/QUERY_FIRST_DESIGN.md
+- путь записи Cassandra (commitlog → memtable → SSTable) → modules/cassandra/theory/WRITE_READ_PATH.md
+- путь чтения Cassandra (слияние источников) → modules/cassandra/theory/WRITE_READ_PATH.md
+- разрешение по метке времени на уровне ячейки (last-write-wins) → modules/cassandra/theory/WRITE_READ_PATH.md
+- tombstone (маркер удаления) → modules/cassandra/theory/WRITE_READ_PATH.md
+- диапазонное удаление против построчного → modules/cassandra/theory/WRITE_READ_PATH.md
+- выбор стратегии уплотнения под профиль нагрузки → modules/cassandra/theory/COMPACTION.md
+- UCS (Unified Compaction Strategy, Cassandra 5.0) → modules/cassandra/theory/COMPACTION.md
+- массовое истечение TTL и удаление просроченной SSTable целиком → modules/cassandra/theory/COMPACTION.md
+- gc_grace_seconds и зомби-данные → modules/cassandra/theory/COMPACTION.md
+- уровни согласованности CQL (`LOCAL_`/`EACH_` префиксы) → modules/cassandra/theory/CONSISTENCY_TUNING.md
+- выбор уровня согласованности для двух дата-центров → modules/cassandra/theory/CONSISTENCY_TUNING.md
+- hinted handoff → modules/cassandra/theory/CONSISTENCY_TUNING.md
+- read repair (BLOCKING) → modules/cassandra/theory/CONSISTENCY_TUNING.md
+- nodetool repair как операция → modules/cassandra/theory/CONSISTENCY_TUNING.md
+- LWT (условная запись) и serial consistency → modules/cassandra/theory/CONSISTENCY_TUNING.md
+- кольцо токенов и vnodes в Cassandra → modules/cassandra/theory/CLUSTER_TOPOLOGY.md
+- NetworkTopologyStrategy (фактор репликации по дата-центрам) → modules/cassandra/theory/CLUSTER_TOPOLOGY.md
+- снитч (источник имён ДЦ и стойки) → modules/cassandra/theory/CLUSTER_TOPOLOGY.md
+- координатор запроса Cassandra → modules/cassandra/theory/CLUSTER_TOPOLOGY.md
+- ввод и вывод узла (bootstrap, decommission, removenode) → modules/cassandra/theory/CLUSTER_TOPOLOGY.md
+- добавление дата-центра (ALTER KEYSPACE + nodetool rebuild) → modules/cassandra/theory/CLUSTER_TOPOLOGY.md
+- подготовленный запрос (Cassandra) → modules/cassandra/theory/DRIVER_AND_APP.md
+- paging state (постраничность без OFFSET) → modules/cassandra/theory/DRIVER_AND_APP.md
+- идемпотентность запроса (флаг драйвера) → modules/cassandra/theory/DRIVER_AND_APP.md
+- спекулятивное исполнение (драйвер Cassandra) → modules/cassandra/theory/DRIVER_AND_APP.md
+- маршрутизация по токену → modules/cassandra/theory/DRIVER_AND_APP.md
+- таймаут драйвера против серверного → modules/cassandra/theory/DRIVER_AND_APP.md
+- обнаружение большой партиции в Cassandra → modules/cassandra/theory/OPERATIONS_PITFALLS.md
+- горячая партиция и `nodetool toppartitions` → modules/cassandra/theory/OPERATIONS_PITFALLS.md
+- пороги tombstone (warn/failure) → modules/cassandra/theory/OPERATIONS_PITFALLS.md
+- guardrails Cassandra → modules/cassandra/theory/OPERATIONS_PITFALLS.md
+- Cassandra как очередь (антипаттерн) → modules/cassandra/theory/OPERATIONS_PITFALLS.md
+- LOGGED и UNLOGGED batch → modules/cassandra/theory/OPERATIONS_PITFALLS.md
+- диагностика медленного чтения в Cassandra → modules/cassandra/theory/OPERATIONS_PITFALLS.md
+
 ## Disambiguated Concepts
 
 Concepts that legitimately appear in multiple modules — canonical owner listed first:
@@ -1331,7 +1399,7 @@ Concepts that legitimately appear in multiple modules — canonical owner listed
 | Helm-чарт | infrastructure/HELM.md (устройство, шаблонизация, хуки, релиз как конечный автомат) | ci-cd/ENVIRONMENTS_AND_PROMOTION.md (чарт как место подстановки конфигурации окружения) · ci-cd/DEPLOY_K8S_AND_SWARM.md (`helm upgrade` как шаг конвейера) |
 | Terraform | infrastructure/CLOUD.md (state, backend, расхождение, альтернативы) | ci-cd/IAC_IN_PIPELINE.md (`plan` как артефакт ревью, `plan -out` между заданиями, кто владеет `apply`) |
 | RollingUpdate и пробы готовности | infrastructure/KUBERNETES.md (механизм) | ci-cd/DEPLOY_K8S_AND_SWARM.md (ожидание готовности как обязательный шаг конвейера) |
-| deploy ≠ release, канарейка, сине-зелёное | engineering-process/RELEASE_STRATEGIES.md (выбор схемы, откат против наката) | ci-cd/DEPLOY_K8S_AND_SWARM.md (механика применения и отката) |
+| deploy ≠ release, канарейка, blue-green | engineering-process/RELEASE_STRATEGIES.md (выбор схемы, откат против наката) | ci-cd/PROGRESSIVE_DELIVERY_K8S.md (механика схемы: трафик, анализ, контроллер) · ci-cd/DEPLOY_K8S_AND_SWARM.md (механика применения и отката) |
 | миграции схемы | engineering-process/RELEASE_STRATEGIES.md (expand/contract, совместимость) | ci-cd/ENVIRONMENTS_AND_PROMOTION.md (место миграции в конвейере: задание / init-контейнер / хук) |
 | ненадёжные тесты | engineering-process/BRANCHING_AND_CODE_FLOW.md (как отказ гейта, процессное решение) | ci-cd/PIPELINE_ECONOMICS.md (цена в минутах, карантин против повтора) |
 | метрики доставки | engineering-process/DELIVERY_METRICS.md (DORA) | ci-cd/PIPELINE_ECONOMICS.md (метрики самого конвейера и связь с DORA) |
@@ -1351,6 +1419,9 @@ Concepts that legitimately appear in multiple modules — canonical owner listed
 | Circuit Breaker | microservices/FAILURE_ISOLATION.md (механика: окно, полуоткрытое состояние) | spring-frameworks/SPRING_CLOUD.md (Resilience4j impl) · system-design/RELIABILITY_PATTERNS.md (каталог политик) |
 | CDC | databases/REPLICATION.md (DB perspective + Debezium) | caching-deep-dive/CONSISTENCY.md (cache invalidation) · microservices/DISTRIBUTED_TRANSACTIONS.md (Outbox alternative) |
 | consistent hashing | caching-deep-dive/DISTRIBUTED_CACHING.md (cache distribution) | databases/SHARDING.md (DB sharding context) |
+| стратегии уплотнения (STCS/LCS/TWCS) | databases/STORAGE_ENGINES.md §3 (общий механизм LSM) | cassandra/COMPACTION.md (выбор под нагрузку, UCS 5.0, связь с tombstone/TTL/repair) |
+| wide-column store | cassandra/ (глубина: модель, хранение, эксплуатация) | databases/DATABASE_TYPES.md (обзорная строка в семействах NoSQL) |
+| tombstone | cassandra/WRITE_READ_PATH.md §4 (механизм: удаление как запись) | cassandra/COMPACTION.md §4–5 (почему не исчезают) · cassandra/OPERATIONS_PITFALLS.md §3 (пороги и обнаружение) |
 | Redis (deep) | caching-deep-dive/REDIS.md | databases/DATABASE_TYPES.md (high-level KV overview) |
 | CoroutineScope vs coroutineScope | kotlin-coroutines/SCOPE_CONTEXT.md (interface type) | kotlin-coroutines/STRUCTURED_CONCURRENCY.md (builder function) |
 | механика приостановки потока/корутины | concurrency/JUC_INTERNALS.md (AQS, park/unpark, поток ОС) | kotlin-coroutines/SUSPEND_INTERNALS.md (Continuation, CPS, кто возобновляет) |
@@ -1393,7 +1464,7 @@ Concepts that legitimately appear in multiple modules — canonical owner listed
 | Hexagonal / Ports & Adapters | ddd/ARCHITECTURE.md (ports/adapters, Composition Root) | (Onion / Clean — same idea, same file) |
 | functional core / FP basics | software-engineering/STREAM_API_FP.md (pure functions, immutability, HOF) | ddd/FUNCTIONAL_DDD.md (illegal-states-unrepresentable, ADT domain modeling, decide/evolve) |
 | feature flag | engineering-process/RELEASE_STRATEGIES.md (механизм доставки: deploy ≠ release, типы флагов, срок жизни) | system-design/RELIABILITY_PATTERNS.md (killswitch как паттерн надёжности) · engineering-process/TECH_DEBT.md (вечный флаг как долг) |
-| канареечная / blue-green раскатка | engineering-process/RELEASE_STRATEGIES.md (решение процесса: на кого и когда катим, когда откатываем) | infrastructure/KUBERNETES.md (механика rolling update, probes) · system-design/ML_SERVING.md (раскатка моделей) |
+| канареечная / blue-green раскатка | ci-cd/PROGRESSIVE_DELIVERY_K8S.md (механика: вес трафика, Argo Rollouts, анализ) | engineering-process/RELEASE_STRATEGIES.md (решение процесса: на кого и когда катим) · infrastructure/KUBERNETES.md (rolling update, пробы) · system-design/ML_SERVING.md (раскатка моделей) |
 | error budget | infrastructure/OBSERVABILITY.md (механизм: SLO, burn rate) | engineering-process/TECH_DEBT.md (рычаг приоритизации надёжности против функциональности) |
 | закон Литтла | concurrency/EXECUTORS_FUTURES.md (размер пула потоков) | engineering-process/FLOW_AND_WIP.md (поток задач в команде, WIP и сроки) |
 | Example Mapping / Event Storming | ddd/EVENT_STORMING.md (техники discovery) | engineering-process/DISCOVERY_AND_INTAKE.md (их место в приёме заявок) |

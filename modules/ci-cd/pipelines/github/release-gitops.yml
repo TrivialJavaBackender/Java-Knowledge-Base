@@ -1,0 +1,45 @@
+# Тот же релиз в модели вытягивания: конвейер не имеет доступа к кластеру.
+# Он записывает дайджест в репозиторий конфигурации, дальше работает Argo CD.
+name: release-gitops
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    outputs:
+      digest: ${{ steps.image.outputs.digest }}
+    steps:
+    - uses: actions/checkout@v4
+    - uses: docker/login-action@v3
+      with: { registry: ghcr.io, username: ${{ github.actor }}, password: ${{ secrets.GITHUB_TOKEN }} }
+    - id: image
+      uses: docker/build-push-action@v7
+      with: { context: ., push: true, tags: 'ghcr.io/acme/payments:${{ github.sha }}' }
+
+  promote:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        repository: acme/payments-config       # отдельный репозиторий конфигурации
+        token: ${{ secrets.CONFIG_REPO_TOKEN }}
+    - name: Записать дайджест в overlay прода
+      run: |
+        cd overlays/prod
+        kustomize edit set image \
+          payments=ghcr.io/acme/payments@${{ needs.build.outputs.digest }}
+        git config user.name  "ci-bot"
+        git config user.email "ci-bot@acme.dev"
+        git commit -am "payments: ${{ github.sha }}"
+        git push
+    # Вердикт сюда не возвращается: состояние кластера согласует агент.
+    # Если вердикт нужен в логе сборки — добавить шаг ожидания:
+    #   argocd app wait payments-prod --health --timeout 1800

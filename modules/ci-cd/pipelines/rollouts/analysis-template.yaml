@@ -1,0 +1,19 @@
+# Автоматический гейт раскатки: доля успешных ответов по Prometheus.
+apiVersion: argoproj.io/v1alpha1
+kind: AnalysisTemplate
+metadata:
+  name: success-rate
+spec:
+  metrics:
+  - name: success-rate
+    interval: 1m          # как часто измеряем
+    count: 5              # сколько измерений делаем (0 = бесконечно, только в фоновом анализе)
+    failureLimit: 1       # сколько провалов терпим до прерывания раскатки
+    successCondition: result[0] >= 0.99
+    provider:
+      prometheus:
+        address: http://prometheus.monitoring:9090
+        query: |
+          sum(rate(http_server_requests_seconds_count{service="payments",status!~"5.."}[2m]))
+          /
+          sum(rate(http_server_requests_seconds_count{service="payments"}[2m]))

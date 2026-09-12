@@ -1,0 +1,26 @@
+# Blue-green: превью-сервис для проверки, переключение по команде promote.
+apiVersion: argoproj.io/v1alpha1
+kind: Rollout
+metadata:
+  name: payments
+spec:
+  replicas: 6
+  selector:
+    matchLabels: { app: payments }
+  strategy:
+    blueGreen:
+      activeService: payments             # боевой трафик
+      previewService: payments-preview    # новая версия без пользователей
+      autoPromotionEnabled: false         # ВАЖНО: по умолчанию true — переключит само
+      scaleDownDelaySeconds: 30           # столько живут старые поды после переключения
+      prePromotionAnalysis:
+        templates: [{ templateName: success-rate }]
+      postPromotionAnalysis:
+        templates: [{ templateName: success-rate }]
+  template:
+    metadata:
+      labels: { app: payments }
+    spec:
+      containers:
+      - name: payments
+        image: ghcr.io/acme/payments@sha256:0000000000000000000000000000000000000000000000000000000000000000
