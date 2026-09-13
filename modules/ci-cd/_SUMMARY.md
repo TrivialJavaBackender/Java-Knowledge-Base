@@ -31,20 +31,30 @@ PostgreSQL, пик 40 запросов в секунду, базовая сбо�
 
 | Файл | Ядро |
 |---|---|
-| `PIPELINE_MODEL.md` | событие → задание → шаг; граф; эфемерность; CI ≠ delivery ≠ deployment |
-| `RUNNERS_AND_EXECUTION.md` | управляемый против собственного; тип исполнителя; кэш против артефакта; очередь против группы конкурентности |
-| `TOOLS_COMPARED.md` | три модели композиции; Declarative против Scripted; `needs` против `stage` |
-| `JAVA_BUILD_IN_CI.md` | кэш `~/.m2` и его отравление; SNAPSHOT; surefire/failsafe; воспроизводимость |
-| `IMAGE_BUILD_AND_REGISTRY.md` | DinD и сокет хоста; Kaniko/Buildah/BuildKit; кэш слоёв через реестр; тег против дайджеста |
-| `SUPPLY_CHAIN_SECURITY.md` | OIDC вместо хранимого ключа; права токена; `pull_request_target`; подпись, SBOM, SLSA |
-| `ENVIRONMENTS_AND_PROMOTION.md` | собрать один раз; конфигурация отдельно от артефакта; место миграции схемы |
-| `DELIVERY_PUSH_VS_PULL.md` | толчок против вытягивания; согласование и расхождение; откат как `git revert` |
-| `DEPLOY_K8S_AND_SWARM.md` | три способа применить; ожидание готовности; Swarm `update_config`/`rollback_config` |
-| `PROGRESSIVE_DELIVERY_K8S.md` | `RollingUpdate` ≠ канарейка; доля `1/N` на репликах; `weight` в HTTPRoute; Argo Rollouts и `AnalysisTemplate`; Flagger |
-| `RELEASE_PIPELINE_RECIPES.md` | четыре шага релизного конвейера; рецепт толчком и рецепт GitOps; где стоит ручной гейт; три разных «откатить» |
-| `DEPLOY_CLOUD_PLATFORMS.md` | ECS против EKS, Fargate как ёмкость; Cloud Run и сворачивание до нуля; голая машина |
-| `IAC_IN_PIPELINE.md` | `plan` как артефакт ревью; блокировка состояния; кто владеет `apply` |
-| `PIPELINE_ECONOMICS.md` | три природы времени; окупаемость кэша; ненадёжные тесты; очередь слияния |
+| `PIPELINE_MODEL.md` | событие → задание → шаг; граф зависимостей; пропущено против упало |
+| `PIPELINE_GUARANTEES.md` | эфемерность исполнителя; CI ≠ delivery ≠ deployment; цикл обратной связи |
+| `RUNNERS.md` | управляемый против собственного; тип исполнителя; «локально работает»; публичный репозиторий |
+| `PIPELINE_CACHE_AND_CONCURRENCY.md` | ключ кэша и его отравление; артефакт против кэша; очередь против группы конкурентности |
+| `TOOLS_COMPARED.md` | три модели композиции; `needs` против `stage`; критерий выбора инструмента |
+| `JENKINS_IN_DEPTH.md` | Declarative против Scripted; общая библиотека; цена долгоживущего агента |
+| `JAVA_BUILD_IN_CI.md` | кэш `~/.m2`; SNAPSHOT; surefire/failsafe; воспроизводимость по дате коммита |
+| `IMAGE_BUILD_IN_CI.md` | DinD и сокет хоста; Kaniko/Buildah/BuildKit; кэш слоёв через реестр; layered jar |
+| `IMAGE_REGISTRY_AND_TAGS.md` | тег против дайджеста; аутентификация; сборка мусора; мультиархитектурный образ |
+| `PIPELINE_CREDENTIALS.md` | долгоживущий ключ как инцидент; OIDC; права токена; защищённые окружения |
+| `SUPPLY_CHAIN_ATTACKS.md` | `pull_request_target`; закрепление по SHA; чего не ловит сканер; подпись, SBOM, SLSA |
+| `ENVIRONMENTS_AND_PROMOTION.md` | собрать один раз; цена пересборки; ворота против согласования |
+| `ENVIRONMENT_ANATOMY.md` | конфигурация снаружи артефакта; окружения по требованию; место миграции схемы |
+| `DELIVERY_PUSH_VS_PULL.md` | толчок против вытягивания; согласование и расхождение; Argo CD против Flux |
+| `GITOPS_REPOSITORIES.md` | репозиторий приложения против конфигурации; продвижение пулл-реквестом; откат коммитом |
+| `DEPLOY_TO_K8S.md` | три способа применить; ожидание готовности; что именно откатывается |
+| `PROGRESSIVE_DELIVERY_K8S.md` | `RollingUpdate` ≠ канарейка; доля `1/N`; `weight` в HTTPRoute; Argo Rollouts и анализ; Flagger |
+| `RELEASE_PIPELINE_RECIPES.md` | четыре шага релиза; рецепт толчком и рецепт GitOps; где стоит ручной гейт |
+| `DEPLOY_SWARM.md` | `stack deploy`; `update_config`/`rollback_config`; что теряется без Kubernetes |
+| `DEPLOY_CLOUD_PLATFORMS.md` | ECS против EKS; Cloud Run и сворачивание до нуля; голая машина |
+| `TERRAFORM_IN_PIPELINE.md` | `plan` как артефакт ревью; блокировка состояния; workspaces |
+| `IAC_OWNERSHIP.md` | обнаружение расхождения; кто владеет `apply`; Ansible против выделения ресурсов |
+| `PIPELINE_DURATION.md` | три природы времени; окупаемость кэша; порядок этапов; отладка конвейера |
+| `PIPELINE_THROUGHPUT.md` | ненадёжные тесты; очередь слияния; монорепозиторий; метрики конвейера |
 
 ## Important Invariants
 

@@ -26,7 +26,7 @@ staging», «чем `latest` плох», «как конвейер получа�
 ## Структура проекта
 
 ```
-├── ROADMAP.md                          # 14 тем в порядке прохождения + чеклисты
+├── ROADMAP.md                          # 24 темы в порядке прохождения + чеклисты
 ├── INTERVIEW_QUESTIONS.md              # вопросы с ответами (формат qa-bold)
 ├── _SUMMARY.md                         # семантическое сжатие модуля
 │
@@ -43,21 +43,31 @@ staging», «чем `latest` плох», «как конвейер получа�
 │   ├── swarm/                          # стек Docker Swarm
 │   └── terraform/                      # минимальный модуль инфраструктуры
 │
-└── theory/
+└── theory/                          # 24 файла, каждый 11–13 тыс. знаков (10–15 минут чтения)
     ├── PIPELINE_MODEL.md               # от git push до прода; событие, задание, шаг; граф
-    ├── RUNNERS_AND_EXECUTION.md        # исполнители, эфемерность, кэш против артефактов
+    ├── PIPELINE_GUARANTEES.md          # эфемерность; CI / delivery / deployment; обратная связь
+    ├── RUNNERS.md                      # исполнители: управляемый против собственного
+    ├── PIPELINE_CACHE_AND_CONCURRENCY.md # кэш, артефакты, матрица, очередь, экономика минут
     ├── TOOLS_COMPARED.md               # Actions, GitLab CI, Jenkins на одной задаче
+    ├── JENKINS_IN_DEPTH.md             # Declarative/Scripted, shared library, агент
     ├── JAVA_BUILD_IN_CI.md             # кэш ~/.m2, версии, тесты, воспроизводимость
-    ├── IMAGE_BUILD_AND_REGISTRY.md     # DinD/Kaniko/BuildKit, кэш слоёв, теги и дайджест
-    ├── SUPPLY_CHAIN_SECURITY.md        # OIDC, права токена, инъекция, подпись, SBOM
-    ├── ENVIRONMENTS_AND_PROMOTION.md   # продвижение одного артефакта по dev → qa → staging
+    ├── IMAGE_BUILD_IN_CI.md            # DinD/Kaniko/BuildKit, кэш слоёв, layered jar
+    ├── IMAGE_REGISTRY_AND_TAGS.md      # тег против дайджеста, реестр, мультиарх
+    ├── PIPELINE_CREDENTIALS.md         # OIDC, права токена, маскирование, окружения
+    ├── SUPPLY_CHAIN_ATTACKS.md         # инъекция, SHA-пиннинг, сканер, подпись, SBOM, SLSA
+    ├── ENVIRONMENTS_AND_PROMOTION.md   # собрать один раз, продвигать тот же артефакт
+    ├── ENVIRONMENT_ANATOMY.md          # конфигурация, окружения по требованию, миграции
     ├── DELIVERY_PUSH_VS_PULL.md        # GitOps: кто применяет изменение и почему
-    ├── DEPLOY_K8S_AND_SWARM.md         # kubectl / helm / Argo; стек Swarm; ожидание готовности
+    ├── GITOPS_REPOSITORIES.md          # репозиторий конфигурации, продвижение, откат коммитом
+    ├── DEPLOY_TO_K8S.md                # kubectl / helm / Argo; ожидание готовности; откат
     ├── PROGRESSIVE_DELIVERY_K8S.md     # канарейка, blue-green, A/B: трафик, Rollouts, анализ
     ├── RELEASE_PIPELINE_RECIPES.md     # сквозные конвейеры релиза: толчком, GitOps, blue-green
-    ├── DEPLOY_CLOUD_PLATFORMS.md       # ECS, EKS, Cloud Run, GKE, голая VM: критерий выбора
-    ├── IAC_IN_PIPELINE.md              # plan как артефакт ревью, кто владеет apply
-    └── PIPELINE_ECONOMICS.md           # длительность, кэш, ненадёжные тесты, монорепо
+    ├── DEPLOY_SWARM.md                 # стек Swarm, update_config, откат
+    ├── DEPLOY_CLOUD_PLATFORMS.md       # ECS, EKS, Cloud Run, GKE, голая VM
+    ├── TERRAFORM_IN_PIPELINE.md        # plan как артефакт ревью, блокировка состояния
+    ├── IAC_OWNERSHIP.md                # расхождение, кто владеет apply, Ansible
+    ├── PIPELINE_DURATION.md            # бюджет прогона, кэш, порядок этапов, отладка
+    └── PIPELINE_THROUGHPUT.md          # ненадёжные тесты, очередь слияния, монорепо, метрики
 ```
 
 ## Как работать
