@@ -6,7 +6,7 @@
 
 **Границы с соседними файлами.**
 - **Схемы раскатки и их манифесты** — [`PROGRESSIVE_DELIVERY_K8S.md`](PROGRESSIVE_DELIVERY_K8S.md); здесь они уже считаются известными.
-- **Толчок против вытягивания как модель** — [`DELIVERY_PUSH_VS_PULL.md` §1, §5](DELIVERY_PUSH_VS_PULL.md). **Дайджест как идентификатор образа** — [`IMAGE_BUILD_AND_REGISTRY.md` §5](IMAGE_BUILD_AND_REGISTRY.md). **OIDC вместо долгоживущего токена** — [`SUPPLY_CHAIN_SECURITY.md` §2](SUPPLY_CHAIN_SECURITY.md).
+- **Толчок против вытягивания как модель** — [`DELIVERY_PUSH_VS_PULL.md` §1, §5](DELIVERY_PUSH_VS_PULL.md). **Дайджест как идентификатор образа** — [`IMAGE_REGISTRY_AND_TAGS.md` §1](IMAGE_REGISTRY_AND_TAGS.md). **OIDC вместо долгоживущего токена** — [`PIPELINE_CREDENTIALS.md` §2](PIPELINE_CREDENTIALS.md).
 - **Продвижение одного артефакта по окружениям** — [`ENVIRONMENTS_AND_PROMOTION.md` §1](ENVIRONMENTS_AND_PROMOTION.md).
 
 ---

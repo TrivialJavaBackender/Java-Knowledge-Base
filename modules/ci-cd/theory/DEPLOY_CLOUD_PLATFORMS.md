@@ -21,8 +21,8 @@ ECS, EKS, Fargate, App Runner, Elastic Beanstalk и CodeDeploy **не лежат
 **Какой API вы программируете** — ECS или EKS. Ходовая формулировка «ECS проще, потому что не надо
 содержать control plane» описывает несуществующее различие: ECS работает «without the complexity of
 managing a control plane», но и в EKS standard «AWS manages the Kubernetes control plane». Настоящее
-различие — словарь. EKS «certified Kubernetes-conformant», и всё написанное против Kubernetes
-переносится; словарь ECS свой и короткий: task definition, cluster, task, service. Та же развилка,
+различие — словарь: EKS «certified Kubernetes-conformant», и всё написанное против Kubernetes
+переносится, а словарь ECS свой и короткий (task definition, cluster, task, service). Та же развилка,
 что между Swarm и Kubernetes ([`DEPLOY_K8S_AND_SWARM.md` §5](DEPLOY_K8S_AND_SWARM.md)).
 
 **Кто владеет серверами** — не альтернатива первому вопросу, а вариант ёмкости **под** ним: на EC2
@@ -59,11 +59,10 @@ the last remaining instance will be removed**» — а плата описана
 числа: новый экземпляр «can increase the response time for these initial requests, **depending on
 how quickly your container becomes ready**». Последние пять слов — буквально про нас: `payments` —
 Spring Boot на JVM, и любое «холодный старт занимает N секунд» выдумка, пока вы не измерили свой
-образ. Компромисс («keep a minimum amount of instances active») отменяет само приобретение.
-
-Ответ поэтому разный по окружениям: рабочее под постоянным трафиком (пик 40 запросов в секунду) до
-нуля не сворачивается вообще, а на dev и qa, где ночью запросов нет, сворачивание даёт экономию
-ценой медленного первого запроса утром
+образ. Компромисс («keep a minimum amount of instances active») отменяет само приобретение, а ответ
+получается разный по окружениям: рабочее под постоянным трафиком (пик 40 запросов в секунду) до нуля
+не сворачивается вообще, а на dev и qa, где ночью запросов нет, сворачивание даёт экономию ценой
+медленного первого запроса утром
 ([`ENVIRONMENTS_AND_PROMOTION.md` §4](ENVIRONMENTS_AND_PROMOTION.md)). Cloud Build в этот ряд не
 входит: он «executes your builds on Google Cloud», то есть исполнитель сборки
 ([`RUNNERS_AND_EXECUTION.md` §1](RUNNERS_AND_EXECUTION.md)), а не место, где живёт сервис.
@@ -89,10 +88,9 @@ Systemd даёт ровно одно: `Restart=` перезапускает пр
 уложился в таймаут (пауза `RestartSec=` по умолчанию 100 мс). Это **поддержание одного процесса
 живым на одной машине**, первая половина согласования желаемого состояния; второй половины нет —
 никто не знает, что машин три и что при смерти одной процесс надо поднять на другой. Её закрывает
-Ansible, и не полностью: «When the system is in the state your playbook describes, **Ansible does not
-change anything, even if the playbook runs multiple times**» — идемпотентность есть, а агента,
-который непрерывно возвращал бы машину к описанию, нет
-([`DELIVERY_PUSH_VS_PULL.md` §1](DELIVERY_PUSH_VS_PULL.md), [`IAC_IN_PIPELINE.md` §8](IAC_IN_PIPELINE.md)).
+Ansible, и не полностью: идемпотентность прогона есть, а агента, который непрерывно возвращал бы
+машину к описанию, нет ([`DELIVERY_PUSH_VS_PULL.md` §1](DELIVERY_PUSH_VS_PULL.md),
+[`IAC_OWNERSHIP.md` §3](IAC_OWNERSHIP.md)).
 
 **Чего у этой цели нет.** Постепенной замены по машинам с ожиданием готовности. Условия «продолжать,
 только если новая версия здорова». Отката как операции — предыдущую версию храните сами.
@@ -137,12 +135,11 @@ change anything, even if the playbook runs multiple times**» — идемпот
 пропускает все четыре. Kubernetes уже есть — EKS или GKE, разговор окончен; нет и список примитивов
 пуст — Cloud Run закрывает всё, включая ось отката; голая машина — только если машины уже оплачены.
 Денег критерий не считает: сравнение стоимости без своего профиля нагрузки — сравнение чужих
-([`PIPELINE_ECONOMICS.md`](PIPELINE_ECONOMICS.md)).
+([`PIPELINE_DURATION.md` §1](PIPELINE_DURATION.md)).
 
 ## 5. Чем именно конвейер раскатывает на каждую цель
 
-Интеграционного слоя под управляемую платформу не понадобится: примитив вызова короткий у всех — и
-поэтому сравнивать платформы по команде раскатки бесполезно.
+Интеграционного слоя под управляемую платформу не понадобится: примитив вызова короткий у всех.
 
 | Цель | Команда в задании | Чем дожидаетесь готовности |
 |---|---|---|
@@ -154,7 +151,7 @@ change anything, even if the playbook runs multiple times**» — идемпот
 **`--force-new-deployment` в ECS — диагноз, а не флаг:** он нужен, чтобы запустить раскатку «with no
 service definition changes … to use a newer Docker image with **the same image/tag combination
 (`my_image:latest`)**». Адресуйте образ дайджестом
-([`IMAGE_BUILD_AND_REGISTRY.md` §5](IMAGE_BUILD_AND_REGISTRY.md)) — и новое определение задачи
+([`IMAGE_REGISTRY_AND_TAGS.md` §1](IMAGE_REGISTRY_AND_TAGS.md)) — и новое определение задачи
 отличается от старого само.
 
 **Умолчания ожидания у поставщиков противоположны.** У Cloud Run флаг `--async` заставляет команду
@@ -212,6 +209,5 @@ service definition changes … to use a newer Docker image with **the same image
   удаление последнего экземпляра, Autopilot против Standard.
 - [gcloud run deploy](https://cloud.google.com/sdk/gcloud/reference/run/deploy) — `--async`,
   `--no-traffic`.
-- [systemd.service(5)](https://www.freedesktop.org/software/systemd/man/latest/systemd.service.html),
-  [Getting started with Ansible](https://docs.ansible.com/ansible/latest/getting_started/index.html)
-  — `Restart=`, `RestartSec=`; идемпотентность.
+- [systemd.service(5)](https://www.freedesktop.org/software/systemd/man/latest/systemd.service.html)
+  — `Restart=`, `RestartSec=`.
