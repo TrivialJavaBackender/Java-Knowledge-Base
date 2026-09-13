@@ -1214,26 +1214,26 @@ Canonical concept → owner file map. One concept, one owner. Other modules must
 - конвейер как граф зависимостей (DAG-конвейер) → modules/ci-cd/theory/PIPELINE_MODEL.md
 - событие, задание, шаг: единицы конвейера и граница между ними → modules/ci-cd/theory/PIPELINE_MODEL.md
 - распространение отказа по графу: пропущено против упало → modules/ci-cd/theory/PIPELINE_MODEL.md
-- эфемерность исполнителя как допущение модели → modules/ci-cd/theory/PIPELINE_MODEL.md
-- continuous integration / continuous delivery / continuous deployment — три обещания → modules/ci-cd/theory/PIPELINE_MODEL.md
-- длина цикла обратной связи конвейера → modules/ci-cd/theory/PIPELINE_MODEL.md
+- эфемерность исполнителя как допущение модели → modules/ci-cd/theory/PIPELINE_GUARANTEES.md
+- continuous integration / continuous delivery / continuous deployment — три обещания → modules/ci-cd/theory/PIPELINE_GUARANTEES.md
+- длина цикла обратной связи конвейера → modules/ci-cd/theory/PIPELINE_GUARANTEES.md
 
 ### Исполнители и выполнение
-- управляемый исполнитель против собственного → modules/ci-cd/theory/RUNNERS_AND_EXECUTION.md
-- тип исполнителя (shell / docker / kubernetes) → modules/ci-cd/theory/RUNNERS_AND_EXECUTION.md
-- «локально собирается, в CI нет»: классы состояния → modules/ci-cd/theory/RUNNERS_AND_EXECUTION.md
-- ключ кэша конвейера, промах, отравление кэша → modules/ci-cd/theory/RUNNERS_AND_EXECUTION.md
-- артефакт задания против кэша → modules/ci-cd/theory/RUNNERS_AND_EXECUTION.md
-- matrix build → modules/ci-cd/theory/RUNNERS_AND_EXECUTION.md
-- очередь заданий и группа конкурентности конвейера → modules/ci-cd/theory/RUNNERS_AND_EXECUTION.md
-- экономика минут исполнителя, прерываемые машины → modules/ci-cd/theory/RUNNERS_AND_EXECUTION.md
-- собственный исполнитель на публичном репозитории → modules/ci-cd/theory/RUNNERS_AND_EXECUTION.md
+- управляемый исполнитель против собственного → modules/ci-cd/theory/RUNNERS.md
+- тип исполнителя (shell / docker / kubernetes) → modules/ci-cd/theory/RUNNERS.md
+- «локально собирается, в CI нет»: классы состояния → modules/ci-cd/theory/RUNNERS.md
+- ключ кэша конвейера, промах, отравление кэша → modules/ci-cd/theory/PIPELINE_CACHE_AND_CONCURRENCY.md
+- артефакт задания против кэша → modules/ci-cd/theory/PIPELINE_CACHE_AND_CONCURRENCY.md
+- matrix build → modules/ci-cd/theory/PIPELINE_CACHE_AND_CONCURRENCY.md
+- очередь заданий и группа конкурентности конвейера → modules/ci-cd/theory/PIPELINE_CACHE_AND_CONCURRENCY.md
+- экономика минут исполнителя, прерываемые машины → modules/ci-cd/theory/PIPELINE_CACHE_AND_CONCURRENCY.md
+- собственный исполнитель на публичном репозитории → modules/ci-cd/theory/RUNNERS.md
 
 ### Инструменты
 - модель композиции CI-инструментов (действия / встроенная платформа / агент с плагинами) → modules/ci-cd/theory/TOOLS_COMPARED.md
-- Declarative против Scripted Pipeline (Jenkins) → modules/ci-cd/theory/TOOLS_COMPARED.md
-- shared library (Jenkins) → modules/ci-cd/theory/TOOLS_COMPARED.md
-- долгоживущий агент против эфемерного исполнителя → modules/ci-cd/theory/TOOLS_COMPARED.md
+- Declarative против Scripted Pipeline (Jenkins) → modules/ci-cd/theory/JENKINS_IN_DEPTH.md
+- shared library (Jenkins) → modules/ci-cd/theory/JENKINS_IN_DEPTH.md
+- долгоживущий агент против эфемерного исполнителя → modules/ci-cd/theory/JENKINS_IN_DEPTH.md
 - выражение графа зависимостей: `needs` против `stage` против `parallel` → modules/ci-cd/theory/TOOLS_COMPARED.md
 - Tekton / Argo Workflows как Kubernetes-native конвейер → modules/ci-cd/theory/TOOLS_COMPARED.md
 - критерий выбора инструмента CI/CD → modules/ci-cd/theory/TOOLS_COMPARED.md
@@ -1250,49 +1250,49 @@ Canonical concept → owner file map. One concept, one owner. Other modules must
 - модель выполнения Gradle против Maven с точки зрения CI → modules/ci-cd/theory/JAVA_BUILD_IN_CI.md
 
 ### Образ и реестр
-- сборка образа в эфемерном исполнителе (DinD, сокет хоста, привилегии) → modules/ci-cd/theory/IMAGE_BUILD_AND_REGISTRY.md
-- Kaniko / Buildah / BuildKit как способы сборки без демона → modules/ci-cd/theory/IMAGE_BUILD_AND_REGISTRY.md
-- кэш слоёв через реестр (`--cache-to` / `--cache-from type=registry`) → modules/ci-cd/theory/IMAGE_BUILD_AND_REGISTRY.md
-- layered jar, Jib, buildpacks со стороны слоёв образа → modules/ci-cd/theory/IMAGE_BUILD_AND_REGISTRY.md
-- тег против дайджеста образа → modules/ci-cd/theory/IMAGE_BUILD_AND_REGISTRY.md
-- аутентификация конвейера в реестре образов → modules/ci-cd/theory/IMAGE_BUILD_AND_REGISTRY.md
-- политика удержания и сборка мусора в реестре → modules/ci-cd/theory/IMAGE_BUILD_AND_REGISTRY.md
-- образ под несколько архитектур в конвейере → modules/ci-cd/theory/IMAGE_BUILD_AND_REGISTRY.md
+- сборка образа в эфемерном исполнителе (DinD, сокет хоста, привилегии) → modules/ci-cd/theory/IMAGE_BUILD_IN_CI.md
+- Kaniko / Buildah / BuildKit как способы сборки без демона → modules/ci-cd/theory/IMAGE_BUILD_IN_CI.md
+- кэш слоёв через реестр (`--cache-to` / `--cache-from type=registry`) → modules/ci-cd/theory/IMAGE_BUILD_IN_CI.md
+- layered jar, Jib, buildpacks со стороны слоёв образа → modules/ci-cd/theory/IMAGE_BUILD_IN_CI.md
+- тег против дайджеста образа → modules/ci-cd/theory/IMAGE_REGISTRY_AND_TAGS.md
+- аутентификация конвейера в реестре образов → modules/ci-cd/theory/IMAGE_REGISTRY_AND_TAGS.md
+- политика удержания и сборка мусора в реестре → modules/ci-cd/theory/IMAGE_REGISTRY_AND_TAGS.md
+- образ под несколько архитектур в конвейере → modules/ci-cd/theory/IMAGE_REGISTRY_AND_TAGS.md
 
 ### Безопасность цепочки поставки
-- долгоживущий ключ в переменных конвейера → modules/ci-cd/theory/SUPPLY_CHAIN_SECURITY.md
-- OIDC-федерация конвейера с облаком → modules/ci-cd/theory/SUPPLY_CHAIN_SECURITY.md
-- маскирование секретов в логах конвейера и его границы → modules/ci-cd/theory/SUPPLY_CHAIN_SECURITY.md
-- права токена конвейера → modules/ci-cd/theory/SUPPLY_CHAIN_SECURITY.md
-- `pull_request_target` и инъекция через контекст события → modules/ci-cd/theory/SUPPLY_CHAIN_SECURITY.md
-- защищённое окружение и ручное одобрение в конвейере → modules/ci-cd/theory/SUPPLY_CHAIN_SECURITY.md
-- закрепление стороннего действия по SHA → modules/ci-cd/theory/SUPPLY_CHAIN_SECURITY.md
-- сканирование образа и границы его охвата → modules/ci-cd/theory/SUPPLY_CHAIN_SECURITY.md
-- подпись образа, SBOM, SLSA → modules/ci-cd/theory/SUPPLY_CHAIN_SECURITY.md
-- dependency confusion и подмена источника пакетов → modules/ci-cd/theory/SUPPLY_CHAIN_SECURITY.md
+- долгоживущий ключ в переменных конвейера → modules/ci-cd/theory/PIPELINE_CREDENTIALS.md
+- OIDC-федерация конвейера с облаком → modules/ci-cd/theory/PIPELINE_CREDENTIALS.md
+- маскирование секретов в логах конвейера и его границы → modules/ci-cd/theory/PIPELINE_CREDENTIALS.md
+- права токена конвейера → modules/ci-cd/theory/PIPELINE_CREDENTIALS.md
+- `pull_request_target` и инъекция через контекст события → modules/ci-cd/theory/SUPPLY_CHAIN_ATTACKS.md
+- защищённое окружение и ручное одобрение в конвейере → modules/ci-cd/theory/PIPELINE_CREDENTIALS.md
+- закрепление стороннего действия по SHA → modules/ci-cd/theory/SUPPLY_CHAIN_ATTACKS.md
+- сканирование образа и границы его охвата → modules/ci-cd/theory/SUPPLY_CHAIN_ATTACKS.md
+- подпись образа, SBOM, SLSA → modules/ci-cd/theory/SUPPLY_CHAIN_ATTACKS.md
+- dependency confusion и подмена источника пакетов → modules/ci-cd/theory/SUPPLY_CHAIN_ATTACKS.md
 
 ### Окружения и продвижение
 - продвижение артефакта (promotion) по dev → qa → staging → modules/ci-cd/theory/ENVIRONMENTS_AND_PROMOTION.md
 - собрать один раз (build once) → modules/ci-cd/theory/ENVIRONMENTS_AND_PROMOTION.md
-- конфигурация отдельно от артефакта → modules/ci-cd/theory/ENVIRONMENTS_AND_PROMOTION.md
-- что делает окружение окружением (данные, зависимости, объём) → modules/ci-cd/theory/ENVIRONMENTS_AND_PROMOTION.md
-- окружение по требованию на пулл-реквест → modules/ci-cd/theory/ENVIRONMENTS_AND_PROMOTION.md
+- конфигурация отдельно от артефакта → modules/ci-cd/theory/ENVIRONMENT_ANATOMY.md
+- что делает окружение окружением (данные, зависимости, объём) → modules/ci-cd/theory/ENVIRONMENT_ANATOMY.md
+- окружение по требованию на пулл-реквест → modules/ci-cd/theory/ENVIRONMENT_ANATOMY.md
 - ворота конвейера против согласования → modules/ci-cd/theory/ENVIRONMENTS_AND_PROMOTION.md
-- место миграции схемы в конвейере (задание / init-контейнер / хук) → modules/ci-cd/theory/ENVIRONMENTS_AND_PROMOTION.md
+- место миграции схемы в конвейере (задание / init-контейнер / хук) → modules/ci-cd/theory/ENVIRONMENT_ANATOMY.md
 
 ### Доставка и раскатка
 - доставка толчком против доставки вытягиванием → modules/ci-cd/theory/DELIVERY_PUSH_VS_PULL.md
-- репозиторий приложения против репозитория конфигурации, бот-коммит с дайджестом → modules/ci-cd/theory/DELIVERY_PUSH_VS_PULL.md
+- репозиторий приложения против репозитория конфигурации, бот-коммит с дайджестом → modules/ci-cd/theory/GITOPS_REPOSITORIES.md
 - согласование и расхождение в GitOps → modules/ci-cd/theory/DELIVERY_PUSH_VS_PULL.md
-- продвижение как пулл-реквест между overlay окружений → modules/ci-cd/theory/DELIVERY_PUSH_VS_PULL.md
-- откат через `git revert` и его границы → modules/ci-cd/theory/DELIVERY_PUSH_VS_PULL.md
+- продвижение как пулл-реквест между overlay окружений → modules/ci-cd/theory/GITOPS_REPOSITORIES.md
+- откат через `git revert` и его границы → modules/ci-cd/theory/GITOPS_REPOSITORIES.md
 - Argo CD против Flux (модельное различие) → modules/ci-cd/theory/DELIVERY_PUSH_VS_PULL.md
 - чего GitOps не решает (миграции, секреты, порядок между сервисами) → modules/ci-cd/theory/DELIVERY_PUSH_VS_PULL.md
-- `kubectl apply` против `helm upgrade` против синхронизации Argo как шаг конвейера → modules/ci-cd/theory/DEPLOY_K8S_AND_SWARM.md
-- ожидание готовности после раскатки → modules/ci-cd/theory/DEPLOY_K8S_AND_SWARM.md
-- Docker Swarm как цель раскатки (`stack deploy`, `update_config`, `rollback_config`) → modules/ci-cd/theory/DEPLOY_K8S_AND_SWARM.md
-- механика отката: `kubectl rollout undo` против `helm rollback` против `git revert` → modules/ci-cd/theory/DEPLOY_K8S_AND_SWARM.md
-- декларативное применение против императивных команд в конвейере → modules/ci-cd/theory/DEPLOY_K8S_AND_SWARM.md
+- `kubectl apply` против `helm upgrade` против синхронизации Argo как шаг конвейера → modules/ci-cd/theory/DEPLOY_TO_K8S.md
+- ожидание готовности после раскатки → modules/ci-cd/theory/DEPLOY_TO_K8S.md
+- Docker Swarm как цель раскатки (`stack deploy`, `update_config`, `rollback_config`) → modules/ci-cd/theory/DEPLOY_SWARM.md
+- механика отката: `kubectl rollout undo` против `helm rollback` против `git revert` → modules/ci-cd/theory/DEPLOY_TO_K8S.md
+- декларативное применение против императивных команд в конвейере → modules/ci-cd/theory/DEPLOY_TO_K8S.md
 - прогрессивная доставка на Kubernetes (канарейка, blue-green, A/B) → modules/ci-cd/theory/PROGRESSIVE_DELIVERY_K8S.md
 - канарейка на репликах и её гранулярность `1/N` → modules/ci-cd/theory/PROGRESSIVE_DELIVERY_K8S.md
 - разделение трафика весами (`weight` в HTTPRoute, VirtualService) → modules/ci-cd/theory/PROGRESSIVE_DELIVERY_K8S.md
@@ -1310,24 +1310,24 @@ Canonical concept → owner file map. One concept, one owner. Other modules must
 - голая виртуальная машина с systemd как нижняя граница → modules/ci-cd/theory/DEPLOY_CLOUD_PLATFORMS.md
 
 ### Инфраструктура как код в конвейере
-- почему `apply` из конвейера опаснее раскатки приложения → modules/ci-cd/theory/IAC_IN_PIPELINE.md
-- `terraform plan` как артефакт ревью, `plan -out` между заданиями → modules/ci-cd/theory/IAC_IN_PIPELINE.md
-- конвейер инфраструктуры против конвейера приложения → modules/ci-cd/theory/IAC_IN_PIPELINE.md
-- окружения Terraform: workspaces против отдельных директорий → modules/ci-cd/theory/IAC_IN_PIPELINE.md
-- блокировка состояния и одновременные конвейеры → modules/ci-cd/theory/IAC_IN_PIPELINE.md
-- задание обнаружения расхождения в конвейере → modules/ci-cd/theory/IAC_IN_PIPELINE.md
-- владение `apply`: Atlantis, HCP Terraform, ручные ворота → modules/ci-cd/theory/IAC_IN_PIPELINE.md
-- Ansible против Terraform: настройка машины против выделения ресурсов → modules/ci-cd/theory/IAC_IN_PIPELINE.md
+- почему `apply` из конвейера опаснее раскатки приложения → modules/ci-cd/theory/TERRAFORM_IN_PIPELINE.md
+- `terraform plan` как артефакт ревью, `plan -out` между заданиями → modules/ci-cd/theory/TERRAFORM_IN_PIPELINE.md
+- конвейер инфраструктуры против конвейера приложения → modules/ci-cd/theory/TERRAFORM_IN_PIPELINE.md
+- окружения Terraform: workspaces против отдельных директорий → modules/ci-cd/theory/TERRAFORM_IN_PIPELINE.md
+- блокировка состояния и одновременные конвейеры → modules/ci-cd/theory/TERRAFORM_IN_PIPELINE.md
+- задание обнаружения расхождения в конвейере → modules/ci-cd/theory/IAC_OWNERSHIP.md
+- владение `apply`: Atlantis, HCP Terraform, ручные ворота → modules/ci-cd/theory/IAC_OWNERSHIP.md
+- Ansible против Terraform: настройка машины против выделения ресурсов → modules/ci-cd/theory/IAC_OWNERSHIP.md
 
 ### Экономика конвейера
-- бюджет длительности конвейера, три природы времени (работа / перенос / ожидание) → modules/ci-cd/theory/PIPELINE_ECONOMICS.md
-- окупаемость кэша конвейера → modules/ci-cd/theory/PIPELINE_ECONOMICS.md
-- порядок этапов и раннее падение (fail fast) → modules/ci-cd/theory/PIPELINE_ECONOMICS.md
-- ненадёжные тесты: карантин против повтора → modules/ci-cd/theory/PIPELINE_ECONOMICS.md
-- очередь слияния (merge queue) → modules/ci-cd/theory/PIPELINE_ECONOMICS.md
-- выборочная сборка по путям в монорепозитории → modules/ci-cd/theory/PIPELINE_ECONOMICS.md
-- отладка конвейера, когда «локально работает» → modules/ci-cd/theory/PIPELINE_ECONOMICS.md
-- метрики самого конвейера → modules/ci-cd/theory/PIPELINE_ECONOMICS.md
+- бюджет длительности конвейера, три природы времени (работа / перенос / ожидание) → modules/ci-cd/theory/PIPELINE_DURATION.md
+- окупаемость кэша конвейера → modules/ci-cd/theory/PIPELINE_DURATION.md
+- порядок этапов и раннее падение (fail fast) → modules/ci-cd/theory/PIPELINE_DURATION.md
+- ненадёжные тесты: карантин против повтора → modules/ci-cd/theory/PIPELINE_THROUGHPUT.md
+- очередь слияния (merge queue) → modules/ci-cd/theory/PIPELINE_THROUGHPUT.md
+- выборочная сборка по путям в монорепозитории → modules/ci-cd/theory/PIPELINE_THROUGHPUT.md
+- отладка конвейера, когда «локально работает» → modules/ci-cd/theory/PIPELINE_DURATION.md
+- метрики самого конвейера → modules/ci-cd/theory/PIPELINE_THROUGHPUT.md
 
 ---
 
@@ -1395,18 +1395,18 @@ Concepts that legitimately appear in multiple modules — canonical owner listed
 | Concept | Canonical Owner | Secondary Reference |
 |---------|----------------|---------------------|
 | GitOps | ci-cd/DELIVERY_PUSH_VS_PULL.md (модель доставки: кто применяет, согласование, расхождение, откат) | infrastructure/HELM.md §7 (Argo применяет чарт — надстройка над Helm) |
-| слои образа | infrastructure/DOCKER.md (механизм слоёв, OCI, реестр как хранилище) | ci-cd/IMAGE_BUILD_AND_REGISTRY.md (сборка в эфемерном исполнителе, кэш слоёв через реестр, дайджест как идентификатор) |
-| Helm-чарт | infrastructure/HELM.md (устройство, шаблонизация, хуки, релиз как конечный автомат) | ci-cd/ENVIRONMENTS_AND_PROMOTION.md (чарт как место подстановки конфигурации окружения) · ci-cd/DEPLOY_K8S_AND_SWARM.md (`helm upgrade` как шаг конвейера) |
-| Terraform | infrastructure/CLOUD.md (state, backend, расхождение, альтернативы) | ci-cd/IAC_IN_PIPELINE.md (`plan` как артефакт ревью, `plan -out` между заданиями, кто владеет `apply`) |
-| RollingUpdate и пробы готовности | infrastructure/KUBERNETES.md (механизм) | ci-cd/DEPLOY_K8S_AND_SWARM.md (ожидание готовности как обязательный шаг конвейера) |
-| deploy ≠ release, канарейка, blue-green | engineering-process/RELEASE_STRATEGIES.md (выбор схемы, откат против наката) | ci-cd/PROGRESSIVE_DELIVERY_K8S.md (механика схемы: трафик, анализ, контроллер) · ci-cd/DEPLOY_K8S_AND_SWARM.md (механика применения и отката) |
+| слои образа | infrastructure/DOCKER.md (механизм слоёв, OCI, реестр как хранилище) | ci-cd/IMAGE_BUILD_IN_CI.md (сборка в эфемерном исполнителе, кэш слоёв через реестр) · ci-cd/IMAGE_REGISTRY_AND_TAGS.md (дайджест как идентификатор) |
+| Helm-чарт | infrastructure/HELM.md (устройство, шаблонизация, хуки, релиз как конечный автомат) | ci-cd/ENVIRONMENTS_AND_PROMOTION.md (чарт как место подстановки конфигурации окружения) · ci-cd/DEPLOY_TO_K8S.md (`helm upgrade` как шаг конвейера) |
+| Terraform | infrastructure/CLOUD.md (state, backend, расхождение, альтернативы) | ci-cd/TERRAFORM_IN_PIPELINE.md (`plan` как артефакт ревью, `plan -out` между заданиями) · ci-cd/IAC_OWNERSHIP.md (кто владеет `apply`) |
+| RollingUpdate и пробы готовности | infrastructure/KUBERNETES.md (механизм) | ci-cd/DEPLOY_TO_K8S.md (ожидание готовности как обязательный шаг конвейера) |
+| deploy ≠ release, канарейка, blue-green | engineering-process/RELEASE_STRATEGIES.md (выбор схемы, откат против наката) | ci-cd/PROGRESSIVE_DELIVERY_K8S.md (механика схемы: трафик, анализ, контроллер) · ci-cd/DEPLOY_TO_K8S.md (механика применения и отката) |
 | миграции схемы | engineering-process/RELEASE_STRATEGIES.md (expand/contract, совместимость) | ci-cd/ENVIRONMENTS_AND_PROMOTION.md (место миграции в конвейере: задание / init-контейнер / хук) |
-| ненадёжные тесты | engineering-process/BRANCHING_AND_CODE_FLOW.md (как отказ гейта, процессное решение) | ci-cd/PIPELINE_ECONOMICS.md (цена в минутах, карантин против повтора) |
-| метрики доставки | engineering-process/DELIVERY_METRICS.md (DORA) | ci-cd/PIPELINE_ECONOMICS.md (метрики самого конвейера и связь с DORA) |
-| очередь слияния (merge queue) | engineering-process/BRANCHING_AND_CODE_FLOW.md (как процессное решение) | ci-cd/PIPELINE_ECONOMICS.md (пропускная способность и цена сериализации) |
-| OIDC-федерация | ci-cd/SUPPLY_CHAIN_SECURITY.md (конвейер получает доступ в облако без хранимого ключа) | system-design/identity_providers.md (OAuth2/OIDC как протокол) · infrastructure/SECRETS.md (Vault, динамические секреты) |
-| группа конкурентности конвейера | ci-cd/RUNNERS_AND_EXECUTION.md (именованная группа, `resource_group`, одна раскатка на окружение) | не путать с ограничением конкурентности потоков — concurrency/SYNCHRONIZERS.md |
-| кэш (в конвейере) | ci-cd/RUNNERS_AND_EXECUTION.md (ключ, промах, отравление, кэш против артефакта) | caching-deep-dive (кэш как явление: паттерны, согласованность, вытеснение) |
+| ненадёжные тесты | engineering-process/BRANCHING_AND_CODE_FLOW.md (как отказ гейта, процессное решение) | ci-cd/PIPELINE_THROUGHPUT.md (цена в минутах, карантин против повтора) |
+| метрики доставки | engineering-process/DELIVERY_METRICS.md (DORA) | ci-cd/PIPELINE_THROUGHPUT.md (метрики самого конвейера и связь с DORA) |
+| очередь слияния (merge queue) | engineering-process/BRANCHING_AND_CODE_FLOW.md (как процессное решение) | ci-cd/PIPELINE_THROUGHPUT.md (пропускная способность и цена сериализации) |
+| OIDC-федерация | ci-cd/PIPELINE_CREDENTIALS.md (конвейер получает доступ в облако без хранимого ключа) | system-design/identity_providers.md (OAuth2/OIDC как протокол) · infrastructure/SECRETS.md (Vault, динамические секреты) |
+| группа конкурентности конвейера | ci-cd/PIPELINE_CACHE_AND_CONCURRENCY.md (именованная группа, `resource_group`, одна раскатка на окружение) | не путать с ограничением конкурентности потоков — concurrency/SYNCHRONIZERS.md |
+| кэш (в конвейере) | ci-cd/PIPELINE_CACHE_AND_CONCURRENCY.md (ключ, промах, отравление, кэш против артефакта) | caching-deep-dive (кэш как явление: паттерны, согласованность, вытеснение) |
 | N+1 problem (canonical theory) | databases/DATABASE_TYPES.md | hibernate-jpa/FETCHING_NPLUS1.md (Hibernate impl) · graphql-kotlin/DATALOADER_NPLUS1.md (GraphQL context) · spring-frameworks/SPRING_DATA_JPA.md (Spring Data EntityGraph) |
 | LazyInitializationException | hibernate-jpa/FETCHING_NPLUS1.md (mechanism + fixes) | databases/DATABASE_TYPES.md (brief mention) |
 | Hibernate L1/L2/Query cache | hibernate-jpa/CACHING.md (levels, concurrency strategies, providers) | spring-frameworks/SPRING_DATA_JPA.md (Spring integration, vs Spring Cache) |

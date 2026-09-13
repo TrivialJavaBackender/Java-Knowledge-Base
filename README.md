@@ -7,9 +7,11 @@
 
 Теория здесь — **объяснение, а не справочник**: каждый файл открывается тремя вопросами
 (какую проблему решает / кому это надо / когда НЕ надо), каждый раздел идёт по схеме
-«задача → наивное решение и где оно ломается → механизм → правило», каждое утверждение
-о поведении подпёрто исходником с номером строки, прогоном или спецификацией. Требования
-зафиксированы в [`knowledge/THEORY_CONTRACT.md`](knowledge/THEORY_CONTRACT.md).
+«тезис → доказательство → следствие», каждое утверждение подпёрто источником, а в разделе
+«Источники» стоят только кликабельные ссылки: теорию читают в браузере с телефона. Файл весит
+11–13 тысяч знаков, то есть читается за 10–15 минут; тема, которая в это не влезает, разрезана
+на два файла. Требования зафиксированы в
+[`knowledge/THEORY_CONTRACT.md`](knowledge/THEORY_CONTRACT.md).
 
 ---
 
@@ -32,11 +34,14 @@
 | [Software Engineering](modules/software-engineering/README.md) | SOLID, Stream API и FP, тестирование | 3 | 22 | — |
 | [Engineering Process](modules/engineering-process/README.md) | Бэклог, оценки, Scrum, релизы, инциденты | 14 | 67 | — |
 | [Go](modules/go/README.md) | Синтаксис, горутины, GMP-шедулер, GC, stdlib | 16 | 67 | — |
+| [CI/CD & Delivery](modules/ci-cd/README.md) | Конвейер, образ, окружения, GitOps, канареечный релиз | 24 | 114 | — |
+| [Cassandra](modules/cassandra/README.md) | Wide-column, моделирование от запросов, согласованность | 9 | 27 | — |
+| [Behavioral Interview](modules/behavioral-interview/README.md) | STAR, конфликт, провал, объём и сроки, HR-раунд | 8 | 31 | — |
 | [GraphQL (Kotlin)](modules/graphql-kotlin/README.md) | graphql-kotlin, DataLoader, Federation | 4 | 14 | 6 |
 
 У каждого модуля есть `ROADMAP.md` (порядок прохождения с чеклистами),
-`INTERVIEW_QUESTIONS.md` (вопросы с ответами) и `_SUMMARY.md` (сжатие на 2–4 КБ для быстрого
-восстановления контекста).
+`INTERVIEW_QUESTIONS.md` (вопросы с ответами, привязанные к разделам теории) и `_SUMMARY.md`
+(сжатие для быстрого восстановления контекста).
 
 ---
 

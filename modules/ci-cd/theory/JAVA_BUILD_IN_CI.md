@@ -4,7 +4,7 @@
 > **Кому это надо.** Тому, кто настраивает конвейер Java-сервиса и должен объяснить в нём каждый флаг `mvn`.
 > **Когда НЕ надо.** Пока конвейер идёт списком там, где мог бы идти графом, экономия секунд на Maven ничего не меняет.
 
-Соседнее: кэш конвейера — [`RUNNERS_AND_EXECUTION.md` §4](RUNNERS_AND_EXECUTION.md), тег и дайджест — [`IMAGE_REGISTRY_AND_TAGS.md` §1](IMAGE_REGISTRY_AND_TAGS.md), продвижение — [`ENVIRONMENTS_AND_PROMOTION.md` §1](ENVIRONMENTS_AND_PROMOTION.md), что тестировать — [`TESTING.md`](../../software-engineering/theory/TESTING.md).
+Соседнее: кэш конвейера — [`PIPELINE_CACHE_AND_CONCURRENCY.md` §1](PIPELINE_CACHE_AND_CONCURRENCY.md), тег и дайджест — [`IMAGE_REGISTRY_AND_TAGS.md` §1](IMAGE_REGISTRY_AND_TAGS.md), продвижение — [`ENVIRONMENTS_AND_PROMOTION.md` §1](ENVIRONMENTS_AND_PROMOTION.md), что тестировать — [`TESTING.md`](../../software-engineering/theory/TESTING.md).
 
 ---
 
@@ -40,7 +40,7 @@ $ mvn -B -ntp -Dmaven.repo.local=/tmp/m2-cold clean package -DskipTests
 вместе с артефактами состояние «сегодня уже проверяли» — и сборка идёт против вчерашней версии общей
 библиотеки при зелёных тестах; `-U` снимает именно эту политику. Отдельный случай — артефакт,
 положенный в `~/.m2` командой `mvn install` из соседнего проекта: сборка находит зависимость, которой в
-Nexus нет ([`RUNNERS_AND_EXECUTION.md` §3](RUNNERS_AND_EXECUTION.md)).
+Nexus нет ([`RUNNERS.md` §3](RUNNERS.md)).
 
 **Правило.** Локальный репозиторий — не кэш загрузок, а хранилище со своими правилами актуальности;
 кэшировать нужно при условии, что SNAPSHOT в сборке нет (§3), а проверка — `mvn -o` на восстановленном

@@ -145,7 +145,7 @@ that exist in the state but no longer exist in the configuration».
 
 Отсюда типичная связка в конвейере — два задания, а не одно: `terraform apply` создаёт машины и
 отдаёт их адреса выводом, задание Ansible получает этот вывод артефактом
-([`RUNNERS_AND_EXECUTION.md` §5](RUNNERS_AND_EXECUTION.md)) и превращает в инвентарь — зависимость по
+([`PIPELINE_CACHE_AND_CONCURRENCY.md` §2](PIPELINE_CACHE_AND_CONCURRENCY.md)) и превращает в инвентарь — зависимость по
 данным, а не по политике.
 
 **Когда оба — неправильный ответ.** Если целевая платформа контейнерная, слоя «настроить машину» не

@@ -8,7 +8,7 @@
 
 **Границы.** Модели услуг и привязка к поставщику —
 [`CLOUD.md` §3, §7, §9](../../infrastructure/theory/CLOUD.md); применение и откат —
-[`DEPLOY_K8S_AND_SWARM.md`](DEPLOY_K8S_AND_SWARM.md); схемы выката —
+[`DEPLOY_TO_K8S.md`](DEPLOY_TO_K8S.md); схемы выката —
 [`PROGRESSIVE_DELIVERY_K8S.md`](PROGRESSIVE_DELIVERY_K8S.md). Цен и тарифов здесь нет намеренно.
 
 ---
@@ -23,7 +23,7 @@ ECS, EKS, Fargate, App Runner, Elastic Beanstalk и CodeDeploy **не лежат
 managing a control plane», но и в EKS standard «AWS manages the Kubernetes control plane». Настоящее
 различие — словарь: EKS «certified Kubernetes-conformant», и всё написанное против Kubernetes
 переносится, а словарь ECS свой и короткий (task definition, cluster, task, service). Та же развилка,
-что между Swarm и Kubernetes ([`DEPLOY_K8S_AND_SWARM.md` §5](DEPLOY_K8S_AND_SWARM.md)).
+что между Swarm и Kubernetes ([`DEPLOY_SWARM.md` §3](DEPLOY_SWARM.md)).
 
 **Кто владеет серверами** — не альтернатива первому вопросу, а вариант ёмкости **под** ним: на EC2
 вы выбираете тип и число машин, на Fargate «you don't need to manage servers». Отсюда частая ошибка
@@ -50,7 +50,7 @@ back to a previous revision**, and **splitting traffic to multiple revisions**»
 собирается из Deployment, Service, Ingress и отдельного инструмента для канарейки
 ([`PROGRESSIVE_DELIVERY_K8S.md`](PROGRESSIVE_DELIVERY_K8S.md)), здесь встроено в модель, и вопрос
 «где хранится предыдущая версия и кто её вернёт»
-([`DEPLOY_K8S_AND_SWARM.md` §8](DEPLOY_K8S_AND_SWARM.md)) имеет ответ по умолчанию. GKE даёт весь
+([`DEPLOY_TO_K8S.md` §4](DEPLOY_TO_K8S.md)) имеет ответ по умолчанию. GKE даёт весь
 словарь Kubernetes, и внутри него повторяется ось из §1: в Autopilot «Google Cloud also manages your
 worker nodes», в Standard узлы ваши.
 
@@ -63,9 +63,9 @@ Spring Boot на JVM, и любое «холодный старт занимае
 получается разный по окружениям: рабочее под постоянным трафиком (пик 40 запросов в секунду) до нуля
 не сворачивается вообще, а на dev и qa, где ночью запросов нет, сворачивание даёт экономию ценой
 медленного первого запроса утром
-([`ENVIRONMENTS_AND_PROMOTION.md` §4](ENVIRONMENTS_AND_PROMOTION.md)). Cloud Build в этот ряд не
+([`ENVIRONMENT_ANATOMY.md` §2](ENVIRONMENT_ANATOMY.md)). Cloud Build в этот ряд не
 входит: он «executes your builds on Google Cloud», то есть исполнитель сборки
-([`RUNNERS_AND_EXECUTION.md` §1](RUNNERS_AND_EXECUTION.md)), а не место, где живёт сервис.
+([`RUNNERS.md` §1](RUNNERS.md)), а не место, где живёт сервис.
 
 **Правило.** Cloud Run против GKE решают два вопроса: нужен ли словарь Kubernetes целиком и есть ли
 у трафика простой.
@@ -81,7 +81,7 @@ ssh deploy@host 'systemctl restart payments'
 
 `restart` — остановка и запуск, то есть окно недоступности на каждой машине. Команда завершается
 успехом, когда systemd запустил процесс, а не когда Spring поднял контекст и Actuator ответил
-([`DEPLOY_K8S_AND_SWARM.md` §2](DEPLOY_K8S_AND_SWARM.md)), — и дописать сюда команду ожидания
+([`DEPLOY_TO_K8S.md` §2](DEPLOY_TO_K8S.md)), — и дописать сюда команду ожидания
 неоткуда. И `scp` перезаписал файл: предыдущей версии больше нет, откатывать нечем.
 
 Systemd даёт ровно одно: `Restart=` перезапускает процесс, когда тот завершился, был убит или не
@@ -156,7 +156,7 @@ service definition changes … to use a newer Docker image with **the same image
 
 **Умолчания ожидания у поставщиков противоположны.** У Cloud Run флаг `--async` заставляет команду
 вернуться немедленно — значит, без флага она ждёт; у `helm upgrade` стратегия ожидания без флага —
-`hookOnly` ([`DEPLOY_K8S_AND_SWARM.md` §2](DEPLOY_K8S_AND_SWARM.md)). Для ECS ожидание дописывается
+`hookOnly` ([`DEPLOY_TO_K8S.md` §2](DEPLOY_TO_K8S.md)). Для ECS ожидание дописывается
 и тоже с умолчанием: `aws ecs wait services-stable` опрашивает раз в 15 секунд и выходит с кодом 255
 после 40 неудачных проверок — ваш предельный срок раскатки, заданный не вами. Там же `--no-traffic`:
 ревизия развёрнута, трафика не получает, включается отдельным решением
